@@ -1,0 +1,104 @@
+[
+  {
+    "name": "[Latino] Spanish Latino",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "[Latino] Spanish Latino + English",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "English marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:ENG|ENGLISH)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "[Latino] French Bonus",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "French marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:FRE|FRA|FRENCH|TRUEFRENCH|VFF|VFQ)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  }
+]

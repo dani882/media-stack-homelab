@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr sync-recyclarr
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -28,3 +28,8 @@ sync-recyclarr:
 	  "cd /volume1/docker/media-stack && \
 	   sudo docker exec recyclarr recyclarr sync sonarr --instance series && \
 	   sudo docker exec recyclarr recyclarr sync radarr --instance movies"
+
+configure-servarr:
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo python3 ./configure-servarr.py"
