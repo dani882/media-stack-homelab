@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replaced the UGREEN Jellyfin image with the official `jellyfin/jellyfin:10.10.7` ARM64 image while preserving RKMPP.
+
 - Migrated Jellyfin from the UGREEN App Center to Docker Compose while preserving Rockchip RKMPP hardware acceleration.
 
 - Migrated qBittorrent from the UGREEN App Center to Docker Compose.

@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check
+.PHONY: validate lint shellcheck bootstrap check deploy
 
 validate:
 	@./scripts/validate.sh
@@ -14,3 +14,6 @@ bootstrap:
 	@./scripts/bootstrap.sh
 
 check: shellcheck lint validate
+
+deploy:
+	@./scripts/deploy.sh

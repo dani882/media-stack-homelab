@@ -11,7 +11,7 @@ services:
       PGID: ${PGID}
       TZ: ${TZ}
     volumes:
-      - ${CONFIG_ROOT}/prowlarr:/config
+      - ${CONFIG_DIR}/prowlarr:/config
     ports:
       - "9696:9696"
     networks:
@@ -26,9 +26,9 @@ services:
       PGID: ${PGID}
       TZ: ${TZ}
     volumes:
-      - ${CONFIG_ROOT}/sonarr:/config
-      - ${DOWNLOADS_ROOT}:/downloads
-      - ${MEDIA_ROOT}:/media
+      - ${CONFIG_DIR}/sonarr:/config
+      - ${DOWNLOADS_DIR}:/downloads
+      - ${MEDIA_DIR}:/media
     ports:
       - "8989:8989"
     networks:
@@ -43,9 +43,9 @@ services:
       PGID: ${PGID}
       TZ: ${TZ}
     volumes:
-      - ${CONFIG_ROOT}/radarr:/config
-      - ${DOWNLOADS_ROOT}:/downloads
-      - ${MEDIA_ROOT}:/media
+      - ${CONFIG_DIR}/radarr:/config
+      - ${DOWNLOADS_DIR}:/downloads
+      - ${MEDIA_DIR}:/media
     ports:
       - "7878:7878"
     networks:
@@ -60,8 +60,8 @@ services:
       PGID: ${PGID}
       TZ: ${TZ}
     volumes:
-      - ${CONFIG_ROOT}/bazarr:/config
-      - ${MEDIA_ROOT}:/media
+      - ${CONFIG_DIR}/bazarr:/config
+      - ${MEDIA_DIR}:/media
     ports:
       - "6767:6767"
     networks:
@@ -76,7 +76,7 @@ services:
       TZ: ${TZ}
       LOG_LEVEL: info
     volumes:
-      - ${CONFIG_ROOT}/jellyseerr:/app/config
+      - ${CONFIG_DIR}/jellyseerr:/app/config
     ports:
       - "5055:5055"
     networks:
@@ -104,10 +104,12 @@ services:
       - media
 
   jellyfin:
-    image: ugreen/jellyfin:v1
+    image: jellyfin/jellyfin:10.10.7
     container_name: jellyfin
     restart: unless-stopped
+    privileged: true
     security_opt:
+      - systempaths=unconfined
       - apparmor=unconfined
     environment:
       TZ: ${TZ}
@@ -168,7 +170,7 @@ services:
       TZ: ${TZ}
       CRON_SCHEDULE: "@daily"
     volumes:
-      - ${CONFIG_ROOT}/recyclarr:/config
+      - ${CONFIG_DIR}/recyclarr:/config
     networks:
       - media
 
