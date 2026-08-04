@@ -103,6 +103,50 @@ services:
     networks:
       - media
 
+  jellyfin:
+    image: ugreen/jellyfin:v1
+    container_name: jellyfin
+    restart: unless-stopped
+    security_opt:
+      - apparmor=unconfined
+    environment:
+      TZ: ${TZ}
+      HEALTHCHECK_URL: http://localhost:8096/health
+      JELLYFIN_CACHE_DIR: /cache
+      JELLYFIN_CONFIG_DIR: /config/config
+      JELLYFIN_DATA_DIR: /config
+      JELLYFIN_FFMPEG: /usr/lib/jellyfin-ffmpeg/ffmpeg
+      JELLYFIN_LOG_DIR: /config/log
+      JELLYFIN_WEB_DIR: /jellyfin/jellyfin-web
+      LIBVA_DRIVER_NAME: rockchip
+      MPP_SERVICE: "1"
+      XDG_CACHE_HOME: /cache
+    volumes:
+      - ${CONFIG_DIR}/jellyfin/config:/config
+      - ${CONFIG_DIR}/jellyfin/cache:/cache
+      - ${CONFIG_DIR}/jellyfin/plugins:/config/plugins
+      - ${MEDIA_DIR}:/data
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/dma_heap:/dev/dma_heap
+      - /dev/mali0:/dev/mali0
+      - /dev/rga:/dev/rga
+      - /dev/mpp_service:/dev/mpp_service
+    ports:
+      - "8899:8096"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --noproxy localhost -Lk -fsS
+          http://localhost:8096/health || exit 1
+      interval: 30s
+      timeout: 30s
+      start_period: 10s
+      retries: 3
+    networks:
+      - media
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr

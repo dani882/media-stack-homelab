@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Migrated Jellyfin from the UGREEN App Center to Docker Compose while preserving Rockchip RKMPP hardware acceleration.
+
 - Migrated qBittorrent from the UGREEN App Center to Docker Compose.
 
 ## v0.2

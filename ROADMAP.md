@@ -6,7 +6,7 @@
 
 ## v0.4
 
-- Migrate Jellyfin
+- [x] Migrate Jellyfin
 
 ## v0.5
 
