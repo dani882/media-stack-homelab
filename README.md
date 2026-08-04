@@ -1,28 +1,51 @@
-# Media Stack
+# 🏠 Homelab
 
-Production-ready self-hosted media server.
+Infrastructure as Code for my personal homelab.
 
-## Components
+## Philosophy
 
-- Jellyfin
-- Sonarr
-- Radarr
-- Prowlarr
-- qBittorrent
-- Recyclarr
-- Bazarr
-- Jellyseerr
+Everything is reproducible.
 
-## Host
+No manual configuration should be required after initial hardware setup.
 
-UGREEN NAS
-Debian 12
-Docker Compose
+## Current stacks
+
+- 📺 Media
+- 🤖 AI (planned)
+- 📈 Monitoring (planned)
+- 🌐 Networking (planned)
+- 🔐 Security (planned)
+
+---
+
+## Repository Layout
+
+```
+homelab/
+├── stacks/
+├── docs/
+├── templates/
+├── scripts/
+└── backups/
+```
+
+---
+
+## Deployment Philosophy
+
+All services are managed with Docker Compose.
+
+The NAS is a deployment target.
+
+Development happens locally.
+
+---
 
 ## Goals
 
 - Infrastructure as Code
-- Automatic backups
-- Automatic updates
 - Git versioned
-- Fully reproducible
+- Automated deployment
+- Automated backups
+- Disaster Recovery
+- Self-documenting infrastructure

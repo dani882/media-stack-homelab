@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "Running repository checks..."
+make check
+echo "All checks passed."

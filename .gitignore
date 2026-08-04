@@ -38,3 +38,7 @@ backups/*
 .idea/
 .vscode/
 *.swp
+
+# Local secrets
+**/.env
+!**/.env.example
