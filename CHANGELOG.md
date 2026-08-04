@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Migrated qBittorrent from the UGREEN App Center to Docker Compose.
+
 ## v0.2
 
 - Repository restructured

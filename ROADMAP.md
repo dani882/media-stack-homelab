@@ -2,7 +2,7 @@
 
 ## v0.3
 
-- Migrate qBittorrent
+- [x] Migrate qBittorrent
 
 ## v0.4
 

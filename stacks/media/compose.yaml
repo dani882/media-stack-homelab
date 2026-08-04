@@ -82,6 +82,27 @@ services:
     networks:
       - media
 
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      WEBUI_PORT: "8888"
+      TORRENTING_PORT: "6881"
+    volumes:
+      - ${CONFIG_DIR}/qbittorrent:/config
+      - ${DOWNLOADS_DIR}:/downloads
+    ports:
+      - "8888:8888"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - media
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr

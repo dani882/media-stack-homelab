@@ -17,7 +17,7 @@ Current services:
 | Service | Status |
 |----------|--------|
 | Jellyfin | App Center (migration planned) |
-| qBittorrent | App Center (migration planned) |
+| qBittorrent | Docker Compose |
 | Sonarr | Docker Compose |
 | Radarr | Docker Compose |
 | Prowlarr | Docker Compose |
