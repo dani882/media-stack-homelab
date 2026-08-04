@@ -7,10 +7,17 @@ STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
+RECYCLARR_CONFIG="${STACK_DIR}/recyclarr/recyclarr.yml"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: Missing environment file:"
   echo "  ${ENV_FILE}"
+  exit 1
+fi
+
+if [[ ! -f "$RECYCLARR_CONFIG" ]]; then
+  echo "ERROR: Missing Recyclarr configuration:"
+  echo "  ${RECYCLARR_CONFIG}"
   exit 1
 fi
 
@@ -27,6 +34,7 @@ REMOTE="${NAS_USER}@${NAS_HOST}"
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
 REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
+REMOTE_RECYCLARR_TEMP="${REMOTE_STAGING}/recyclarr-${USER}-$$.yml"
 
 echo "Validating locally..."
 docker compose \
@@ -50,6 +58,14 @@ ssh "$REMOTE" \
   "cat > '${REMOTE_PROWLARR_TEMP}'" \
   < "$PROWLARR_SCRIPT"
 
+echo "Uploading Recyclarr configuration through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_RECYCLARR_TEMP}'" \
+  < "$RECYCLARR_CONFIG"
+
 echo "Installing and validating Compose file on the NAS..."
 
 # Variables are intentionally expanded locally.
@@ -63,7 +79,17 @@ ssh -t "$REMOTE" "
   sudo install -m 0755 \
     '${REMOTE_PROWLARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-prowlarr.py'
-  rm -f '${REMOTE_TEMP}' '${REMOTE_PROWLARR_TEMP}'
+
+  sudo mkdir -p '${NAS_STACK_DIR}/config/recyclarr'
+  sudo install -o 1000 -g 10 -m 0640 \
+    '${REMOTE_RECYCLARR_TEMP}' \
+    '${NAS_STACK_DIR}/config/recyclarr/recyclarr.yml'
+
+  rm -f \
+    '${REMOTE_TEMP}' \
+    '${REMOTE_PROWLARR_TEMP}' \
+    '${REMOTE_RECYCLARR_TEMP}'
+
   cd '${NAS_STACK_DIR}'
   sudo docker compose config >/dev/null
 "
@@ -82,6 +108,16 @@ ssh -t "$REMOTE" "
   echo
   echo "Configuring Prowlarr indexers..."
   sudo python3 '${NAS_STACK_DIR}/configure-prowlarr.py'
+
+  echo
+  echo "Synchronizing Recyclarr with Sonarr..."
+  sudo docker exec recyclarr \
+    recyclarr sync sonarr --instance series
+
+  echo
+  echo "Synchronizing Recyclarr with Radarr..."
+  sudo docker exec recyclarr \
+    recyclarr sync radarr --instance movies
 "
 
 echo "Deployment completed successfully."

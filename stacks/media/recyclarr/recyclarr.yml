@@ -1,0 +1,53 @@
+---
+# yamllint disable-line rule:line-length
+# yaml-language-server: $schema=https://schemas.recyclarr.dev/latest/config-schema.json
+# yamllint enable-line rule:line-length
+
+sonarr:
+  series:
+    base_url: !secret sonarr_url
+    api_key: !secret sonarr_apikey
+
+    delete_old_custom_formats: true
+
+    quality_definition:
+      type: series
+
+    quality_profiles:
+      - trash_id: 9d142234e45d6143785ac55f5a9e8dc9
+        name: Latino 1080p
+        min_format_score: 7000
+        min_upgrade_format_score: 7000
+        reset_unmatched_scores:
+          enabled: true
+          except_patterns:
+            - ^\[Latino\]
+        upgrade:
+          allowed: true
+
+    custom_formats:
+      - trash_ids:
+          - ae575f95ab639ba5d15f663bf019e3e8
+        assign_scores_to:
+          - name: Latino 1080p
+            score: 0
+
+radarr:
+  movies:
+    base_url: !secret radarr_url
+    api_key: !secret radarr_apikey
+
+    delete_old_custom_formats: true
+
+    quality_definition:
+      type: movie
+
+    quality_profiles:
+      - trash_id: d1d67249d3890e49bc12e275d989a7e9
+        name: Latino 1080p
+        reset_unmatched_scores:
+          enabled: true
+          except_patterns:
+            - ^\[Latino\]
+        upgrade:
+          allowed: true
