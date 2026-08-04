@@ -1,0 +1,40 @@
+# Secrets and local environment
+.env
+.env.*
+!*.env.example
+env/*.env
+!env/*.env.example
+
+# Runtime configuration and databases
+config/**/*
+!config/.gitkeep
+!config/recyclarr/
+!config/recyclarr/*.template.yml
+!config/recyclarr/README.md
+
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs, caches and backups
+logs/
+backups/*
+!backups/.gitkeep
+**/logs/
+**/cache/
+**/Backups/
+
+# Credentials and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
