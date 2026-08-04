@@ -1,15 +1,32 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+MAKEFILE="${ROOT}/Makefile"
 
-cat > "$ROOT/Makefile" <<'EOF'
-.PHONY: validate
+if [[ -f "$MAKEFILE" ]]; then
+  echo "Makefile already exists; leaving it unchanged."
+  exit 0
+fi
+
+cat > "$MAKEFILE" <<'MAKE_EOF'
+.PHONY: validate lint shellcheck bootstrap check
 
 validate:
-	@echo "Validating..."
 	@./scripts/validate.sh
-EOF
+
+shellcheck:
+	@shellcheck scripts/*.sh
+	@find scripts/bootstrap -name "*.sh" -exec shellcheck {} \;
+
+lint:
+	@yamllint .
+
+bootstrap:
+	@./scripts/bootstrap.sh
+
+check: shellcheck lint validate
+MAKE_EOF
 
 echo "Makefile created."
