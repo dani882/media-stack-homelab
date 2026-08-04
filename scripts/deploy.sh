@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
+PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: Missing environment file:"
@@ -25,6 +26,7 @@ set +a
 REMOTE="${NAS_USER}@${NAS_HOST}"
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
+REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
 
 echo "Validating locally..."
 docker compose \
@@ -40,6 +42,14 @@ ssh "$REMOTE" \
   "cat > '${REMOTE_TEMP}'" \
   < "$COMPOSE_FILE"
 
+echo "Uploading Prowlarr configuration script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_PROWLARR_TEMP}'" \
+  < "$PROWLARR_SCRIPT"
+
 echo "Installing and validating Compose file on the NAS..."
 
 # Variables are intentionally expanded locally.
@@ -50,7 +60,10 @@ ssh -t "$REMOTE" "
   sudo install -m 0644 \
     '${REMOTE_TEMP}' \
     '${NAS_STACK_DIR}/compose.yaml'
-  rm -f '${REMOTE_TEMP}'
+  sudo install -m 0755 \
+    '${REMOTE_PROWLARR_TEMP}' \
+    '${NAS_STACK_DIR}/configure-prowlarr.py'
+  rm -f '${REMOTE_TEMP}' '${REMOTE_PROWLARR_TEMP}'
   cd '${NAS_STACK_DIR}'
   sudo docker compose config >/dev/null
 "
@@ -65,6 +78,10 @@ ssh -t "$REMOTE" "
   sudo docker compose pull
   sudo docker compose up -d
   sudo docker compose ps
+
+  echo
+  echo "Configuring Prowlarr indexers..."
+  sudo python3 '${NAS_STACK_DIR}/configure-prowlarr.py'
 "
 
 echo "Deployment completed successfully."

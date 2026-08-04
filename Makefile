@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr
 
 validate:
 	@./scripts/validate.sh
@@ -17,3 +17,8 @@ check: shellcheck lint validate
 
 deploy:
 	@./scripts/deploy.sh
+
+configure-prowlarr:
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo python3 ./configure-prowlarr.py"
