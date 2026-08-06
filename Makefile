@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr audit-radarr-releases configure-servarr sync-recyclarr
+.PHONY: dry-run-radarr-policy validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -24,10 +24,13 @@ configure-prowlarr:
 	   sudo python3 ./configure-prowlarr.py"
 
 sync-recyclarr:
-	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
-	   sudo docker exec recyclarr recyclarr sync sonarr --instance series && \
-	   sudo docker exec recyclarr recyclarr sync radarr --instance movies"
+	   sudo -n docker compose run --rm recyclarr \
+	     sync sonarr --instance series && \
+	   sudo -n docker compose run --rm recyclarr \
+	     sync radarr --instance movies && \
+	   sudo -n python3 ./configure-radarr-policy.py"
 
 configure-servarr:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
@@ -62,3 +65,13 @@ audit-radarr-releases:
 	  "cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./audit-radarr-releases.py \
 	     --movie-id '$${MOVIE_ID}'"
+
+configure-radarr-policy:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-radarr-policy.py"
+
+dry-run-radarr-policy:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-radarr-policy.py --dry-run"

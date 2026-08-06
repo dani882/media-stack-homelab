@@ -133,10 +133,7 @@ def custom_format_names(release: dict[str, Any]) -> list[str]:
     ]
 
 
-def is_latino_candidate(release: dict[str, Any]) -> bool:
-    if int(release.get("customFormatScore") or 0) >= 7000:
-        return True
-
+def has_latino_signal(release: dict[str, Any]) -> bool:
     if any(
         name.startswith("[Latino]")
         for name in custom_format_names(release)
@@ -145,6 +142,15 @@ def is_latino_candidate(release: dict[str, Any]) -> bool:
 
     return contains_latino_marker(
         release.get("title", "")
+    )
+
+
+def is_qualifying_latino_release(
+    release: dict[str, Any],
+) -> bool:
+    return (
+        has_latino_signal(release)
+        and int(release.get("customFormatScore") or 0) >= 7000
     )
 
 
@@ -232,10 +238,22 @@ def main() -> int:
             reverse=True,
         )
 
-        candidates = [
+        detected = [
             release
             for release in ordered
-            if is_latino_candidate(release)
+            if has_latino_signal(release)
+        ]
+
+        qualifying = [
+            release
+            for release in detected
+            if is_qualifying_latino_release(release)
+        ]
+
+        rejected = [
+            release
+            for release in detected
+            if not is_qualifying_latino_release(release)
         ]
 
         print(
@@ -243,15 +261,20 @@ def main() -> int:
             f"({movie.get('year')})"
         )
         print(f"Total releases: {len(ordered)}")
-        print(f"Latino candidates: {len(candidates)}")
+        print(f"Latino signals detected: {len(detected)}")
+        print(f"Qualifying Latino releases: {len(qualifying)}")
+        print(
+            "Latino releases below score threshold: "
+            f"{len(rejected)}"
+        )
         print()
 
-        selected = ordered if arguments.all else candidates
+        selected = ordered if arguments.all else qualifying
 
         if not selected:
             print(
-                "No Latino candidates were found by the "
-                "currently enabled indexers."
+                "No Latino release meets the configured "
+                "minimum custom-format score."
             )
             return 0
 

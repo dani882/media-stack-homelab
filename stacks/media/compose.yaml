@@ -162,13 +162,13 @@ services:
       - media
 
   recyclarr:
+    profiles: ["tools"]
     image: ghcr.io/recyclarr/recyclarr:8
     container_name: recyclarr
     user: "${PUID}:${PGID}"
     restart: unless-stopped
     environment:
       TZ: ${TZ}
-      CRON_SCHEDULE: "@daily"
     volumes:
       - ${CONFIG_DIR}/recyclarr:/config
     networks:

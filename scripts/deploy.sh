@@ -9,6 +9,8 @@ COMPOSE_FILE="${STACK_DIR}/compose.yaml"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
 QBITTORRENT_SCRIPT="${ROOT_DIR}/scripts/configure-qbittorrent.py"
 RADARR_MAINTENANCE_SCRIPT="${ROOT_DIR}/scripts/configure-radarr.py"
+RADARR_POLICY_SCRIPT="${ROOT_DIR}/scripts/configure-radarr-policy.py"
+RADARR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-radarr-releases.py"
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
@@ -37,6 +39,8 @@ fi
 for required_file in \
   "$QBITTORRENT_SCRIPT" \
   "$RADARR_MAINTENANCE_SCRIPT" \
+  "$RADARR_POLICY_SCRIPT" \
+  "$RADARR_AUDIT_SCRIPT" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -77,6 +81,8 @@ REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
 REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
 REMOTE_QBITTORRENT_TEMP="${REMOTE_STAGING}/configure-qbittorrent-${USER}-$$.py"
 REMOTE_RADARR_MAINTENANCE_TEMP="${REMOTE_STAGING}/configure-radarr-${USER}-$$.py"
+REMOTE_RADARR_POLICY_TEMP="${REMOTE_STAGING}/configure-radarr-policy-${USER}-$$.py"
+REMOTE_RADARR_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-releases-${USER}-$$.py"
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
@@ -133,6 +139,14 @@ echo "Uploading Radarr maintenance script through SSH..."
 ssh "$REMOTE" \
   "cat > '${REMOTE_RADARR_MAINTENANCE_TEMP}'" \
   < "$RADARR_MAINTENANCE_SCRIPT"
+
+echo "Uploading Radarr Latino policy script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_RADARR_POLICY_TEMP}'" \
+  < "$RADARR_POLICY_SCRIPT"
 
 echo "Uploading Radarr release audit script through SSH..."
 
@@ -289,6 +303,14 @@ ssh -t "$REMOTE" "
     '${NAS_STACK_DIR}/configure-radarr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_RADARR_POLICY_TEMP}' \
+    '${NAS_STACK_DIR}/configure-radarr-policy.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_RADARR_AUDIT_TEMP}' \
+    '${NAS_STACK_DIR}/audit-radarr-releases.py'
+
+  sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-servarr.py'
 
@@ -424,13 +446,17 @@ ssh -t "$REMOTE" "
 
   echo
   echo "Synchronizing Recyclarr with Sonarr..."
-  sudo docker exec recyclarr \
-    recyclarr sync sonarr --instance series
+  sudo docker compose run --rm recyclarr \
+    sync sonarr --instance series
 
   echo
   echo "Synchronizing Recyclarr with Radarr..."
-  sudo docker exec recyclarr \
-    recyclarr sync radarr --instance movies
+  sudo docker compose run --rm recyclarr \
+    sync radarr --instance movies
+
+  echo
+  echo "Applying post-Recyclarr Radarr Latino policy..."
+  sudo python3 '${NAS_STACK_DIR}/configure-radarr-policy.py'
 "
 
 echo "Deployment completed successfully."
