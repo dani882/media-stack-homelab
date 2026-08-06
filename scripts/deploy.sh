@@ -7,6 +7,7 @@ STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
+QBITTORRENT_SCRIPT="${ROOT_DIR}/scripts/configure-qbittorrent.py"
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
@@ -18,6 +19,7 @@ SONARR_LATINO_CONFIG="${STACK_DIR}/servarr/custom-formats/sonarr-latino.json"
 RADARR_LATINO_CONFIG="${STACK_DIR}/servarr/custom-formats/radarr-latino.json"
 SONARR_SETTINGS_DIR="${STACK_DIR}/servarr/sonarr"
 RADARR_SETTINGS_DIR="${STACK_DIR}/servarr/radarr"
+QBITTORRENT_CONFIG_DIR="${STACK_DIR}/qbittorrent"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: Missing environment file:"
@@ -32,6 +34,7 @@ if [[ ! -f "$RECYCLARR_CONFIG" ]]; then
 fi
 
 for required_file in \
+  "$QBITTORRENT_SCRIPT" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -46,7 +49,9 @@ for required_file in \
   "$RADARR_SETTINGS_DIR/download-clients.json" \
   "$RADARR_SETTINGS_DIR/root-folders.json" \
   "$RADARR_SETTINGS_DIR/naming.json" \
-  "$RADARR_SETTINGS_DIR/media-management.json"
+  "$RADARR_SETTINGS_DIR/media-management.json" \
+  "$QBITTORRENT_CONFIG_DIR/categories.json" \
+  "$QBITTORRENT_CONFIG_DIR/preferences.json"
 do
   if [[ ! -f "$required_file" ]]; then
     echo "ERROR: Missing required file:"
@@ -68,6 +73,7 @@ REMOTE="${NAS_USER}@${NAS_HOST}"
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
 REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
+REMOTE_QBITTORRENT_TEMP="${REMOTE_STAGING}/configure-qbittorrent-${USER}-$$.py"
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
@@ -84,6 +90,8 @@ REMOTE_RADARR_DOWNLOAD_CLIENTS_TEMP="${REMOTE_STAGING}/radarr-download-clients-$
 REMOTE_RADARR_ROOT_FOLDERS_TEMP="${REMOTE_STAGING}/radarr-root-folders-${USER}-$$.json"
 REMOTE_RADARR_NAMING_TEMP="${REMOTE_STAGING}/radarr-naming-${USER}-$$.json"
 REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP="${REMOTE_STAGING}/radarr-media-management-${USER}-$$.json"
+REMOTE_QBITTORRENT_CATEGORIES_TEMP="${REMOTE_STAGING}/qbittorrent-categories-${USER}-$$.json"
+REMOTE_QBITTORRENT_PREFERENCES_TEMP="${REMOTE_STAGING}/qbittorrent-preferences-${USER}-$$.json"
 
 echo "Validating locally..."
 docker compose \
@@ -106,6 +114,14 @@ echo "Uploading Prowlarr configuration script through SSH..."
 ssh "$REMOTE" \
   "cat > '${REMOTE_PROWLARR_TEMP}'" \
   < "$PROWLARR_SCRIPT"
+
+echo "Uploading qBittorrent configuration script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_QBITTORRENT_TEMP}'" \
+  < "$QBITTORRENT_SCRIPT"
 
 echo "Uploading Servarr configuration script through SSH..."
 
@@ -209,6 +225,20 @@ ssh "$REMOTE" \
   "cat > '${REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP}'" \
   < "$RADARR_SETTINGS_DIR/media-management.json"
 
+echo "Uploading qBittorrent configuration files..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_QBITTORRENT_CATEGORIES_TEMP}'" \
+  < "$QBITTORRENT_CONFIG_DIR/categories.json"
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}'" \
+  < "$QBITTORRENT_CONFIG_DIR/preferences.json"
+
 echo "Uploading Recyclarr configuration through SSH..."
 
 # Variables are intentionally expanded locally.
@@ -230,6 +260,10 @@ ssh -t "$REMOTE" "
   sudo install -m 0755 \
     '${REMOTE_PROWLARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-prowlarr.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_QBITTORRENT_TEMP}' \
+    '${NAS_STACK_DIR}/configure-qbittorrent.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -299,6 +333,16 @@ ssh -t "$REMOTE" "
     '${REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP}' \
     '${NAS_STACK_DIR}/servarr/radarr/media-management.json'
 
+  sudo mkdir -p '${NAS_STACK_DIR}/qbittorrent'
+
+  sudo install -m 0644 \
+    '${REMOTE_QBITTORRENT_CATEGORIES_TEMP}' \
+    '${NAS_STACK_DIR}/qbittorrent/categories.json'
+
+  sudo install -m 0644 \
+    '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}' \
+    '${NAS_STACK_DIR}/qbittorrent/preferences.json'
+
   sudo mkdir -p '${NAS_STACK_DIR}/config/recyclarr'
   sudo install -o 1000 -g 10 -m 0640 \
     '${REMOTE_RECYCLARR_TEMP}' \
@@ -307,6 +351,7 @@ ssh -t "$REMOTE" "
   rm -f \
     '${REMOTE_TEMP}' \
     '${REMOTE_PROWLARR_TEMP}' \
+    '${REMOTE_QBITTORRENT_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
@@ -322,7 +367,9 @@ ssh -t "$REMOTE" "
     '${REMOTE_RADARR_DOWNLOAD_CLIENTS_TEMP}' \
     '${REMOTE_RADARR_ROOT_FOLDERS_TEMP}' \
     '${REMOTE_RADARR_NAMING_TEMP}' \
-    '${REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP}'
+    '${REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP}' \
+    '${REMOTE_QBITTORRENT_CATEGORIES_TEMP}' \
+    '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}'
 
   cd '${NAS_STACK_DIR}'
   sudo docker compose config >/dev/null
@@ -342,6 +389,10 @@ ssh -t "$REMOTE" "
   echo
   echo "Configuring Prowlarr indexers..."
   sudo python3 '${NAS_STACK_DIR}/configure-prowlarr.py'
+
+  echo
+  echo "Configuring qBittorrent..."
+  sudo python3 '${NAS_STACK_DIR}/configure-qbittorrent.py'
 
   echo
   echo "Configuring Sonarr and Radarr..."

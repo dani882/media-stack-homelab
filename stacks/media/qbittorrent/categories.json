@@ -1,0 +1,10 @@
+[
+  {
+    "name": "movies",
+    "save_path": "/downloads/complete/movies"
+  },
+  {
+    "name": "tv",
+    "save_path": "/downloads/complete/tv"
+  }
+]

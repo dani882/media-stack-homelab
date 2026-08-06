@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-servarr sync-recyclarr
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-qbittorrent configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -33,3 +33,8 @@ configure-servarr:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-servarr.py"
+
+configure-qbittorrent:
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo python3 ./configure-qbittorrent.py"
