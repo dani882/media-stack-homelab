@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-qbittorrent configure-radarr configure-servarr sync-recyclarr
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -49,3 +49,8 @@ configure-radarr:
 	   sudo -n python3 ./configure-radarr.py \
 	     --movie-id '$${MOVIE_ID}' \
 	     --destination '$${DESTINATION}'"
+
+dry-run-prowlarr:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-prowlarr.py --dry-run"

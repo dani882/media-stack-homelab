@@ -22,6 +22,7 @@ DEFAULT_CONFIG_FILE = (
 INDEXERS = [
     {
         "definition": "1337x",
+        "enabled": False,
         "priority": 10,
         "minimum_seeders": 5,
         "fields": {
@@ -217,6 +218,37 @@ def normalized_definition(value: str | None) -> str:
     return (value or "").strip().casefold()
 
 
+def managed_indexer_matches(
+    payload: dict[str, Any],
+    desired: dict[str, Any],
+) -> bool:
+    if bool(payload.get("enable")) != desired.get("enabled", True):
+        return False
+
+    if int(payload.get("priority") or 0) != desired["priority"]:
+        return False
+
+    fields = field_map(payload)
+
+    expected_fields = {
+        "torrentBaseSettings.appMinimumSeeders": (
+            desired["minimum_seeders"]
+        ),
+        **desired["fields"],
+    }
+
+    for name, expected_value in expected_fields.items():
+        field = fields.get(name)
+
+        if field is None:
+            continue
+
+        if field.get("value") != expected_value:
+            return False
+
+    return True
+
+
 def configure_indexer(
     client: ProwlarrClient,
     schema_by_definition: dict[str, dict[str, Any]],
@@ -227,6 +259,7 @@ def configure_indexer(
     definition = desired["definition"]
     normalized = normalized_definition(definition)
     existing = existing_by_definition.get(normalized)
+    enabled = desired.get("enabled", True)
 
     if existing:
         payload = client.request(
@@ -235,6 +268,13 @@ def configure_indexer(
         )
         action = "UPDATE"
     else:
+        if not enabled:
+            print(
+                f"INDEXER DISABLED: {definition} "
+                f"(not configured)"
+            )
+            return
+
         schema = schema_by_definition.get(normalized)
 
         if schema is None:
@@ -243,6 +283,45 @@ def configure_indexer(
 
         payload = json.loads(json.dumps(schema))
         action = "CREATE"
+
+    name = payload.get("name", definition)
+
+    if not enabled:
+        if not payload.get("enable"):
+            print(
+                f"INDEXER DISABLED: ID={payload['id']} "
+                f"name={name}"
+            )
+            return
+
+        if dry_run:
+            print(
+                f"WOULD DISABLE INDEXER: "
+                f"ID={payload['id']} name={name}"
+            )
+            return
+
+        payload["enable"] = False
+
+        result = client.request(
+            "PUT",
+            f"/indexer/{payload['id']}",
+            payload,
+        )
+
+        print(
+            f"DISABLED INDEXER: ID={result['id']} "
+            f"name={result['name']}"
+        )
+        return
+
+    if existing and managed_indexer_matches(payload, desired):
+        print(
+            f"INDEXER OK: ID={payload['id']} "
+            f"name={name} "
+            f"priority={payload['priority']}"
+        )
+        return
 
     payload["enable"] = True
     payload["priority"] = desired["priority"]
@@ -255,8 +334,6 @@ def configure_indexer(
         desired["minimum_seeders"],
         desired["fields"],
     )
-
-    name = payload.get("name", definition)
 
     print(
         f"Testing {name}: priority={desired['priority']}, "
@@ -354,7 +431,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Test indexers without creating or updating them.",
+        help=(
+            "Show intended indexer changes without applying them."
+        ),
     )
 
     return parser.parse_args()
