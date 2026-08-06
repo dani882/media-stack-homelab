@@ -8,6 +8,7 @@ ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
 QBITTORRENT_SCRIPT="${ROOT_DIR}/scripts/configure-qbittorrent.py"
+RADARR_MAINTENANCE_SCRIPT="${ROOT_DIR}/scripts/configure-radarr.py"
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
@@ -35,6 +36,7 @@ fi
 
 for required_file in \
   "$QBITTORRENT_SCRIPT" \
+  "$RADARR_MAINTENANCE_SCRIPT" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -74,6 +76,7 @@ REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
 REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
 REMOTE_QBITTORRENT_TEMP="${REMOTE_STAGING}/configure-qbittorrent-${USER}-$$.py"
+REMOTE_RADARR_MAINTENANCE_TEMP="${REMOTE_STAGING}/configure-radarr-${USER}-$$.py"
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
@@ -122,6 +125,14 @@ echo "Uploading qBittorrent configuration script through SSH..."
 ssh "$REMOTE" \
   "cat > '${REMOTE_QBITTORRENT_TEMP}'" \
   < "$QBITTORRENT_SCRIPT"
+
+echo "Uploading Radarr maintenance script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_RADARR_MAINTENANCE_TEMP}'" \
+  < "$RADARR_MAINTENANCE_SCRIPT"
 
 echo "Uploading Servarr configuration script through SSH..."
 
@@ -266,6 +277,10 @@ ssh -t "$REMOTE" "
     '${NAS_STACK_DIR}/configure-qbittorrent.py'
 
   sudo install -m 0755 \
+    '${REMOTE_RADARR_MAINTENANCE_TEMP}' \
+    '${NAS_STACK_DIR}/configure-radarr.py'
+
+  sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-servarr.py'
 
@@ -352,6 +367,7 @@ ssh -t "$REMOTE" "
     '${REMOTE_TEMP}' \
     '${REMOTE_PROWLARR_TEMP}' \
     '${REMOTE_QBITTORRENT_TEMP}' \
+    '${REMOTE_RADARR_MAINTENANCE_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \

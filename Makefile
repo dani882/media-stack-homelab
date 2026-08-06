@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-qbittorrent configure-servarr sync-recyclarr
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr configure-qbittorrent configure-radarr configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -38,3 +38,14 @@ configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-qbittorrent.py"
+
+configure-radarr:
+	@test -n "$${MOVIE_ID}" || \
+	  { echo "ERROR: MOVIE_ID is required"; exit 1; }
+	@test -n "$${DESTINATION}" || \
+	  { echo "ERROR: DESTINATION must be movies or kids"; exit 1; }
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-radarr.py \
+	     --movie-id '$${MOVIE_ID}' \
+	     --destination '$${DESTINATION}'"

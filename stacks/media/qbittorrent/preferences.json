@@ -24,5 +24,10 @@
   "pex": true,
   "lsd": true,
   "anonymous_mode": false,
-  "encryption": 0
+  "encryption": 0,
+  "max_seeding_time_enabled": true,
+  "max_seeding_time": 30,
+  "max_ratio_enabled": false,
+  "max_ratio": -1,
+  "max_ratio_act": 0
 }
