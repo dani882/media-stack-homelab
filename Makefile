@@ -1,4 +1,4 @@
-.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-servarr sync-recyclarr
+.PHONY: validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr audit-radarr-releases configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -54,3 +54,11 @@ dry-run-prowlarr:
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./configure-prowlarr.py --dry-run"
+
+audit-radarr-releases:
+	@test -n "$${MOVIE_ID}" || \
+	  { echo "ERROR: MOVIE_ID is required"; exit 1; }
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./audit-radarr-releases.py \
+	     --movie-id '$${MOVIE_ID}'"

@@ -134,6 +134,14 @@ ssh "$REMOTE" \
   "cat > '${REMOTE_RADARR_MAINTENANCE_TEMP}'" \
   < "$RADARR_MAINTENANCE_SCRIPT"
 
+echo "Uploading Radarr release audit script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_RADARR_AUDIT_TEMP}'" \
+  < "$RADARR_AUDIT_SCRIPT"
+
 echo "Uploading Servarr configuration script through SSH..."
 
 # Variables are intentionally expanded locally.
