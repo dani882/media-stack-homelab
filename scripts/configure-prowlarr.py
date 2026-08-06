@@ -22,10 +22,11 @@ DEFAULT_CONFIG_FILE = (
 INDEXERS = [
     {
         "definition": "1337x",
-        "enabled": False,
+        "enabled": True,
         "priority": 10,
         "minimum_seeders": 5,
         "fields": {
+            "baseUrl": "https://1337x.st/",
             "torrentBaseSettings.preferMagnetUrl": True,
             "downloadlink": 1,
             "downloadlink2": 0,
