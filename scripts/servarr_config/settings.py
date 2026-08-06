@@ -21,60 +21,14 @@ SENSITIVE_FIELDS = {
 }
 
 
-class ServarrError(RuntimeError):
-    pass
-
-
-@dataclass(frozen=True)
-class AppConfig:
-    name: str
-    base_url: str
-    config_file: Path
-    settings_dir: Path
-
-
-class ApiClient:
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Content-Type": "application/json",
-        }
-
-    def request(
-        self,
-        method: str,
-        path: str,
-        payload: Any | None = None,
-    ) -> Any:
-        data = None
-
-        if payload is not None:
-            data = json.dumps(payload).encode("utf-8")
-
-        request = urllib.request.Request(
-            f"{self.base_url}{path}",
-            data=data,
-            headers=self.headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                body = response.read().decode("utf-8")
-                return json.loads(body) if body else None
-
-        except urllib.error.HTTPError as error:
-            body = error.read().decode("utf-8", errors="replace")
-            raise ServarrError(
-                f"{method} {path} failed with HTTP "
-                f"{error.code}:\n{body}"
-            ) from error
-
-        except urllib.error.URLError as error:
-            raise ServarrError(
-                f"{method} {path} failed: {error.reason}"
-            ) from error
+from servarr_config.common import (
+    ApiClient,
+    AppConfig,
+    ServarrError,
+    load_json,
+    read_api_key,
+    wait_until_ready,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -91,56 +45,6 @@ def parse_arguments() -> argparse.Namespace:
         help="Show intended changes without applying them.",
     )
     return parser.parse_args()
-
-
-def load_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        raise ServarrError(
-            f"Unable to read {path}: {error}"
-        ) from error
-
-
-def read_api_key(config_file: Path) -> str:
-    try:
-        root = ET.parse(config_file).getroot()
-    except (ET.ParseError, OSError) as error:
-        raise ServarrError(
-            f"Unable to read {config_file}: {error}"
-        ) from error
-
-    element = root.find("ApiKey")
-
-    if element is None or not element.text:
-        raise ServarrError(
-            f"No ApiKey found in {config_file}"
-        )
-
-    return element.text.strip()
-
-
-def wait_until_ready(
-    client: ApiClient,
-    app_name: str,
-    attempts: int = 30,
-    delay_seconds: int = 2,
-) -> None:
-    for attempt in range(1, attempts + 1):
-        try:
-            status = client.request(
-                "GET",
-                "/api/v3/system/status",
-            )
-            print(
-                f"{app_name} is ready. "
-                f"Version: {status.get('version', 'unknown')}"
-            )
-            return
-        except ServarrError:
-            if attempt == attempts:
-                raise
-            time.sleep(delay_seconds)
 
 
 def field_map(item: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -214,11 +118,11 @@ def comparable_download_client(
 
 def configure_download_clients(
     client: ApiClient,
-    settings_dir: Path,
+    data_path: Path,
     dry_run: bool,
 ) -> None:
     desired_clients = load_json(
-        settings_dir / "download-clients.json"
+        data_path / "download-clients.json"
     )
     current_clients = client.request(
         "GET",
@@ -276,11 +180,11 @@ def configure_download_clients(
 
 def configure_root_folders(
     client: ApiClient,
-    settings_dir: Path,
+    data_path: Path,
     dry_run: bool,
 ) -> None:
     desired_folders = load_json(
-        settings_dir / "root-folders.json"
+        data_path / "root-folders.json"
     )
     current_folders = client.request(
         "GET",
@@ -362,19 +266,19 @@ def configure_app(
 
     configure_download_clients(
         client,
-        app.settings_dir,
+        app.data_path,
         dry_run,
     )
 
     configure_root_folders(
         client,
-        app.settings_dir,
+        app.data_path,
         dry_run,
     )
 
     configure_singleton(
         client,
-        app.settings_dir / "naming.json",
+        app.data_path / "naming.json",
         "/api/v3/config/naming",
         "naming configuration",
         dry_run,
@@ -382,7 +286,7 @@ def configure_app(
 
     configure_singleton(
         client,
-        app.settings_dir / "media-management.json",
+        app.data_path / "media-management.json",
         "/api/v3/config/mediamanagement",
         "media-management configuration",
         dry_run,
@@ -400,7 +304,7 @@ def main() -> int:
             config_file=(
                 stack_dir / "config/sonarr/config.xml"
             ),
-            settings_dir=(
+            data_path=(
                 stack_dir / "servarr/sonarr"
             ),
         ),
@@ -410,7 +314,7 @@ def main() -> int:
             config_file=(
                 stack_dir / "config/radarr/config.xml"
             ),
-            settings_dir=(
+            data_path=(
                 stack_dir / "servarr/radarr"
             ),
         ),

@@ -24,56 +24,14 @@ SCORES = {
 }
 
 
-class ServarrError(RuntimeError):
-    pass
-
-
-@dataclass(frozen=True)
-class AppConfig:
-    name: str
-    base_url: str
-    config_file: Path
-    definitions_file: Path
-
-
-class ApiClient:
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Content-Type": "application/json",
-        }
-
-    def request(
-        self,
-        method: str,
-        path: str,
-        payload: Any | None = None,
-    ) -> Any:
-        data = None
-        if payload is not None:
-            data = json.dumps(payload).encode("utf-8")
-
-        request = urllib.request.Request(
-            f"{self.base_url}{path}",
-            data=data,
-            headers=self.headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                body = response.read().decode("utf-8")
-                return json.loads(body) if body else None
-        except urllib.error.HTTPError as error:
-            body = error.read().decode("utf-8", errors="replace")
-            raise ServarrError(
-                f"{method} {path} failed with HTTP {error.code}:\n{body}"
-            ) from error
-        except urllib.error.URLError as error:
-            raise ServarrError(
-                f"{method} {path} failed: {error.reason}"
-            ) from error
+from servarr_config.common import (
+    ApiClient,
+    AppConfig,
+    ServarrError,
+    load_json,
+    read_api_key,
+    wait_until_ready,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -92,46 +50,8 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_api_key(config_file: Path) -> str:
-    try:
-        root = ET.parse(config_file).getroot()
-    except (ET.ParseError, OSError) as error:
-        raise ServarrError(
-            f"Unable to read API key from {config_file}: {error}"
-        ) from error
-
-    element = root.find("ApiKey")
-    if element is None or not element.text:
-        raise ServarrError(f"No ApiKey found in {config_file}")
-
-    return element.text.strip()
-
-
-def wait_until_ready(
-    client: ApiClient,
-    app_name: str,
-    attempts: int = 30,
-    delay_seconds: int = 2,
-) -> None:
-    for attempt in range(1, attempts + 1):
-        try:
-            status = client.request("GET", "/api/v3/system/status")
-            version = status.get("version", "unknown")
-            print(f"{app_name} is ready. Version: {version}")
-            return
-        except ServarrError:
-            if attempt == attempts:
-                raise
-            time.sleep(delay_seconds)
-
-
 def load_definitions(path: Path) -> list[dict[str, Any]]:
-    try:
-        data = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        raise ServarrError(
-            f"Unable to read definitions from {path}: {error}"
-        ) from error
+    data = load_json(path)
 
     if not isinstance(data, list):
         raise ServarrError(f"Expected a JSON array in {path}")
@@ -295,7 +215,7 @@ def configure_app(app: AppConfig, dry_run: bool) -> None:
 
     wait_until_ready(client, app.name)
 
-    definitions = load_definitions(app.definitions_file)
+    definitions = load_definitions(app.data_path)
     ids_by_name = configure_custom_formats(
         client,
         definitions,
@@ -317,7 +237,7 @@ def main() -> int:
             name="Sonarr",
             base_url="http://127.0.0.1:8989",
             config_file=stack_dir / "config/sonarr/config.xml",
-            definitions_file=(
+            data_path=(
                 stack_dir
                 / "servarr/custom-formats/sonarr-latino.json"
             ),
@@ -326,7 +246,7 @@ def main() -> int:
             name="Radarr",
             base_url="http://127.0.0.1:7878",
             config_file=stack_dir / "config/radarr/config.xml",
-            definitions_file=(
+            data_path=(
                 stack_dir
                 / "servarr/custom-formats/radarr-latino.json"
             ),

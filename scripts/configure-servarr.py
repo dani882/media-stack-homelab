@@ -37,9 +37,12 @@ def run_module(
     stack_dir: str,
     dry_run: bool,
 ) -> None:
+    module_name = Path(filename).stem
+
     command = [
         sys.executable,
-        str(module_dir / filename),
+        "-m",
+        f"servarr_config.{module_name}",
         "--stack-dir",
         stack_dir,
     ]
@@ -52,6 +55,7 @@ def run_module(
 
     result = subprocess.run(
         command,
+        cwd=module_dir.parent,
         check=False,
     )
 
