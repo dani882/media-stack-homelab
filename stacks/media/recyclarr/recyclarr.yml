@@ -45,6 +45,8 @@ radarr:
     quality_profiles:
       - trash_id: d1d67249d3890e49bc12e275d989a7e9
         name: Latino 1080p
+        min_format_score: 7000
+        min_upgrade_format_score: 7000
         reset_unmatched_scores:
           enabled: true
           except_patterns:
