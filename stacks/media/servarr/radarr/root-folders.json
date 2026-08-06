@@ -1,0 +1,111 @@
+[
+  {
+    "path": "/media/Movies",
+    "accessible": true,
+    "freeSpace": 10696102588416,
+    "unmappedFolders": [
+      {
+        "name": "El diablo se viste de Gala 2 (2026)",
+        "path": "/media/Movies/El diablo se viste de Gala 2 (2026)",
+        "relativePath": "El diablo se viste de Gala 2 (2026)"
+      }
+    ]
+  },
+  {
+    "path": "/media/Kids Movies",
+    "accessible": true,
+    "freeSpace": 10696102588416,
+    "unmappedFolders": [
+      {
+        "name": "Angry birds 2016",
+        "path": "/media/Kids Movies/Angry birds 2016",
+        "relativePath": "Angry birds 2016"
+      },
+      {
+        "name": "Kpop demon hunters (2025)",
+        "path": "/media/Kids Movies/Kpop demon hunters (2025)",
+        "relativePath": "Kpop demon hunters (2025)"
+      },
+      {
+        "name": "Mewtwo Contraataca (1998)",
+        "path": "/media/Kids Movies/Mewtwo Contraataca (1998)",
+        "relativePath": "Mewtwo Contraataca (1998)"
+      },
+      {
+        "name": "Pixels (2015)",
+        "path": "/media/Kids Movies/Pixels (2015)",
+        "relativePath": "Pixels (2015)"
+      },
+      {
+        "name": "Pokemon 2 - El poder de UNO (2000)",
+        "path": "/media/Kids Movies/Pokemon 2 - El poder de UNO (2000)",
+        "relativePath": "Pokemon 2 - El poder de UNO (2000)"
+      },
+      {
+        "name": "Pokemon 3 - El Hechizo de Los Unown (2000)",
+        "path": "/media/Kids Movies/Pokemon 3 - El Hechizo de Los Unown (2000)",
+        "relativePath": "Pokemon 3 - El Hechizo de Los Unown (2000)"
+      },
+      {
+        "name": "Pokemon mewtwo strikes back evolution (2019)",
+        "path": "/media/Kids Movies/Pokemon mewtwo strikes back evolution (2019)",
+        "relativePath": "Pokemon mewtwo strikes back evolution (2019)"
+      },
+      {
+        "name": "Pokemon the movie i choose you (2017)",
+        "path": "/media/Kids Movies/Pokemon the movie i choose you (2017)",
+        "relativePath": "Pokemon the movie i choose you (2017)"
+      },
+      {
+        "name": "Pokemon the movie the power of us (2018)",
+        "path": "/media/Kids Movies/Pokemon the movie the power of us (2018)",
+        "relativePath": "Pokemon the movie the power of us (2018)"
+      },
+      {
+        "name": "Sonic 3 La Pelicula (2025)",
+        "path": "/media/Kids Movies/Sonic 3 La Pelicula (2025)",
+        "relativePath": "Sonic 3 La Pelicula (2025)"
+      },
+      {
+        "name": "Sonic The Hedgehog The Movie (2020)",
+        "path": "/media/Kids Movies/Sonic The Hedgehog The Movie (2020)",
+        "relativePath": "Sonic The Hedgehog The Movie (2020)"
+      },
+      {
+        "name": "Sonic.2 La Pelicula (2022)",
+        "path": "/media/Kids Movies/Sonic.2 La Pelicula (2022)",
+        "relativePath": "Sonic.2 La Pelicula (2022)"
+      },
+      {
+        "name": "Space jam nuevas leyendas (2021)",
+        "path": "/media/Kids Movies/Space jam nuevas leyendas (2021)",
+        "relativePath": "Space jam nuevas leyendas (2021)"
+      },
+      {
+        "name": "The Angry Bird Movie 2 (2019)",
+        "path": "/media/Kids Movies/The Angry Bird Movie 2 (2019)",
+        "relativePath": "The Angry Bird Movie 2 (2019)"
+      },
+      {
+        "name": "The day the earth blew up a looney toones movie (2024)",
+        "path": "/media/Kids Movies/The day the earth blew up a looney toones movie (2024)",
+        "relativePath": "The day the earth blew up a looney toones movie (2024)"
+      },
+      {
+        "name": "The spongebob movie search for squarepants (2025)",
+        "path": "/media/Kids Movies/The spongebob movie search for squarepants (2025)",
+        "relativePath": "The spongebob movie search for squarepants (2025)"
+      },
+      {
+        "name": "The Super Mario Bros. Movie (2023)",
+        "path": "/media/Kids Movies/The Super Mario Bros. Movie (2023)",
+        "relativePath": "The Super Mario Bros. Movie (2023)"
+      },
+      {
+        "name": "The Super Mario Galaxy. Movie (2026)",
+        "path": "/media/Kids Movies/The Super Mario Galaxy. Movie (2026)",
+        "relativePath": "The Super Mario Galaxy. Movie (2026)"
+      }
+    ]
+  }
+]

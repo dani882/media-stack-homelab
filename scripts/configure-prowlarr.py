@@ -158,6 +158,10 @@ class ProwlarrClient:
             raise ProwlarrError(
                 f"{method} {path} failed: {error}"
             ) from error
+        except (ConnectionError, OSError) as error:
+            raise ProwlarrError(
+                f"{method} {path} failed: {error}"
+            ) from error
 
     def wait_until_ready(self, attempts: int = 30) -> None:
         for attempt in range(1, attempts + 1):
