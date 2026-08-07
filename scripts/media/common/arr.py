@@ -51,10 +51,22 @@ class ArrClient:
         self,
         method: str,
         path: str,
+        payload: Any | None = None,
     ) -> Any:
+        body = None
+
+        if payload is not None:
+            body = json.dumps(payload).encode("utf-8")
+
+        headers = dict(self.headers)
+
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+
         request = urllib.request.Request(
             f"{self.base_url}/api/v3{path}",
-            headers=self.headers,
+            data=body,
+            headers=headers,
             method=method,
         )
 

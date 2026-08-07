@@ -23,6 +23,7 @@ MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
 MEDIA_COMMON_ARR="${MEDIA_COMMON_DIR}/arr.py"
 MEDIA_COMMON_QBITTORRENT="${MEDIA_COMMON_DIR}/qbittorrent.py"
 MEDIA_COMMON_CLEANUP="${MEDIA_COMMON_DIR}/cleanup.py"
+MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
@@ -64,6 +65,7 @@ for required_file in \
   "$MEDIA_COMMON_ARR" \
   "$MEDIA_COMMON_QBITTORRENT" \
   "$MEDIA_COMMON_CLEANUP" \
+  "$MEDIA_COMMON_LATINO" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -148,6 +150,7 @@ REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py
 REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP="${REMOTE_STAGING}/media-common-qbittorrent-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_CLEANUP_TEMP="${REMOTE_STAGING}/media-common-cleanup-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$$.py"
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
@@ -390,6 +393,10 @@ echo "Uploading shared media modules..."
   "cat > '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}'" \
   < "$MEDIA_COMMON_CLEANUP"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_LATINO_TEMP}'" \
+  < "$MEDIA_COMMON_LATINO"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -487,6 +494,10 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0644 \
     '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
     '${NAS_STACK_DIR}/scripts/common/cleanup.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/latino.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -587,6 +598,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
     '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
     '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \

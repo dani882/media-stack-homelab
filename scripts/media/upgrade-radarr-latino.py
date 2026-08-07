@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -18,152 +14,16 @@ DEFAULT_CONFIG_FILE = (
     "/volume1/docker/media-stack/config/radarr/config.xml"
 )
 
-LATINO_FORMAT_PREFIXES = (
-    "[Latino] Spanish Latino",
-    "[Latino] Spanish Latino + English",
+from common.arr import (
+    ArrClient as RadarrClient,
+    ArrError as UpgradeError,
+    read_api_key,
 )
-
-
-class UpgradeError(RuntimeError):
-    pass
-
-
-def read_api_key(config_file: Path) -> str:
-    if not config_file.is_file():
-        raise UpgradeError(
-            f"Radarr configuration file not found: {config_file}"
-        )
-
-    root = ET.parse(config_file).getroot()
-    api_key = root.findtext("ApiKey", "").strip()
-
-    if not api_key:
-        raise UpgradeError(
-            f"ApiKey was not found in {config_file}"
-        )
-
-    return api_key
-
-
-class RadarrClient:
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-    def request(
-        self,
-        method: str,
-        path: str,
-        payload: Any | None = None,
-    ) -> Any:
-        body = None
-
-        if payload is not None:
-            body = json.dumps(payload).encode("utf-8")
-
-        request = urllib.request.Request(
-            f"{self.base_url}/api/v3{path}",
-            data=body,
-            headers=self.headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=120,
-            ) as response:
-                content = response.read()
-
-                if not content:
-                    return None
-
-                return json.loads(content)
-
-        except urllib.error.HTTPError as error:
-            response_body = error.read().decode(
-                "utf-8",
-                errors="replace",
-            )
-
-            raise UpgradeError(
-                f"{method} {path} failed with HTTP "
-                f"{error.code}: {response_body}"
-            ) from error
-
-        except urllib.error.URLError as error:
-            raise UpgradeError(
-                f"{method} {path} failed: {error.reason}"
-            ) from error
-
-    def get(self, path: str) -> Any:
-        return self.request("GET", path)
-
-    def post(
-        self,
-        path: str,
-        payload: Any | None = None,
-    ) -> Any:
-        return self.request(
-            "POST",
-            path,
-            payload,
-        )
-
-
-def custom_format_names(
-    payload: dict[str, Any],
-) -> list[str]:
-    return [
-        item.get("name", "")
-        for item in payload.get(
-            "customFormats",
-            [],
-        )
-    ]
-
-
-def has_latino_format(
-    payload: dict[str, Any],
-) -> bool:
-    names = custom_format_names(payload)
-
-    return any(
-        any(
-            name.startswith(prefix)
-            for prefix in LATINO_FORMAT_PREFIXES
-        )
-        for name in names
-    )
-
-
-def release_sort_key(
-    release: dict[str, Any],
-) -> tuple[int, int]:
-    return (
-        int(
-            release.get(
-                "customFormatScore",
-                0,
-            )
-            or 0
-        ),
-        int(
-            release.get(
-                "seeders",
-                0,
-            )
-            or 0
-        ),
-    )
+from common.latino import (
+    custom_format_names,
+    has_latino_format,
+    score_seed_sort_key as release_sort_key,
+)
 
 
 def movie_matches(

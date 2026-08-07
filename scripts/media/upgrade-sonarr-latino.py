@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -17,86 +14,15 @@ DEFAULT_CONFIG_FILE = (
     "/volume1/docker/media-stack/config/sonarr/config.xml"
 )
 
-LATINO_FORMAT_PREFIX = "[Latino]"
-
-
-class UpgradeError(RuntimeError):
-    pass
-
-
-def read_api_key(config_file: Path) -> str:
-    if not config_file.is_file():
-        raise UpgradeError(
-            f"Sonarr configuration file not found: {config_file}"
-        )
-
-    root = ET.parse(config_file).getroot()
-    api_key = root.findtext("ApiKey", "").strip()
-
-    if not api_key:
-        raise UpgradeError(
-            f"ApiKey was not found in {config_file}"
-        )
-
-    return api_key
-
-
-class SonarrClient:
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-    def request(
-        self,
-        method: str,
-        path: str,
-        payload: Any | None = None,
-    ) -> Any:
-        body = None
-
-        if payload is not None:
-            body = json.dumps(payload).encode("utf-8")
-
-        request = urllib.request.Request(
-            f"{self.base_url}/api/v3{path}",
-            data=body,
-            headers=self.headers,
-            method=method,
-        )
-
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=120,
-            ) as response:
-                content = response.read()
-
-                if not content:
-                    return None
-
-                return json.loads(content)
-        except Exception as error:
-            raise UpgradeError(
-                f"{method} {path} failed: {error}"
-            ) from error
-
-    def get(self, path: str) -> Any:
-        return self.request("GET", path)
-
-    def post(
-        self,
-        path: str,
-        payload: Any,
-    ) -> Any:
-        return self.request(
-            "POST",
-            path,
-            payload,
-        )
+from common.arr import (
+    ArrClient as SonarrClient,
+    ArrError as UpgradeError,
+    read_api_key,
+)
+from common.latino import (
+    best_latino_release,
+    installed_is_latino,
+)
 
 
 def format_episode(
@@ -104,63 +30,6 @@ def format_episode(
     episode_number: int,
 ) -> str:
     return f"S{season_number:02d}E{episode_number:02d}"
-
-
-def is_latino_release(release: dict[str, Any]) -> bool:
-    formats = [
-        item.get("name", "")
-        for item in release.get("customFormats", [])
-    ]
-
-    if any(
-        name.startswith(LATINO_FORMAT_PREFIX)
-        for name in formats
-    ):
-        return True
-
-    languages = {
-        item.get("name", "")
-        for item in release.get("languages", [])
-    }
-
-    if "Spanish (Latino)" in languages:
-        return True
-
-    title = (release.get("title") or "").upper()
-
-    markers = (
-        "LATINO",
-        "LATAM",
-        "SPA ENG",
-        "SPA-ENG",
-        "SPA.ENG",
-        "ESP ENG",
-        "ESP-ENG",
-        "ESP.ENG",
-        "DUAL AUDIO",
-        "DUAL-AUDIO",
-        "DUAL.AUDIO",
-    )
-
-    return any(marker in title for marker in markers)
-
-
-def installed_is_latino(
-    file_payload: dict[str, Any] | None,
-) -> bool:
-    if not file_payload:
-        return False
-
-    return any(
-        (
-            item.get("name", "")
-            .startswith(LATINO_FORMAT_PREFIX)
-        )
-        for item in file_payload.get(
-            "customFormats",
-            [],
-        )
-    )
 
 
 def resolve_series(
@@ -200,43 +69,6 @@ def resolve_series(
     raise UpgradeError(
         f"Series name is ambiguous: {names}"
     )
-
-
-def best_latino_release(
-    releases: list[dict[str, Any]],
-) -> dict[str, Any] | None:
-    candidates = [
-        release
-        for release in releases
-        if is_latino_release(release)
-    ]
-
-    candidates.sort(
-        key=lambda item: (
-            bool(item.get("approved", False)),
-            not bool(item.get("rejected", False)),
-            int(
-                item.get(
-                    "customFormatScore",
-                    0,
-                )
-                or 0
-            ),
-            int(
-                item.get(
-                    "seeders",
-                    0,
-                )
-                or 0
-            ),
-        ),
-        reverse=True,
-    )
-
-    if not candidates:
-        return None
-
-    return candidates[0]
 
 
 def process_series(

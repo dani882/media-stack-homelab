@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -18,120 +14,16 @@ DEFAULT_CONFIG_FILE = (
     "/volume1/docker/media-stack/config/radarr/config.xml"
 )
 
-LATINO_FORMAT_PREFIXES = (
-    "[Latino] Spanish Latino",
-    "[Latino] Spanish Latino + English",
+from common.arr import (
+    ArrClient as RadarrClient,
+    ArrError as AuditError,
+    read_api_key,
 )
-
-
-class AuditError(RuntimeError):
-    pass
-
-
-def read_api_key(config_file: Path) -> str:
-    if not config_file.is_file():
-        raise AuditError(
-            f"Radarr configuration file not found: {config_file}"
-        )
-
-    root = ET.parse(config_file).getroot()
-    api_key = root.findtext("ApiKey", "").strip()
-
-    if not api_key:
-        raise AuditError(
-            f"ApiKey was not found in {config_file}"
-        )
-
-    return api_key
-
-
-class RadarrClient:
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Accept": "application/json",
-        }
-
-    def get(self, path: str) -> Any:
-        request = urllib.request.Request(
-            f"{self.base_url}/api/v3{path}",
-            headers=self.headers,
-        )
-
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=120,
-            ) as response:
-                return json.loads(response.read())
-        except urllib.error.HTTPError as error:
-            body = error.read().decode(
-                "utf-8",
-                errors="replace",
-            )
-
-            raise AuditError(
-                f"GET {path} failed with HTTP "
-                f"{error.code}: {body}"
-            ) from error
-        except urllib.error.URLError as error:
-            raise AuditError(
-                f"GET {path} failed: {error.reason}"
-            ) from error
-
-
-def custom_format_names(
-    payload: dict[str, Any],
-) -> list[str]:
-    return [
-        item.get("name", "")
-        for item in payload.get(
-            "customFormats",
-            [],
-        )
-    ]
-
-
-def has_latino_format(
-    payload: dict[str, Any],
-) -> bool:
-    names = custom_format_names(payload)
-
-    return any(
-        any(
-            name.startswith(prefix)
-            for prefix in LATINO_FORMAT_PREFIXES
-        )
-        for name in names
-    )
-
-
-def release_sort_key(
-    release: dict[str, Any],
-) -> tuple[bool, bool, int, int]:
-    return (
-        bool(release.get("approved", False)),
-        not bool(release.get("rejected", False)),
-        int(
-            release.get(
-                "customFormatScore",
-                0,
-            )
-            or 0
-        ),
-        int(
-            release.get(
-                "seeders",
-                0,
-            )
-            or 0
-        ),
-    )
+from common.latino import (
+    approval_sort_key as release_sort_key,
+    custom_format_names,
+    has_latino_format,
+)
 
 
 def movie_matches(

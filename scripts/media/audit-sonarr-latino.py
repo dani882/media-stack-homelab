@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -17,54 +14,12 @@ DEFAULT_CONFIG_FILE = (
     "/volume1/docker/media-stack/config/sonarr/config.xml"
 )
 
-LATINO_FORMAT_PREFIX = "[Latino]"
-
-
-class AuditError(RuntimeError):
-    pass
-
-
-def read_api_key(config_file: Path) -> str:
-    if not config_file.is_file():
-        raise AuditError(
-            f"Sonarr configuration file not found: {config_file}"
-        )
-
-    root = ET.parse(config_file).getroot()
-    api_key = root.findtext("ApiKey", "").strip()
-
-    if not api_key:
-        raise AuditError(
-            f"ApiKey was not found in {config_file}"
-        )
-
-    return api_key
-
-
-class SonarrClient:
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "X-Api-Key": api_key,
-            "Accept": "application/json",
-        }
-
-    def get(self, path: str) -> Any:
-        request = urllib.request.Request(
-            f"{self.base_url}/api/v3{path}",
-            headers=self.headers,
-        )
-
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=120,
-            ) as response:
-                return json.loads(response.read())
-        except Exception as error:
-            raise AuditError(
-                f"GET {path} failed: {error}"
-            ) from error
+from common.arr import (
+    ArrClient as SonarrClient,
+    ArrError as AuditError,
+    read_api_key,
+)
+from common.latino import is_latino_release
 
 
 def format_episode(
@@ -72,45 +27,6 @@ def format_episode(
     episode_number: int,
 ) -> str:
     return f"S{season_number:02d}E{episode_number:02d}"
-
-
-def is_latino_release(release: dict[str, Any]) -> bool:
-    formats = [
-        item.get("name", "")
-        for item in release.get("customFormats", [])
-    ]
-
-    if any(
-        name.startswith(LATINO_FORMAT_PREFIX)
-        for name in formats
-    ):
-        return True
-
-    languages = {
-        item.get("name", "")
-        for item in release.get("languages", [])
-    }
-
-    if "Spanish (Latino)" in languages:
-        return True
-
-    title = (release.get("title") or "").upper()
-
-    markers = (
-        "LATINO",
-        "LATAM",
-        "SPA ENG",
-        "SPA-ENG",
-        "SPA.ENG",
-        "ESP ENG",
-        "ESP-ENG",
-        "ESP.ENG",
-        "DUAL AUDIO",
-        "DUAL-AUDIO",
-        "DUAL.AUDIO",
-    )
-
-    return any(marker in title for marker in markers)
 
 
 def resolve_series(
