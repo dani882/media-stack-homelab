@@ -17,6 +17,13 @@ SONARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-sonarr-downloa
 RADARR_LATINO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/media/audit-radarr-latino.py"
 RADARR_LATINO_UPGRADE_SCRIPT="${ROOT_DIR}/scripts/media/upgrade-radarr-latino.py"
 RADARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-radarr-downloads.py"
+
+MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
+MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
+MEDIA_COMMON_ARR="${MEDIA_COMMON_DIR}/arr.py"
+MEDIA_COMMON_QBITTORRENT="${MEDIA_COMMON_DIR}/qbittorrent.py"
+MEDIA_COMMON_CLEANUP="${MEDIA_COMMON_DIR}/cleanup.py"
+
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
@@ -53,6 +60,10 @@ for required_file in \
   "$RADARR_LATINO_AUDIT_SCRIPT" \
   "$RADARR_LATINO_UPGRADE_SCRIPT" \
   "$RADARR_DOWNLOAD_CLEANUP_SCRIPT" \
+  "$MEDIA_COMMON_INIT" \
+  "$MEDIA_COMMON_ARR" \
+  "$MEDIA_COMMON_QBITTORRENT" \
+  "$MEDIA_COMMON_CLEANUP" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -132,6 +143,12 @@ REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-sonarr-downloads-
 REMOTE_RADARR_LATINO_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_LATINO_UPGRADE_TEMP="${REMOTE_STAGING}/upgrade-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-radarr-downloads-${USER}-$$.py"
+
+REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP="${REMOTE_STAGING}/media-common-qbittorrent-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_CLEANUP_TEMP="${REMOTE_STAGING}/media-common-cleanup-${USER}-$$.py"
+
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
@@ -355,6 +372,24 @@ echo "Uploading Radarr download cleanup script through SSH..."
   "cat > '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}'" \
   < "$RADARR_DOWNLOAD_CLEANUP_SCRIPT"
 
+echo "Uploading shared media modules..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_INIT_TEMP}'" \
+  < "$MEDIA_COMMON_INIT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_ARR_TEMP}'" \
+  < "$MEDIA_COMMON_ARR"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}'" \
+  < "$MEDIA_COMMON_QBITTORRENT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}'" \
+  < "$MEDIA_COMMON_CLEANUP"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -433,6 +468,25 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
     '${NAS_STACK_DIR}/scripts/cleanup-radarr-downloads.py'
+
+  sudo mkdir -p \
+    '${NAS_STACK_DIR}/scripts/common'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_INIT_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/__init__.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/arr.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/qbittorrent.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/cleanup.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -529,6 +583,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RADARR_LATINO_AUDIT_TEMP}' \
     '${REMOTE_RADARR_LATINO_UPGRADE_TEMP}' \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_INIT_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
