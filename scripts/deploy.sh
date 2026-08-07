@@ -12,6 +12,8 @@ RADARR_MAINTENANCE_SCRIPT="${ROOT_DIR}/scripts/configure-radarr.py"
 RADARR_POLICY_SCRIPT="${ROOT_DIR}/scripts/configure-radarr-policy.py"
 RADARR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-radarr-releases.py"
 SONARR_LATINO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/media/audit-sonarr-latino.py"
+SONARR_LATINO_UPGRADE_SCRIPT="${ROOT_DIR}/scripts/media/upgrade-sonarr-latino.py"
+SONARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-sonarr-downloads.py"
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
@@ -43,6 +45,8 @@ for required_file in \
   "$RADARR_POLICY_SCRIPT" \
   "$RADARR_AUDIT_SCRIPT" \
   "$SONARR_LATINO_AUDIT_SCRIPT" \
+  "$SONARR_LATINO_UPGRADE_SCRIPT" \
+  "$SONARR_DOWNLOAD_CLEANUP_SCRIPT" \
   "$SERVARR_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
@@ -86,6 +90,8 @@ REMOTE_RADARR_MAINTENANCE_TEMP="${REMOTE_STAGING}/configure-radarr-${USER}-$$.py
 REMOTE_RADARR_POLICY_TEMP="${REMOTE_STAGING}/configure-radarr-policy-${USER}-$$.py"
 REMOTE_RADARR_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-releases-${USER}-$$.py"
 REMOTE_SONARR_LATINO_AUDIT_TEMP="${REMOTE_STAGING}/audit-sonarr-latino-${USER}-$$.py"
+REMOTE_SONARR_LATINO_UPGRADE_TEMP="${REMOTE_STAGING}/upgrade-sonarr-latino-${USER}-$$.py"
+REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-sonarr-downloads-${USER}-$$.py"
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
@@ -269,6 +275,22 @@ ssh "$REMOTE" \
   "cat > '${REMOTE_SONARR_LATINO_AUDIT_TEMP}'" \
   < "$SONARR_LATINO_AUDIT_SCRIPT"
 
+echo "Uploading Sonarr Latino upgrade script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_SONARR_LATINO_UPGRADE_TEMP}'" \
+  < "$SONARR_LATINO_UPGRADE_SCRIPT"
+
+echo "Uploading Sonarr download cleanup script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+ssh "$REMOTE" \
+  "cat > '${REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP}'" \
+  < "$SONARR_DOWNLOAD_CLEANUP_SCRIPT"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -327,6 +349,14 @@ ssh -t "$REMOTE" "
   sudo install -m 0755 \
     '${REMOTE_SONARR_LATINO_AUDIT_TEMP}' \
     '${NAS_STACK_DIR}/scripts/audit-sonarr-latino.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_SONARR_LATINO_UPGRADE_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/upgrade-sonarr-latino.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/cleanup-sonarr-downloads.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -418,6 +448,8 @@ ssh -t "$REMOTE" "
     '${REMOTE_RADARR_MAINTENANCE_TEMP}' \
     '${REMOTE_RADARR_AUDIT_TEMP}' \
     '${REMOTE_SONARR_LATINO_AUDIT_TEMP}' \
+    '${REMOTE_SONARR_LATINO_UPGRADE_TEMP}' \
+    '${REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \

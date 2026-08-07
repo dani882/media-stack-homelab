@@ -86,3 +86,33 @@ audit-latino:
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  'python3 /volume1/docker/media-stack/scripts/audit-sonarr-latino.py \
 	    --series "$(SERIES)"$(if $(SEASON), --season $(SEASON),)'
+
+.PHONY: cleanup-sonarr-downloads dry-run-cleanup-sonarr-downloads
+
+cleanup-sonarr-downloads:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py"
+
+dry-run-cleanup-sonarr-downloads:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
+	   --dry-run"
+
+.PHONY: upgrade-latino dry-run-upgrade-latino
+
+upgrade-latino:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/upgrade-sonarr-latino.py \
+	   $(if $(SERIES),--series '$(SERIES)',) \
+	   $(if $(SEASON),--season '$(SEASON)',)"
+
+dry-run-upgrade-latino:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/upgrade-sonarr-latino.py \
+	   --dry-run \
+	   $(if $(SERIES),--series '$(SERIES)',) \
+	   $(if $(SEASON),--season '$(SEASON)',)"

@@ -397,6 +397,16 @@ def main() -> int:
                     if best
                     else False
                 ),
+                "best_rejected": (
+                    bool(
+                        best.get(
+                            "rejected",
+                            False,
+                        )
+                    )
+                    if best
+                    else False
+                ),
                 "best_rejections": (
                     best.get(
                         "rejections",
