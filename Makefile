@@ -116,3 +116,40 @@ dry-run-upgrade-latino:
 	   --dry-run \
 	   $(if $(SERIES),--series '$(SERIES)',) \
 	   $(if $(SEASON),--season '$(SEASON)',)"
+
+.PHONY: audit-radarr-latino upgrade-radarr-latino dry-run-upgrade-radarr-latino
+
+audit-radarr-latino:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "python3 \
+	   /volume1/docker/media-stack/scripts/audit-radarr-latino.py \
+	   $(if $(MOVIE_ID),--movie-id '$(MOVIE_ID)',) \
+	   $(if $(MOVIE),--movie '$(MOVIE)',)"
+
+upgrade-radarr-latino:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "python3 \
+	   /volume1/docker/media-stack/scripts/upgrade-radarr-latino.py \
+	   $(if $(MOVIE_ID),--movie-id '$(MOVIE_ID)',) \
+	   $(if $(MOVIE),--movie '$(MOVIE)',)"
+
+dry-run-upgrade-radarr-latino:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "python3 \
+	   /volume1/docker/media-stack/scripts/upgrade-radarr-latino.py \
+	   --dry-run \
+	   $(if $(MOVIE_ID),--movie-id '$(MOVIE_ID)',) \
+	   $(if $(MOVIE),--movie '$(MOVIE)',)"
+
+.PHONY: cleanup-radarr-downloads dry-run-cleanup-radarr-downloads
+
+cleanup-radarr-downloads:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py"
+
+dry-run-cleanup-radarr-downloads:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
+	   --dry-run"

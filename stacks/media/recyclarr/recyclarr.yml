@@ -52,8 +52,12 @@ radarr:
     quality_profiles:
       - trash_id: d1d67249d3890e49bc12e275d989a7e9
         name: Latino 1080p
-        min_format_score: 7000
-        min_upgrade_format_score: 7000
+        # Permit non-Latino 1080p releases as an initial fallback.
+        min_format_score: 0
+
+        # Replace an existing fallback whenever a release has a higher
+        # custom-format score. Latino releases score at least 7000.
+        min_upgrade_format_score: 1
         reset_unmatched_scores:
           enabled: true
           except_patterns:
