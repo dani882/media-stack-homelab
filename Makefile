@@ -75,3 +75,14 @@ dry-run-radarr-policy:
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./configure-radarr-policy.py --dry-run"
+
+.PHONY: audit-latino
+
+audit-latino:
+	@if [ -z "$(SERIES)" ]; then \
+		echo 'Usage: make audit-latino SERIES="Silo" [SEASON=2]'; \
+		exit 1; \
+	fi
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  'python3 /volume1/docker/media-stack/scripts/audit-sonarr-latino.py \
+	    --series "$(SERIES)"$(if $(SEASON), --season $(SEASON),)'
