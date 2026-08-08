@@ -28,6 +28,8 @@ speculative version numbers to unfinished work.
 - [x] Automate Prowlarr configuration
 - [x] Automate qBittorrent configuration
 - [x] Automate Sonarr and Radarr configuration
+- [x] Automate Seerr configuration
+- [x] Integrate Seerr with Sonarr and Radarr
 - [x] Automate Recyclarr synchronization
 - [x] Implement Latino release preferences
 - [x] Implement Latino release auditing and upgrades

@@ -54,6 +54,7 @@ including:
 - optional private Prowlarr indexers with NAS-only credentials
 - qBittorrent categories and preferences
 - Sonarr and Radarr download clients and root folders
+- Seerr request-management integration with Sonarr and Radarr
 - Recyclarr synchronization
 - Latino Spanish custom formats and release policies
 - audio-description release rejection

@@ -4,10 +4,26 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+### Added
+
+- Automated Seerr configuration.
+- Automatic Sonarr integration for TV requests.
+- Automatic Radarr integrations for Movies and Kids Movies.
+- Automatic `Latino 1080p` profile and root-folder selection.
+- Seerr configuration and dry-run Make targets.
+- Seerr configuration in the normal deployment workflow.
+
 ### Documentation
 
+- Document Seerr request-management integration and automation.
 - Refresh project documentation to reflect the current architecture,
   deployment model, media automation, security protections, and roadmap.
+
+### Known Issues
+
+- Seerr currently accepts Jellyfin library enable requests but does not
+  persist the enabled library state. The automation detects and reports
+  this condition without failing deployment.
 
 ## v0.24.0
 

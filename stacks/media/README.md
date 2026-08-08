@@ -138,6 +138,36 @@ Run manually with:
 make configure-servarr
 ```
 
+## Seerr
+
+Seerr provides the request-management layer for the media stack.
+
+Users can search for movies and TV series through Seerr and submit requests.
+Seerr routes TV requests to Sonarr and movie requests to Radarr. Sonarr and
+Radarr then handle release selection, downloading, and library management.
+
+The repository automatically configures Seerr with:
+
+- Jellyfin as the media server
+- Sonarr for TV requests
+- Radarr Movies for normal movie requests
+- Radarr Kids Movies for kids movie requests
+- the `Latino 1080p` quality profile
+- the appropriate Sonarr and Radarr root folders
+- automatic Seerr initialization
+
+Run the managed configuration with `make configure-seerr`.
+
+Preview the configuration without applying changes with
+`make dry-run-seerr`.
+
+The Sonarr and Radarr configuration is reconciled idempotently.
+
+Jellyfin library selection is also attempted automatically. The current
+Seerr behavior accepts the library enable request but does not persist the
+enabled state. The automation detects this condition, reports a warning,
+and allows the rest of the configuration and deployment to continue.
+
 ## Latino Release Policy
 
 The media stack prefers Spanish Latino releases while allowing English
