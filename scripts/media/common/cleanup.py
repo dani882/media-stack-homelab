@@ -26,6 +26,10 @@ SAFE_WARNING_MARKERS = (
     "Not a Custom Format upgrade",
 )
 
+DANGEROUS_WARNING_MARKERS = (
+    "Found potentially dangerous file with extension",
+)
+
 
 class CleanupError(RuntimeError):
     pass
@@ -76,9 +80,24 @@ def has_safe_warning(
     )
 
 
+def has_dangerous_warning(
+    queue_item: dict[str, Any],
+) -> bool:
+    messages = queue_warning_messages(
+        queue_item
+    )
+
+    return any(
+        marker in message
+        for marker in DANGEROUS_WARNING_MARKERS
+        for message in messages
+    )
+
+
 def torrent_is_safe_to_remove(
     torrent: dict[str, Any],
     category: str,
+    require_seeding: bool = True,
 ) -> tuple[bool, str]:
     progress = float(
         torrent.get("progress", 0)
@@ -133,7 +152,10 @@ def torrent_is_safe_to_remove(
             f"state {state!r} is not safe"
         )
 
-    if seeding_minutes < MINIMUM_SEEDING_MINUTES:
+    if (
+        require_seeding
+        and seeding_minutes < MINIMUM_SEEDING_MINUTES
+    ):
         return False, (
             f"seeded only {seeding_minutes:.1f} minutes"
         )
@@ -219,7 +241,10 @@ def run_cleanup(
         ):
             continue
 
-        if not has_safe_warning(item):
+        dangerous = has_dangerous_warning(item)
+        normal_cleanup = has_safe_warning(item)
+
+        if not dangerous and not normal_cleanup:
             continue
 
         download_id = str(
@@ -245,6 +270,7 @@ def run_cleanup(
         safe, reason = torrent_is_safe_to_remove(
             torrent,
             config.category,
+            require_seeding=not dangerous,
         )
 
         if not safe:
@@ -269,11 +295,18 @@ def run_cleanup(
             / 60
         )
 
-        prefix = (
-            "WOULD CLEAN"
-            if dry_run
-            else "CLEANING"
-        )
+        if dangerous:
+            prefix = (
+                "WOULD REMOVE DANGEROUS"
+                if dry_run
+                else "REMOVING DANGEROUS"
+            )
+        else:
+            prefix = (
+                "WOULD CLEAN"
+                if dry_run
+                else "CLEANING"
+            )
 
         print()
         print(
@@ -320,8 +353,16 @@ def run_cleanup(
             + urllib.parse.urlencode(
                 {
                     "removeFromClient": "false",
-                    "blocklist": "false",
-                    "skipRedownload": "true",
+                    "blocklist": (
+                        "true"
+                        if dangerous
+                        else "false"
+                    ),
+                    "skipRedownload": (
+                        "false"
+                        if dangerous
+                        else "true"
+                    ),
                 }
             )
         )
