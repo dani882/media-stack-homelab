@@ -19,7 +19,10 @@ from common.arr import (
     ArrError as AuditError,
     read_api_key,
 )
-from common.latino import is_latino_release
+from common.latino import (
+    installed_is_latino,
+    is_latino_release,
+)
 
 
 def format_episode(
@@ -228,17 +231,8 @@ def main() -> int:
                 )
             ]
 
-            installed_latino = any(
-                (
-                    item.get("name", "")
-                    .startswith(
-                        LATINO_FORMAT_PREFIX
-                    )
-                )
-                for item in file_payload.get(
-                    "customFormats",
-                    []
-                )
+            installed_latino = installed_is_latino(
+                file_payload
             )
 
         best = (
