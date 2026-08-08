@@ -21,6 +21,7 @@ SCORES = {
     "[Latino] Spanish Latino": 7000,
     "[Latino] Spanish Latino + English": 7000,
     "[Latino] French Bonus": 250,
+    "[Audio] Audio Description": -10000,
 }
 
 

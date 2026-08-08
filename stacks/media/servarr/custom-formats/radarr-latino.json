@@ -121,5 +121,32 @@
         ]
       }
     ]
+  },
+  {
+    "name": "[Audio] Audio Description",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Audio Description marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:WITH[ ._-]+AUDIO[ ._-]+DESCRIPTION|AUDIO[ ._-]+DESCRIPTION|AUDIO[ ._-]+DESCRIBED|DESCRIPTIVE[ ._-]+AUDIO)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
   }
 ]
