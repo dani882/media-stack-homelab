@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr sync-recyclarr
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -13,7 +13,10 @@ lint:
 bootstrap:
 	@./scripts/bootstrap.sh
 
-check: shellcheck lint validate
+test:
+	@python3 -m unittest discover -s tests -p 'test_*.py'
+
+check: shellcheck lint validate test
 
 deploy:
 	@./scripts/deploy.sh
