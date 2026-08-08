@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr sync-recyclarr
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -39,6 +39,16 @@ configure-servarr:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-servarr.py"
+
+configure-seerr:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-seerr.py"
+
+dry-run-seerr:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-seerr.py --dry-run"
 
 configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
