@@ -1,8 +1,4 @@
-# ADR-0001
-
-## Decision
-
-Docker Compose is the deployment mechanism for all services.
+# ADR-0001: Use Docker Compose for Service Deployment
 
 ## Status
 
@@ -10,17 +6,45 @@ Accepted
 
 ## Context
 
-The UGREEN App Center simplifies installation but does not provide Infrastructure as Code.
+The UGREEN App Center provides a convenient installation mechanism but does
+not provide the reproducibility, portability, and version control required
+for an Infrastructure as Code workflow.
 
-Docker Compose enables:
+The homelab requires service definitions and deployment configuration that
+can be reviewed, tested, backed up, and recreated from Git.
 
-- version control
-- repeatable deployments
-- backups
-- portability
+## Decision
+
+Docker Compose is the standard deployment mechanism for homelab services.
+
+Application configuration should also be automated through configuration
+files, service APIs, or repository-managed scripts whenever practical.
+
+The NAS is treated as a deployment target rather than the primary location
+where configuration is authored.
 
 ## Consequences
 
-All future services will be deployed using Docker Compose.
+Benefits include:
 
-Existing App Center services will be migrated gradually.
+- version-controlled infrastructure
+- repeatable deployments
+- easier disaster recovery
+- portable service definitions
+- automated validation
+- reduced dependence on manual web-interface configuration
+
+The approach also requires maintaining:
+
+- Compose definitions
+- deployment automation
+- persistent configuration paths
+- secret-handling conventions
+- application configuration scripts
+- automated tests
+
+The production media stack has been migrated to Docker Compose, including
+Jellyfin and qBittorrent.
+
+Future homelab services should use the same deployment model unless a later
+ADR documents an exception.

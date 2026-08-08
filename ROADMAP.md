@@ -1,33 +1,86 @@
 # Roadmap
 
-## v0.3
+This roadmap tracks major homelab capabilities rather than assigning
+speculative version numbers to unfinished work.
 
-- [x] Migrate qBittorrent
+## Completed
 
-## v0.4
+### Infrastructure
 
-- [x] Migrate Jellyfin
+- [x] Establish Infrastructure as Code repository
+- [x] Adopt Docker Compose as the deployment model
+- [x] Add local validation and automated tests
+- [x] Add SSH-based NAS deployment automation
+- [x] Add Git pre-commit repository checks
 
-## v0.5
+### Media Platform
 
-- Configure Recyclarr
+- [x] Deploy Prowlarr
+- [x] Deploy Sonarr
+- [x] Deploy Radarr
+- [x] Deploy Bazarr
+- [x] Deploy Seerr
+- [x] Deploy FlareSolverr
+- [x] Deploy Recyclarr
+- [x] Migrate qBittorrent to Docker Compose
+- [x] Migrate Jellyfin to Docker Compose
+- [x] Preserve Jellyfin RKMPP hardware acceleration
+- [x] Automate Prowlarr configuration
+- [x] Automate qBittorrent configuration
+- [x] Automate Sonarr and Radarr configuration
+- [x] Automate Recyclarr synchronization
+- [x] Implement Latino release preferences
+- [x] Implement Latino release auditing and upgrades
+- [x] Reject Audio Description releases
+- [x] Automate stale completed-download cleanup
+- [x] Immediately remediate dangerous downloads
+- [x] Add optional private Prowlarr indexer support
+- [x] Keep private tracker credentials outside Git
 
-## v0.6
+## Next
 
-- Configure Bazarr
+### Media Platform
 
-## v0.7
+- [ ] Configure and validate private indexers
+- [ ] Expand automated integration testing
+- [ ] Improve backup and restore coverage
+- [ ] Document disaster-recovery procedures
+- [ ] Continue reducing manual application configuration
 
-- Configure Jellyseerr
+### Monitoring
 
-## v0.8
+- [ ] Select the monitoring toolchain
+- [ ] Collect host metrics
+- [ ] Collect container metrics
+- [ ] Add service-health monitoring
+- [ ] Add centralized logging
+- [ ] Add dashboards
+- [ ] Add alerting
 
-- AI Stack
+### AI
 
-## v0.9
+- [ ] Define the local AI architecture
+- [ ] Evaluate local inference workloads
+- [ ] Define model-storage strategy
+- [ ] Evaluate accelerator and GPU scheduling
+- [ ] Add reproducible AI development environments
 
-- Monitoring
+### Networking
 
-## v1.0
+- [ ] Document the current network architecture
+- [ ] Define networking automation requirements
 
-- Production Ready
+### Security
+
+- [ ] Define secrets-management strategy
+- [ ] Review service exposure and network boundaries
+- [ ] Add security-focused operational documentation
+
+## Long-Term Goals
+
+- reproducible recovery from a clean system
+- automated backups with tested restores
+- comprehensive observability
+- minimal manual service configuration
+- documented disaster recovery
+- production-ready security practices

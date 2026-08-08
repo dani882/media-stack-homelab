@@ -1,51 +1,160 @@
-# 🏠 Homelab
+# Homelab
 
-Infrastructure as Code for my personal homelab.
+Infrastructure as Code for a self-hosted homelab running on a UGREEN NAS.
 
-## Philosophy
+The repository is designed around reproducible, version-controlled
+configuration. Development and validation happen locally, while the NAS
+is treated as a deployment target.
 
-Everything is reproducible.
+## Principles
 
-No manual configuration should be required after initial hardware setup.
+- Infrastructure as Code
+- Reproducible deployments
+- Git-versioned configuration
+- Automated validation and testing
+- Minimal manual configuration
+- Automated maintenance
+- Secure handling of credentials
+- Backup and disaster-recovery readiness
+- Self-documenting infrastructure
 
-## Current stacks
+## Current Status
 
-- 📺 Media
-- 🤖 AI (planned)
-- 📈 Monitoring (planned)
-- 🌐 Networking (planned)
-- 🔐 Security (planned)
+The media stack is the primary production workload and is fully managed
+with Docker Compose.
 
----
+Current release: `v0.24.0`
+
+| Stack | Status |
+| --- | --- |
+| Media | Active |
+| AI | Planned |
+| Monitoring | Planned |
+| Networking | Planned |
+| Security | Planned |
+
+## Media Stack
+
+The current media platform includes:
+
+- Jellyfin
+- qBittorrent
+- Sonarr
+- Radarr
+- Prowlarr
+- Bazarr
+- Seerr
+- FlareSolverr
+- Recyclarr
+
+The repository also manages application configuration and media policies,
+including:
+
+- Prowlarr indexer configuration
+- optional private Prowlarr indexers with NAS-only credentials
+- qBittorrent categories and preferences
+- Sonarr and Radarr download clients and root folders
+- Recyclarr synchronization
+- Latino Spanish custom formats and release policies
+- audio-description release rejection
+- release auditing and upgrade automation
+- Sonarr and Radarr download cleanup
+- immediate cleanup and blocklisting of dangerous downloads
 
 ## Repository Layout
 
-```
+```text
 homelab/
-├── stacks/
-├── docs/
-├── templates/
-├── scripts/
-└── backups/
+|-- docs/               Architecture, ADRs, and operational documentation
+|-- scripts/            Deployment, configuration, audit, and maintenance tools
+|-- stacks/
+|   |-- ai/             Planned AI infrastructure
+|   |-- media/          Production media stack
+|   |-- monitoring/     Planned observability stack
+|   |-- networking/     Planned networking infrastructure
+|   `-- security/       Planned security infrastructure
+|-- templates/          Configuration templates
+|-- tests/              Automated tests
+|-- backups/            Backup workspace
+|-- Makefile            Development and operational commands
+`-- ROADMAP.md          Project roadmap
 ```
 
----
+## Deployment Model
 
-## Deployment Philosophy
+All production services are managed with Docker Compose.
 
-All services are managed with Docker Compose.
+The deployment workflow is:
 
-The NAS is a deployment target.
+1. Develop and modify configuration locally.
+2. Run repository validation and automated tests.
+3. Deploy configuration and scripts to the NAS over SSH.
+4. Validate the Compose configuration on the NAS.
+5. Pull and apply container images.
+6. Configure applications through their APIs.
+7. Synchronize managed policies and custom formats.
 
-Development happens locally.
+Runtime configuration and secrets remain on the NAS and are not committed
+to Git.
 
----
+## Validation
 
-## Goals
+Run the complete repository checks with:
 
-- Infrastructure as Code
-- Git versioned
-- Automated deployment
-- Automated backups
-- Disaster Recovery
-- Self-documenting infrastructure
+```bash
+make check
+```
+
+The checks include Compose validation, linting, shell checks, and automated
+tests.
+
+## Deployment
+
+Deploy the current configuration with:
+
+```bash
+make deploy
+```
+
+Individual configuration, auditing, upgrade, and cleanup operations are
+also exposed through Make targets. See the `Makefile` for the complete
+command list.
+
+## Secrets
+
+Secrets and tracker credentials must never be committed to the repository.
+
+Private Prowlarr indexer credentials are optionally loaded from the NAS:
+
+```text
+/volume1/docker/media-stack/secrets/prowlarr-private-indexers.json
+```
+
+A safe example is version controlled at:
+
+```text
+stacks/media/secrets/prowlarr-private-indexers.example.json
+```
+
+Private indexer templates currently exist for:
+
+- Lat-Team API
+- ChileBT API
+- BTArg
+
+Private indexers are configured only when their credentials are present in
+the NAS-side secret file.
+
+## Documentation
+
+Additional documentation:
+
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/adr/`](docs/adr/)
+- [`stacks/media/README.md`](stacks/media/README.md)
+- [`ROADMAP.md`](ROADMAP.md)
+- [`CHANGELOG.md`](CHANGELOG.md)
+
+## License
+
+See [`LICENSE`](LICENSE).
