@@ -19,6 +19,31 @@ DEFAULT_CONFIG_FILE = (
     "/volume1/docker/media-stack/config/prowlarr/config.xml"
 )
 
+PRIVATE_INDEXERS = {
+    "lat-team-api": {
+        "definition": "lat-team-api",
+        "enabled": True,
+        "priority": 5,
+        "minimum_seeders": 5,
+        "fields": {},
+    },
+    "chilebt-api": {
+        "definition": "chilebt-api",
+        "enabled": True,
+        "priority": 6,
+        "minimum_seeders": 5,
+        "fields": {},
+    },
+    "btarg": {
+        "definition": "btarg",
+        "enabled": True,
+        "priority": 7,
+        "minimum_seeders": 5,
+        "fields": {},
+    },
+}
+
+
 INDEXERS = [
     {
         "definition": "1337x",
@@ -79,6 +104,62 @@ INDEXERS = [
 
 class ProwlarrError(RuntimeError):
     pass
+
+
+def load_private_indexers(
+    secret_file: Path,
+) -> list[dict[str, Any]]:
+    if not secret_file.is_file():
+        print(
+            f"Private indexer secret not found: {secret_file}"
+        )
+        print("Skipping private Prowlarr indexers.")
+        return []
+
+    try:
+        payload = json.loads(
+            secret_file.read_text()
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise ProwlarrError(
+            f"Unable to read private indexer secret "
+            f"{secret_file}: {error}"
+        ) from error
+
+    if not isinstance(payload, dict):
+        raise ProwlarrError(
+            "Private indexer secret must contain a JSON object."
+        )
+
+    indexers: list[dict[str, Any]] = []
+
+    for definition, credentials in payload.items():
+        template = PRIVATE_INDEXERS.get(definition)
+
+        if template is None:
+            print(
+                f"SKIPPED private indexer: "
+                f"unsupported definition {definition}"
+            )
+            continue
+
+        if not isinstance(credentials, dict):
+            raise ProwlarrError(
+                f"Credentials for {definition} "
+                "must contain a JSON object."
+            )
+
+        desired = {
+            **template,
+            "fields": {
+                **template.get("fields", {}),
+                **credentials,
+            },
+        }
+
+        indexers.append(desired)
+
+    return indexers
 
 
 def read_api_key(config_file: Path) -> str:
@@ -430,6 +511,17 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--private-indexers-secret",
+        type=Path,
+        default=Path(
+            "/volume1/docker/media-stack/secrets/"
+            "prowlarr-private-indexers.json"
+        ),
+        help=(
+            "Optional JSON file with private indexer credentials."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -461,7 +553,16 @@ def main() -> int:
             for item in existing
         }
 
-        for desired in INDEXERS:
+        private_indexers = load_private_indexers(
+            arguments.private_indexers_secret
+        )
+
+        desired_indexers = [
+            *INDEXERS,
+            *private_indexers,
+        ]
+
+        for desired in desired_indexers:
             configure_indexer(
                 client,
                 schema_by_definition,

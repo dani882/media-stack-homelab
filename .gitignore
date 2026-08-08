@@ -44,3 +44,6 @@ backups/*
 !**/.env.example
 __pycache__/
 *.pyc
+
+# NAS-only private tracker credentials
+stacks/media/secrets/prowlarr-private-indexers.json
