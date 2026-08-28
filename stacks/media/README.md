@@ -292,6 +292,72 @@ make cleanup-sonarr-downloads
 make cleanup-radarr-downloads
 ```
 
+## Backup and Restore
+
+The media stack supports automated configuration backups and validated
+restores.
+
+Backups include persistent application configuration and state for:
+
+- Prowlarr
+- Sonarr
+- Radarr
+- Bazarr
+- Seerr
+- qBittorrent
+- Jellyfin configuration and metadata
+- Recyclarr state and configuration
+- NAS-local media-stack secrets
+
+Regenerable data such as logs, caches, application-generated backups,
+Sonarr/Radarr MediaCover, Recyclarr resources, Jellyfin cache, and generated
+keyframes is excluded.
+
+Backups are compressed with Zstandard and accompanied by a SHA-256 checksum.
+Backup archives and checksum files use restrictive permissions. NAS-local
+secret files are normalized to `0600 root:root`.
+
+Preview a backup with:
+
+```bash
+make dry-run-backup
+```
+
+Create a backup with:
+
+```bash
+make backup
+```
+
+The default backup retention period is 14 days.
+
+Preview a restore with:
+
+```bash
+make dry-run-restore \
+  BACKUP=/volume1/docker/media-stack/backups/media-stack-YYYYMMDDTHHMMSSZ.tar.zst
+```
+
+Run a live restore with:
+
+```bash
+make restore \
+  BACKUP=/volume1/docker/media-stack/backups/media-stack-YYYYMMDDTHHMMSSZ.tar.zst
+```
+
+Restore safety controls include:
+
+- SHA-256 checksum verification
+- rejection of unsafe archive paths
+- critical-file validation
+- preservation of numeric UID/GID ownership
+- automatic pre-restore safety backup
+- rollback storage for replaced live configuration
+- automatic rollback when restore fails
+- restored secret permission hardening
+- byte-for-byte integrity validation before service startup
+- restarting only services that were running before the restore
+
 ## Recyclarr
 
 Recyclarr synchronizes TRaSH Guides configuration with Sonarr and Radarr.

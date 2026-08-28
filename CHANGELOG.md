@@ -6,6 +6,17 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- Automated media-stack configuration backups.
+- Zstandard-compressed backup archives with SHA-256 verification.
+- Backup retention and regenerable-data exclusions.
+- Hardened backup handling for NAS-local secrets.
+- Validated media-stack configuration restore.
+- Automatic pre-restore safety backups.
+- Restore rollback protection.
+- Archive path and critical-content validation.
+- Restored secret permission hardening.
+- Pre-start byte-for-byte restore integrity validation.
+- Backup, dry-run backup, restore, and dry-run restore Make targets.
 - Automated Seerr configuration.
 - Automatic Sonarr integration for TV requests.
 - Automatic Radarr integrations for Movies and Kids Movies.
@@ -15,6 +26,7 @@ All notable changes to this repository are documented here.
 
 ### Documentation
 
+- Document media-stack backup and restore workflows and safety controls.
 - Document Seerr request-management integration and automation.
 - Refresh project documentation to reflect the current architecture,
   deployment model, media automation, security protections, and roadmap.

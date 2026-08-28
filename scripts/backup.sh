@@ -342,6 +342,14 @@ if [[ -d "$SECRETS_DIR" ]]; then
   | tar \
       -C "$WORK_DIR/secrets" \
       -xf -
+
+  chown root:root "$WORK_DIR/secrets"
+  chmod 0700 "$WORK_DIR/secrets"
+
+  find "$WORK_DIR/secrets" \
+    -type f \
+    -exec chown root:root {} + \
+    -exec chmod 0600 {} +
 fi
 
 echo

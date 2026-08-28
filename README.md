@@ -61,6 +61,8 @@ including:
 - release auditing and upgrade automation
 - Sonarr and Radarr download cleanup
 - immediate cleanup and blocklisting of dangerous downloads
+- automated media configuration backups with retention and checksums
+- validated media configuration restore with safety backup and rollback
 
 ## Repository Layout
 

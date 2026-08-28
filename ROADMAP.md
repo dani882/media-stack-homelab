@@ -45,7 +45,8 @@ speculative version numbers to unfinished work.
 
 - [ ] Configure and validate private indexers
 - [ ] Expand automated integration testing
-- [ ] Improve backup and restore coverage
+- [x] Implement automated media configuration backups
+- [x] Implement validated media configuration restore
 - [ ] Document disaster-recovery procedures
 - [ ] Continue reducing manual application configuration
 

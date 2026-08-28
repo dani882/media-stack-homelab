@@ -28,6 +28,7 @@ MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
 BACKUP_SCRIPT="${ROOT_DIR}/scripts/backup.sh"
+RESTORE_SCRIPT="${ROOT_DIR}/scripts/restore.sh"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -71,6 +72,7 @@ for required_file in \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
   "$BACKUP_SCRIPT" \
+  "$RESTORE_SCRIPT" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -159,6 +161,7 @@ REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
 REMOTE_BACKUP_TEMP="${REMOTE_STAGING}/backup-media-stack-${USER}-$$.sh"
+REMOTE_RESTORE_TEMP="${REMOTE_STAGING}/restore-media-stack-${USER}-$$.sh"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -419,6 +422,14 @@ echo "Uploading media backup script through SSH..."
   "cat > '${REMOTE_BACKUP_TEMP}'" \
   < "$BACKUP_SCRIPT"
 
+echo "Uploading media restore script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_RESTORE_TEMP}'" \
+  < "$RESTORE_SCRIPT"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -533,6 +544,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_BACKUP_TEMP}' \
     '${NAS_STACK_DIR}/backup.sh'
 
+  sudo install -m 0755 \
+    '${REMOTE_RESTORE_TEMP}' \
+    '${NAS_STACK_DIR}/restore.sh'
+
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
 
@@ -633,6 +648,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_BACKUP_TEMP}' \
+    '${REMOTE_RESTORE_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \
