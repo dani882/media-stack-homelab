@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+## v0.26.0 - 2026-08-28
+
 ### Added
 
 - Automatic recovery of stopped media-stack services with a systemd watchdog.
