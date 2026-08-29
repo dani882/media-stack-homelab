@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Media Stack Recovery Watchdog
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

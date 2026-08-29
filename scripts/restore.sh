@@ -6,6 +6,7 @@ DEFAULT_STACK_DIR="/volume1/docker/media-stack"
 
 STACK_DIR="${STACK_DIR:-$DEFAULT_STACK_DIR}"
 BACKUP_DIR="${BACKUP_DIR:-${STACK_DIR}/backups}"
+MAINTENANCE_LOCK="${MAINTENANCE_LOCK:-/run/lock/media-stack-maintenance.lock}"
 
 DRY_RUN=false
 TEST_PRE_RESTORE_BACKUP=false
@@ -104,7 +105,7 @@ require_command() {
   fi
 }
 
-for command in tar zstd sha256sum docker find awk stat; do
+for command in tar zstd sha256sum docker find awk stat flock; do
   require_command "$command"
 done
 
@@ -399,6 +400,12 @@ if [[ ! -x "${STACK_DIR}/backup.sh" ]]; then
   exit 1
 fi
 
+exec 9>"$MAINTENANCE_LOCK"
+
+echo
+echo "Waiting for media-stack maintenance lock..."
+flock 9
+
 echo
 echo "Creating pre-restore safety backup..."
 
@@ -406,6 +413,8 @@ BACKUP_SCRIPT="${STACK_DIR}/backup.sh"
 
 STACK_DIR="$STACK_DIR" \
 BACKUP_DIR="$BACKUP_DIR" \
+MAINTENANCE_LOCK="$MAINTENANCE_LOCK" \
+MEDIA_STACK_LOCK_HELD=true \
 "$BACKUP_SCRIPT"
 
 if "$TEST_PRE_RESTORE_BACKUP"; then

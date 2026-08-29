@@ -6,6 +6,10 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- Automatic recovery of stopped media-stack services with a systemd watchdog.
+- Five-minute watchdog scheduling with dynamic Docker Compose service discovery.
+- Maintenance locking between watchdog, backup, and restore operations.
+- Non-recreating service recovery with post-recovery state verification.
 - Automated media-stack configuration backups.
 - Zstandard-compressed backup archives with SHA-256 verification.
 - Backup retention and regenerable-data exclusions.
@@ -26,6 +30,7 @@ All notable changes to this repository are documented here.
 
 ### Documentation
 
+- Document media-stack runtime recovery behavior and watchdog limitations.
 - Document media-stack backup and restore workflows and safety controls.
 - Document Seerr request-management integration and automation.
 - Refresh project documentation to reflect the current architecture,

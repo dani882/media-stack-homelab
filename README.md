@@ -23,7 +23,7 @@ is treated as a deployment target.
 The media stack is the primary production workload and is fully managed
 with Docker Compose.
 
-Current release: `v0.24.0`
+Current release: `v0.25.0`
 
 | Stack | Status |
 | --- | --- |
@@ -63,6 +63,7 @@ including:
 - immediate cleanup and blocklisting of dangerous downloads
 - automated media configuration backups with retention and checksums
 - validated media configuration restore with safety backup and rollback
+- automatic recovery of stopped media-stack services through a systemd watchdog
 
 ## Repository Layout
 
@@ -99,6 +100,22 @@ The deployment workflow is:
 
 Runtime configuration and secrets remain on the NAS and are not committed
 to Git.
+
+### Runtime Recovery
+
+The media stack includes a systemd watchdog timer that checks the desired
+Docker Compose service state every five minutes. If one or more expected
+services are not running, the watchdog starts the stack with
+`docker compose up -d --no-recreate` and verifies that all expected services
+are running afterward.
+
+Backup and restore operations coordinate with the watchdog through a shared
+maintenance lock so that intentional service stops are not automatically
+reversed during maintenance.
+
+The watchdog only recovers Compose services that are not running. It does not
+perform application-level health monitoring, and it does not start or modify
+the Docker services managed by UGOS.
 
 ## Validation
 

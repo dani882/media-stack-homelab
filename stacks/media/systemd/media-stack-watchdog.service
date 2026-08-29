@@ -1,0 +1,7 @@
+[Unit]
+Description=Media Stack Recovery Watchdog
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/volume1/docker/media-stack/watchdog.sh

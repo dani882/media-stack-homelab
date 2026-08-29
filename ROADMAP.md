@@ -47,6 +47,7 @@ speculative version numbers to unfinished work.
 - [ ] Expand automated integration testing
 - [x] Implement automated media configuration backups
 - [x] Implement validated media configuration restore
+- [x] Add automatic recovery for stopped media-stack services
 - [ ] Document disaster-recovery procedures
 - [ ] Continue reducing manual application configuration
 

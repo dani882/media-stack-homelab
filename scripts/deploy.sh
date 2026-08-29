@@ -29,6 +29,9 @@ SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
 BACKUP_SCRIPT="${ROOT_DIR}/scripts/backup.sh"
 RESTORE_SCRIPT="${ROOT_DIR}/scripts/restore.sh"
+WATCHDOG_SCRIPT="${ROOT_DIR}/scripts/watchdog.sh"
+WATCHDOG_SERVICE="${STACK_DIR}/systemd/media-stack-watchdog.service"
+WATCHDOG_TIMER="${STACK_DIR}/systemd/media-stack-watchdog.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -73,6 +76,9 @@ for required_file in \
   "$SEERR_SCRIPT" \
   "$BACKUP_SCRIPT" \
   "$RESTORE_SCRIPT" \
+  "$WATCHDOG_SCRIPT" \
+  "$WATCHDOG_SERVICE" \
+  "$WATCHDOG_TIMER" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -162,6 +168,9 @@ REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
 REMOTE_BACKUP_TEMP="${REMOTE_STAGING}/backup-media-stack-${USER}-$$.sh"
 REMOTE_RESTORE_TEMP="${REMOTE_STAGING}/restore-media-stack-${USER}-$$.sh"
+REMOTE_WATCHDOG_TEMP="${REMOTE_STAGING}/watchdog-media-stack-${USER}-$$.sh"
+REMOTE_WATCHDOG_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-watchdog-${USER}-$$.service"
+REMOTE_WATCHDOG_TIMER_TEMP="${REMOTE_STAGING}/media-stack-watchdog-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -430,6 +439,28 @@ echo "Uploading media restore script through SSH..."
   "cat > '${REMOTE_RESTORE_TEMP}'" \
   < "$RESTORE_SCRIPT"
 
+echo "Uploading media watchdog script through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_WATCHDOG_TEMP}'" \
+  < "$WATCHDOG_SCRIPT"
+
+echo "Uploading media watchdog systemd units through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_WATCHDOG_SERVICE_TEMP}'" \
+  < "$WATCHDOG_SERVICE"
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_WATCHDOG_TIMER_TEMP}'" \
+  < "$WATCHDOG_TIMER"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -548,6 +579,21 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RESTORE_TEMP}' \
     '${NAS_STACK_DIR}/restore.sh'
 
+  sudo install -m 0755 \
+    '${REMOTE_WATCHDOG_TEMP}' \
+    '${NAS_STACK_DIR}/watchdog.sh'
+
+  sudo install -m 0644 \
+    '${REMOTE_WATCHDOG_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-watchdog.service
+
+  sudo install -m 0644 \
+    '${REMOTE_WATCHDOG_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-watchdog.timer
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now media-stack-watchdog.timer
+
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
 
@@ -649,6 +695,9 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_BACKUP_TEMP}' \
     '${REMOTE_RESTORE_TEMP}' \
+    '${REMOTE_WATCHDOG_TEMP}' \
+    '${REMOTE_WATCHDOG_SERVICE_TEMP}' \
+    '${REMOTE_WATCHDOG_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \

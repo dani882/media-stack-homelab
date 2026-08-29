@@ -8,6 +8,8 @@ DEFAULT_RETENTION_DAYS=14
 STACK_DIR="${STACK_DIR:-$DEFAULT_STACK_DIR}"
 BACKUP_DIR="${BACKUP_DIR:-${STACK_DIR}/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-$DEFAULT_RETENTION_DAYS}"
+MAINTENANCE_LOCK="${MAINTENANCE_LOCK:-/run/lock/media-stack-maintenance.lock}"
+MEDIA_STACK_LOCK_HELD="${MEDIA_STACK_LOCK_HELD:-false}"
 
 DRY_RUN=false
 
@@ -79,7 +81,7 @@ require_command() {
   fi
 }
 
-for command in tar zstd sha256sum docker find; do
+for command in tar zstd sha256sum docker find flock; do
   require_command "$command"
 done
 
@@ -202,6 +204,13 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 mkdir -p "$WORK_DIR"
+
+if ! "$MEDIA_STACK_LOCK_HELD"; then
+  exec 9>"$MAINTENANCE_LOCK"
+  echo
+  echo "Waiting for media-stack maintenance lock..."
+  flock 9
+fi
 
 echo
 echo "Stopping currently running database-writing services..."
