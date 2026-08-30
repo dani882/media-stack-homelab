@@ -210,12 +210,15 @@ docker compose \
   --profile profilarr up -d
 ```
 
-Current pilot image pin:
+Default pilot image channel:
 
 ```text
-ghcr.io/dictionarry-hub/profilarr:2.1.0
-ghcr.io/dictionarry-hub/profilarr-parser:2.1.0
+ghcr.io/dictionarry-hub/profilarr:latest
+ghcr.io/dictionarry-hub/profilarr-parser:latest
 ```
+
+If you want to test a specific release, override `PROFILARR_TAG` in
+`stacks/media/env/.env`.
 
 This keeps the evaluation reversible and isolated from the production
 configuration path.

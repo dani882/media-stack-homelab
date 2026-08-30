@@ -87,7 +87,7 @@ services:
 
   profilarr:
     profiles: ["profilarr"]
-    image: ghcr.io/dictionarry-hub/profilarr:${PROFILARR_TAG:-2.1.0}
+    image: ghcr.io/dictionarry-hub/profilarr:${PROFILARR_TAG:-latest}
     container_name: profilarr
     restart: unless-stopped
     environment:
@@ -107,7 +107,7 @@ services:
 
   profilarr-parser:
     profiles: ["profilarr"]
-    image: ghcr.io/dictionarry-hub/profilarr-parser:${PROFILARR_TAG:-2.1.0}
+    image: ghcr.io/dictionarry-hub/profilarr-parser:${PROFILARR_TAG:-latest}
     container_name: profilarr-parser
     restart: unless-stopped
     expose:

@@ -54,7 +54,7 @@ dry-run-restore:
 	   sudo -n ./restore.sh --dry-run '$${BACKUP}'"
 
 configure-prowlarr:
-	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-prowlarr.py"
 
@@ -68,7 +68,7 @@ sync-recyclarr:
 	   sudo -n python3 ./configure-radarr-policy.py"
 
 configure-servarr:
-	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-servarr.py"
 
