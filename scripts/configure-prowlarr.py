@@ -20,6 +20,16 @@ DEFAULT_CONFIG_FILE = (
 )
 
 PRIVATE_INDEXERS = {
+    "milnueve-api": {
+        "definition": "milnueve-api",
+        "enabled": True,
+        "priority": 4,
+        "minimum_seeders": 1,
+        "fields": {
+            "torrentBaseSettings.seedTime": 5760,
+            "freeleech": False,
+        },
+    },
     "lat-team-api": {
         "definition": "lat-team-api",
         "enabled": True,

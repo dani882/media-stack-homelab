@@ -130,6 +130,23 @@ def torrent_is_safe_to_remove(
         seeding_seconds / 60
     )
 
+    seeding_time_limit = int(
+        torrent.get("seeding_time_limit", -1)
+        or -1
+    )
+
+    required_seeding_minutes = (
+        MINIMUM_SEEDING_MINUTES
+        if require_seeding
+        else 0.0
+    )
+
+    if seeding_time_limit >= 0:
+        required_seeding_minutes = max(
+            required_seeding_minutes,
+            float(seeding_time_limit),
+        )
+
     if torrent_category != category:
         return False, (
             f"category is {torrent_category!r}, "
@@ -152,12 +169,10 @@ def torrent_is_safe_to_remove(
             f"state {state!r} is not safe"
         )
 
-    if (
-        require_seeding
-        and seeding_minutes < MINIMUM_SEEDING_MINUTES
-    ):
+    if seeding_minutes < required_seeding_minutes:
         return False, (
-            f"seeded only {seeding_minutes:.1f} minutes"
+            f"seeded only {seeding_minutes:.1f} minutes; "
+            f"requires {required_seeding_minutes:.1f} minutes"
         )
 
     return True, "safe"

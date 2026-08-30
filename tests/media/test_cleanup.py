@@ -80,6 +80,107 @@ class CleanupHelpersTest(unittest.TestCase):
             reason,
         )
 
+    def test_default_seed_limit_rejects_29_minutes(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["seeding_time"] = 29 * 60
+        torrent["seeding_time_limit"] = -2
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "requires 30.0 minutes",
+            reason,
+        )
+
+    def test_default_seed_limit_accepts_30_minutes(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["seeding_time"] = 30 * 60
+        torrent["seeding_time_limit"] = -2
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertTrue(safe)
+        self.assertEqual(reason, "safe")
+
+    def test_per_torrent_limit_cannot_reduce_default(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["seeding_time"] = 20 * 60
+        torrent["seeding_time_limit"] = 10
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "requires 30.0 minutes",
+            reason,
+        )
+
+    def test_per_torrent_limit_accepts_default_boundary(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["seeding_time"] = 30 * 60
+        torrent["seeding_time_limit"] = 10
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertTrue(safe)
+        self.assertEqual(reason, "safe")
+
+    def test_private_tracker_rejects_before_96_hours(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 5759 * 60
+        torrent["seeding_time_limit"] = 5760
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "requires 5760.0 minutes",
+            reason,
+        )
+
+    def test_private_tracker_accepts_at_96_hours(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 5760 * 60
+        torrent["seeding_time_limit"] = 5760
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertTrue(safe)
+        self.assertEqual(reason, "safe")
+
     def test_dangerous_cleanup_skips_seeding_wait(
         self,
     ) -> None:
@@ -94,6 +195,43 @@ class CleanupHelpersTest(unittest.TestCase):
             reason,
             "safe",
         )
+
+    def test_dangerous_private_tracker_still_requires_seed_limit(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 60 * 60
+        torrent["seeding_time_limit"] = 5760
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+            require_seeding=False,
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "requires 5760.0 minutes",
+            reason,
+        )
+
+    def test_dangerous_private_tracker_can_remove_after_seed_limit(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 5760 * 60
+        torrent["seeding_time_limit"] = 5760
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+            require_seeding=False,
+        )
+
+        self.assertTrue(safe)
+        self.assertEqual(reason, "safe")
 
     def test_dangerous_cleanup_still_requires_complete(
         self,
