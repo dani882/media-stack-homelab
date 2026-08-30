@@ -52,6 +52,7 @@ including:
 
 - Prowlarr indexer configuration
 - optional private Prowlarr indexers with NAS-only credentials
+- Milnueve private tracker integration with 96-hour seeding protection
 - qBittorrent categories and preferences
 - Sonarr and Radarr download clients and root folders
 - Seerr request-management integration with Sonarr and Radarr

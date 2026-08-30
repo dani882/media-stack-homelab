@@ -38,6 +38,7 @@ speculative version numbers to unfinished work.
 - [x] Immediately remediate dangerous downloads
 - [x] Add optional private Prowlarr indexer support
 - [x] Keep private tracker credentials outside Git
+- [x] Integrate and validate first production private tracker
 
 ## Next
 

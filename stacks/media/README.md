@@ -82,6 +82,19 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
+Milnueve is currently the first production private tracker integrated with
+the stack. Its API credential remains NAS-local and is loaded from the
+private indexer secret file.
+
+Managed Milnueve policy includes:
+
+- Prowlarr priority `4`
+- minimum seeders `1`
+- 96-hour (`5760` minute) per-torrent seeding requirement
+- automatic propagation through Prowlarr to Sonarr and Radarr
+- qBittorrent per-torrent seeding limits
+- cleanup protection that honors tracker-provided seeding limits
+
 Supported templates currently include:
 
 - Lat-Team
@@ -263,7 +276,8 @@ Dangerous completed downloads are:
 5. blocklisted
 6. allowed to be searched again using another release
 
-Dangerous downloads bypass the normal seeding wait.
+Dangerous downloads may bypass the normal local seeding wait, but explicit
+per-torrent seeding limits supplied by private trackers are always honored.
 
 ## Download Cleanup
 

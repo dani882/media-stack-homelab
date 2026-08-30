@@ -8,6 +8,9 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- Milnueve private tracker integration through Prowlarr.
+- Tracker-specific 96-hour seeding enforcement through qBittorrent.
+- Cleanup protection for explicit per-torrent private tracker seeding limits.
 - Automatic recovery of stopped media-stack services with a systemd watchdog.
 - Five-minute watchdog scheduling with dynamic Docker Compose service discovery.
 - Maintenance locking between watchdog, backup, and restore operations.
