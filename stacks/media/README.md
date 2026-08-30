@@ -220,8 +220,15 @@ ghcr.io/dictionarry-hub/profilarr-parser:latest
 If you want to test a specific release, override `PROFILARR_TAG` in
 `stacks/media/env/.env`.
 
+
 This keeps the evaluation reversible and isolated from the production
 configuration path.
+
+Bootstrap or recover the Profilarr admin credentials automatically with:
+
+```bash
+make configure-profilarr
+```
 
 ## Latino Release Policy
 
