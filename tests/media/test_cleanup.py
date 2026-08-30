@@ -165,6 +165,44 @@ class CleanupHelpersTest(unittest.TestCase):
             reason,
         )
 
+    def test_private_tracker_without_limit_is_never_removed(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 10000 * 60
+        torrent["seeding_time_limit"] = -1
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "private torrent has no finite positive",
+            reason,
+        )
+
+    def test_private_tracker_with_global_limit_is_not_assumed_safe(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 10000 * 60
+        torrent["seeding_time_limit"] = -2
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn(
+            "private torrent has no finite positive",
+            reason,
+        )
+
     def test_private_tracker_accepts_at_96_hours(
         self,
     ) -> None:

@@ -19,9 +19,9 @@ from common.arr import (
     ArrError as UpgradeError,
     read_api_key,
 )
-from common.latino import (
-    best_latino_release,
-    installed_is_latino,
+from common.language import (
+    best_language_upgrade,
+    language_name,
 )
 
 
@@ -75,6 +75,7 @@ def process_series(
     client: SonarrClient,
     series: dict[str, Any],
     season_filter: int | None,
+    episode_filter: int | None,
     dry_run: bool,
 ) -> tuple[int, int]:
     series_id = int(series["id"])
@@ -118,6 +119,12 @@ def process_series(
         ):
             continue
 
+        if (
+            episode_filter is not None
+            and episode_number != episode_filter
+        ):
+            continue
+
         if not episode.get("monitored", False):
             continue
 
@@ -132,9 +139,6 @@ def process_series(
             file_payload = files_by_id.get(
                 int(episode_file_id)
             )
-
-        if installed_is_latino(file_payload):
-            continue
 
         label = format_episode(
             season_number,
@@ -155,21 +159,12 @@ def process_series(
             )
         )
 
-        best = best_latino_release(
-            releases
+        best = best_language_upgrade(
+            file_payload,
+            releases,
         )
 
         if best is None:
-            continue
-
-        approved = bool(
-            best.get("approved", False)
-        )
-        rejected = bool(
-            best.get("rejected", False)
-        )
-
-        if not approved or rejected:
             continue
 
         score = int(
@@ -193,6 +188,13 @@ def process_series(
             "",
         )
 
+        installed_language = language_name(
+            file_payload
+        )
+        candidate_language = language_name(
+            best
+        )
+
         actionable += 1
 
         prefix = (
@@ -203,6 +205,8 @@ def process_series(
 
         print(
             f"{prefix}: {label} "
+            f"{installed_language} -> "
+            f"{candidate_language} "
             f"score={score} "
             f"seeders={seeders}"
         )
@@ -213,7 +217,8 @@ def process_series(
         if dry_run:
             continue
 
-        client.post(
+        client.request(
+            "POST",
             "/release",
             best,
         )
@@ -226,8 +231,8 @@ def process_series(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Upgrade monitored Sonarr episodes to "
-            "approved Latino releases."
+            "Upgrade monitored Sonarr episodes using "
+            "language preference ranking."
         )
     )
 
@@ -245,6 +250,15 @@ def main() -> int:
         help=(
             "Only process one season. "
             "Requires --series."
+        ),
+    )
+
+    parser.add_argument(
+        "--episode",
+        type=int,
+        help=(
+            "Only process one episode number. "
+            "Requires --series and --season."
         ),
     )
 
@@ -274,6 +288,17 @@ def main() -> int:
     ):
         parser.error(
             "--season requires --series"
+        )
+
+    if (
+        args.episode is not None
+        and (
+            not args.series
+            or args.season is None
+        )
+    ):
+        parser.error(
+            "--episode requires --series and --season"
         )
 
     api_key = read_api_key(
@@ -312,6 +337,7 @@ def main() -> int:
             client,
             series,
             args.season,
+            args.episode,
             args.dry_run,
         )
 
@@ -324,7 +350,7 @@ def main() -> int:
         f"Series processed: {len(selected)}"
     )
     print(
-        f"Actionable Latino upgrades: "
+        f"Actionable language upgrades: "
         f"{total_actionable}"
     )
 

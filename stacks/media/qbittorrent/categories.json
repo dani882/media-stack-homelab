@@ -1,10 +1,10 @@
 [
   {
     "name": "movies",
-    "save_path": "/downloads/complete/movies"
+    "save_path": "/data/Downloads/complete/movies"
   },
   {
     "name": "tv",
-    "save_path": "/downloads/complete/tv"
+    "save_path": "/data/Downloads/complete/tv"
   }
 ]

@@ -20,6 +20,8 @@ PROFILE_NAME = "Latino 1080p"
 SCORES = {
     "[Latino] Spanish Latino": 7000,
     "[Latino] Spanish Latino + English": 7000,
+    "[Spanish] Castellano": 5000,
+    "[Spanish] Castellano + English": 5000,
     "[Latino] French Bonus": 250,
     "[Audio] Audio Description": -10000,
 }

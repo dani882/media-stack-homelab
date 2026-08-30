@@ -122,9 +122,14 @@ qBittorrent configuration is automated.
 Managed categories include:
 
 ```text
-movies -> /downloads/complete/movies
-tv     -> /downloads/complete/tv
+movies -> /data/Downloads/complete/movies
+tv     -> /data/Downloads/complete/tv
 ```
+
+Radarr uses the separate `radarr` category. Its qBittorrent category
+save path is intentionally empty, so Automatic Torrent Management
+resolves new downloads beneath the default path as
+`/data/Downloads/radarr`.
 
 Run manually with:
 

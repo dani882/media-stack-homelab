@@ -16,9 +16,10 @@ from typing import Any
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 DEFAULT_URL = "http://127.0.0.1:7878"
 PROFILE_NAME = "Latino 1080p"
-# Let Radarr accept the original release language as a fallback.
-# Latino preference is enforced through the [Latino] custom formats.
-LANGUAGE_NAME = "Original"
+# Accept any release language so language preference can be enforced
+# through custom-format scoring:
+# Latino > Castellano > English/original.
+LANGUAGE_NAME = "Any"
 QUALITY_NAME = "HDTV-1080p"
 MIN_SIZE_MB_PER_MINUTE = 15.0
 

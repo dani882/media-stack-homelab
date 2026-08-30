@@ -26,6 +26,7 @@ sonarr:
           enabled: true
           except_patterns:
             - ^\[Latino\]
+            - ^\[Spanish\]
             - ^\[Audio\]
         upgrade:
           allowed: true
@@ -63,6 +64,7 @@ radarr:
           enabled: true
           except_patterns:
             - ^\[Latino\]
+            - ^\[Spanish\]
             - ^\[Audio\]
         upgrade:
           allowed: true

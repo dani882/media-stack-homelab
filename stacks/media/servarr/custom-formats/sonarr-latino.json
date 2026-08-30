@@ -123,6 +123,144 @@
     ]
   },
   {
+    "name": "[Spanish] Castellano",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Spanish / Castellano marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "Exclude Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": true,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?|YERISAN710|USERHEVC|URBIN4HD|DAV1NCI|DUAL[ ._-]*(?:AUD[Ii]O[ ._-]*)?(?:SPA[ ._-]*ENG|ENG[ ._-]*SPA|ESP[ ._-]*ENG|ENG[ ._-]*ESP))\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "Exclude English marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": true,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:ENG|ENGLISH)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "[Spanish] Castellano + English",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Spanish / Castellano marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "English marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:ENG|ENGLISH)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "Exclude Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": true,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Custom Format RegEx is Case Insensitive",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?|YERISAN710|USERHEVC|URBIN4HD|DAV1NCI|DUAL[ ._-]*(?:AUD[Ii]O[ ._-]*)?(?:SPA[ ._-]*ENG|ENG[ ._-]*SPA|ESP[ ._-]*ENG|ENG[ ._-]*ESP))\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
     "name": "[Audio] Audio Description",
     "includeCustomFormatWhenRenaming": false,
     "specifications": [

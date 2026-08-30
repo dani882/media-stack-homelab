@@ -51,7 +51,7 @@ def main() -> int:
             args.stack_dir
             / "config/radarr/config.xml"
         ),
-        category="movies",
+        category="radarr",
         include_unknown_key=(
             "includeUnknownMovieItems"
         ),

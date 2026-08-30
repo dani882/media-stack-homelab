@@ -135,13 +135,26 @@ def torrent_is_safe_to_remove(
         or -1
     )
 
+    private_torrent = (
+        torrent.get("private") is True
+    )
+
+    if (
+        private_torrent
+        and seeding_time_limit <= 0
+    ):
+        return False, (
+            "private torrent has no finite positive "
+            "seeding time limit"
+        )
+
     required_seeding_minutes = (
         MINIMUM_SEEDING_MINUTES
         if require_seeding
         else 0.0
     )
 
-    if seeding_time_limit >= 0:
+    if seeding_time_limit > 0:
         required_seeding_minutes = max(
             required_seeding_minutes,
             float(seeding_time_limit),

@@ -30,7 +30,7 @@ PROFILE_NAME = "Latino 1080p"
 SONARR_NAME = "Sonarr Main"
 SONARR_HOST = "sonarr"
 SONARR_PORT = 8989
-SONARR_ROOT = "/media/TV Shows"
+SONARR_ROOT = "/data/Media/TV Shows"
 
 RADARR_HOST = "radarr"
 RADARR_PORT = 7878
@@ -38,12 +38,12 @@ RADARR_PORT = 7878
 RADARR_INSTANCES = (
     {
         "name": "Radarr Movies",
-        "directory": "/media/Movies",
+        "directory": "/data/Media/Movies",
         "isDefault": True,
     },
     {
         "name": "Radarr Kids Movies",
-        "directory": "/media/Kids Movies",
+        "directory": "/data/Media/Kids Movies",
         "isDefault": False,
     },
 )
@@ -287,10 +287,17 @@ def configure_jellyfin_libraries(
     client: SeerrClient,
     dry_run: bool,
 ) -> None:
-    libraries = client.request(
+    jellyfin = client.request(
         "GET",
-        "/settings/jellyfin/library?sync=true",
+        "/settings/jellyfin",
     )
+
+    if not isinstance(jellyfin, dict):
+        raise SeerrError(
+            "Unexpected Jellyfin settings response."
+        )
+
+    libraries = jellyfin.get("libraries")
 
     if not isinstance(libraries, list):
         raise SeerrError(
@@ -349,24 +356,19 @@ def configure_jellyfin_libraries(
         safe=",",
     )
 
-    client.request(
+    updated = client.request(
         "GET",
         f"/settings/jellyfin/library?{query}",
     )
 
-    persisted = client.request(
-        "GET",
-        "/settings/jellyfin/library",
-    )
-
-    if not isinstance(persisted, list):
+    if not isinstance(updated, list):
         raise SeerrError(
             "Unexpected persisted Jellyfin library response."
         )
 
     persisted_names = {
         str(item.get("name"))
-        for item in persisted
+        for item in updated
         if item.get("enabled")
     }
 
@@ -377,16 +379,11 @@ def configure_jellyfin_libraries(
         )
         return
 
-    print(
-        "WARNING: Seerr accepted the Jellyfin library "
-        "update but did not persist it."
-    )
-    print(
-        "Expected: "
+    raise SeerrError(
+        "Seerr accepted the Jellyfin library update but did "
+        "not persist it. Expected "
         + ", ".join(JELLYFIN_LIBRARIES)
-    )
-    print(
-        "Persisted: "
+        + ". Persisted "
         + (
             ", ".join(sorted(persisted_names))
             if persisted_names
@@ -615,10 +612,22 @@ def print_summary(
         "GET",
         "/settings/radarr",
     )
-    libraries = client.request(
+    jellyfin = client.request(
         "GET",
-        "/settings/jellyfin/library",
+        "/settings/jellyfin",
     )
+
+    if not isinstance(jellyfin, dict):
+        raise SeerrError(
+            "Unexpected Jellyfin settings response."
+        )
+
+    libraries = jellyfin.get("libraries")
+
+    if not isinstance(libraries, list):
+        raise SeerrError(
+            "Unexpected Jellyfin library response."
+        )
 
     enabled_libraries = [
         item.get("name")

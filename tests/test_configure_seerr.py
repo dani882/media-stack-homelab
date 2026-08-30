@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-import io
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
 
 
@@ -81,14 +79,14 @@ class SeerrLookupTest(unittest.TestCase):
     def test_find_root_folder(self):
         probe = {
             "rootFolders": [
-                {"id": 1, "path": "/media/TV Shows"},
-                {"id": 2, "path": "/media/Movies"},
+                {"id": 1, "path": "/data/Media/TV Shows"},
+                {"id": 2, "path": "/data/Media/Movies"},
             ]
         }
 
         result = MODULE.find_root_folder(
             probe,
-            "/media/Movies",
+            "/data/Media/Movies",
         )
 
         self.assertEqual(result["id"], 2)
@@ -96,20 +94,20 @@ class SeerrLookupTest(unittest.TestCase):
     def test_find_root_folder_error_lists_available(self):
         probe = {
             "rootFolders": [
-                {"id": 1, "path": "/media/Movies"},
+                {"id": 1, "path": "/data/Media/Movies"},
             ]
         }
 
         with self.assertRaises(MODULE.SeerrError) as context:
             MODULE.find_root_folder(
                 probe,
-                "/media/Kids Movies",
+                "/data/Media/Kids Movies",
             )
 
         message = str(context.exception)
 
-        self.assertIn("/media/Kids Movies", message)
-        self.assertIn("/media/Movies", message)
+        self.assertIn("/data/Media/Kids Movies", message)
+        self.assertIn("/data/Media/Movies", message)
 
 
 class SeerrBuilderTest(unittest.TestCase):
@@ -124,7 +122,7 @@ class SeerrBuilderTest(unittest.TestCase):
             "rootFolders": [
                 {
                     "id": 1,
-                    "path": "/media/TV Shows",
+                    "path": "/data/Media/TV Shows",
                 }
             ],
         }
@@ -143,7 +141,7 @@ class SeerrBuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             result["activeDirectory"],
-            "/media/TV Shows",
+            "/data/Media/TV Shows",
         )
         self.assertTrue(result["enableSeasonFolders"])
         self.assertTrue(result["isDefault"])
@@ -161,7 +159,7 @@ class SeerrBuilderTest(unittest.TestCase):
             "rootFolders": [
                 {
                     "id": 1,
-                    "path": "/media/Movies",
+                    "path": "/data/Media/Movies",
                 }
             ],
         }
@@ -171,7 +169,7 @@ class SeerrBuilderTest(unittest.TestCase):
             probe,
             {
                 "name": "Radarr Movies",
-                "directory": "/media/Movies",
+                "directory": "/data/Media/Movies",
                 "isDefault": True,
             },
         )
@@ -182,7 +180,7 @@ class SeerrBuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             result["activeDirectory"],
-            "/media/Movies",
+            "/data/Media/Movies",
         )
         self.assertTrue(result["isDefault"])
         self.assertEqual(
@@ -201,7 +199,7 @@ class SeerrBuilderTest(unittest.TestCase):
             "rootFolders": [
                 {
                     "id": 2,
-                    "path": "/media/Kids Movies",
+                    "path": "/data/Media/Kids Movies",
                 }
             ],
         }
@@ -211,7 +209,7 @@ class SeerrBuilderTest(unittest.TestCase):
             probe,
             {
                 "name": "Radarr Kids Movies",
-                "directory": "/media/Kids Movies",
+                "directory": "/data/Media/Kids Movies",
                 "isDefault": False,
             },
         )
@@ -222,7 +220,7 @@ class SeerrBuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             result["activeDirectory"],
-            "/media/Kids Movies",
+            "/data/Media/Kids Movies",
         )
         self.assertFalse(result["isDefault"])
 
@@ -238,7 +236,7 @@ class SeerrServiceReconciliationTest(unittest.TestCase):
             "baseUrl": "",
             "activeProfileId": 7,
             "activeProfileName": "Latino 1080p",
-            "activeDirectory": "/media/TV Shows",
+            "activeDirectory": "/data/Media/TV Shows",
             "is4k": False,
             "isDefault": True,
             "syncEnabled": True,
@@ -419,8 +417,8 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             {
                 (
                     "GET",
-                    "/settings/jellyfin/library?sync=true",
-                ): self.enabled,
+                    "/settings/jellyfin",
+                ): {"libraries": self.enabled},
             }
         )
 
@@ -436,8 +434,8 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             {
                 (
                     "GET",
-                    "/settings/jellyfin/library?sync=true",
-                ): self.disabled,
+                    "/settings/jellyfin",
+                ): {"libraries": self.disabled},
             }
         )
 
@@ -453,8 +451,8 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             {
                 (
                     "GET",
-                    "/settings/jellyfin/library?sync=true",
-                ): self.disabled[:2],
+                    "/settings/jellyfin",
+                ): {"libraries": self.disabled[:2]},
             }
         )
 
@@ -474,13 +472,9 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             {
                 (
                     "GET",
-                    "/settings/jellyfin/library?sync=true",
-                ): self.disabled,
+                    "/settings/jellyfin",
+                ): {"libraries": self.disabled},
                 ("GET", update_path): self.enabled,
-                (
-                    "GET",
-                    "/settings/jellyfin/library",
-                ): self.enabled,
             }
         )
 
@@ -489,9 +483,9 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             False,
         )
 
-        self.assertEqual(len(client.calls), 3)
+        self.assertEqual(len(client.calls), 2)
 
-    def test_library_enable_not_persisted_warns(self):
+    def test_library_enable_not_persisted_raises(self):
         update_path = (
             "/settings/jellyfin/library?"
             "sync=true&enable=movies-id,kids-id,series-id"
@@ -501,19 +495,13 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             {
                 (
                     "GET",
-                    "/settings/jellyfin/library?sync=true",
-                ): self.disabled,
-                ("GET", update_path): self.enabled,
-                (
-                    "GET",
-                    "/settings/jellyfin/library",
-                ): self.disabled,
+                    "/settings/jellyfin",
+                ): {"libraries": self.disabled},
+                ("GET", update_path): self.disabled,
             }
         )
 
-        output = io.StringIO()
-
-        with redirect_stdout(output):
+        with self.assertRaises(MODULE.SeerrError) as context:
             MODULE.configure_jellyfin_libraries(
                 client,
                 False,
@@ -521,12 +509,13 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
 
         self.assertIn(
             "did not persist",
-            output.getvalue(),
+            str(context.exception),
         )
         self.assertIn(
-            "Persisted: none",
-            output.getvalue(),
+            "Persisted none",
+            str(context.exception),
         )
+        self.assertEqual(len(client.calls), 2)
 
 
 class SeerrInitializationTest(unittest.TestCase):

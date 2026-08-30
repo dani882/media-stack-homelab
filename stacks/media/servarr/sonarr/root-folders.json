@@ -1,17 +1,17 @@
 [
   {
-    "path": "/media/TV Shows",
+    "path": "/data/Media/TV Shows",
     "accessible": true,
     "freeSpace": 10696102699008,
     "unmappedFolders": [
       {
         "name": "Pokemon",
-        "path": "/media/TV Shows/Pokemon",
+        "path": "/data/Media/TV Shows/Pokemon",
         "relativePath": "Pokemon"
       },
       {
         "name": "Ranma y medio",
-        "path": "/media/TV Shows/Ranma y medio",
+        "path": "/data/Media/TV Shows/Ranma y medio",
         "relativePath": "Ranma y medio"
       }
     ]

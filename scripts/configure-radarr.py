@@ -14,8 +14,8 @@ from typing import Any
 
 
 ROOT_FOLDERS = {
-    "movies": "/media/Movies",
-    "kids": "/media/Kids Movies",
+    "movies": "/data/Media/Movies",
+    "kids": "/data/Media/Kids Movies",
 }
 
 

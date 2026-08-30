@@ -24,6 +24,7 @@ MEDIA_COMMON_ARR="${MEDIA_COMMON_DIR}/arr.py"
 MEDIA_COMMON_QBITTORRENT="${MEDIA_COMMON_DIR}/qbittorrent.py"
 MEDIA_COMMON_CLEANUP="${MEDIA_COMMON_DIR}/cleanup.py"
 MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
+MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
@@ -72,6 +73,7 @@ for required_file in \
   "$MEDIA_COMMON_QBITTORRENT" \
   "$MEDIA_COMMON_CLEANUP" \
   "$MEDIA_COMMON_LATINO" \
+  "$MEDIA_COMMON_LANGUAGE" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
   "$BACKUP_SCRIPT" \
@@ -163,6 +165,7 @@ REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP="${REMOTE_STAGING}/media-common-qbittorrent-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_CLEANUP_TEMP="${REMOTE_STAGING}/media-common-cleanup-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USER}-$$.py"
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
@@ -415,6 +418,10 @@ echo "Uploading shared media modules..."
   "cat > '${REMOTE_MEDIA_COMMON_LATINO_TEMP}'" \
   < "$MEDIA_COMMON_LATINO"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}'" \
+  < "$MEDIA_COMMON_LANGUAGE"
+
 echo "Uploading Seerr configuration script through SSH..."
 
 # Variables are intentionally expanded locally.
@@ -563,6 +570,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
     '${NAS_STACK_DIR}/scripts/common/latino.py'
 
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/language.py'
+
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-servarr.py'
@@ -691,6 +702,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
     '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
     '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_BACKUP_TEMP}' \

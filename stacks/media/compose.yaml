@@ -27,6 +27,7 @@ services:
       TZ: ${TZ}
     volumes:
       - ${CONFIG_DIR}/sonarr:/config
+      - ${FAMILY_DIR}:/data
       - ${DOWNLOADS_DIR}:/downloads
       - ${MEDIA_DIR}:/media
     ports:
@@ -44,6 +45,7 @@ services:
       TZ: ${TZ}
     volumes:
       - ${CONFIG_DIR}/radarr:/config
+      - ${FAMILY_DIR}:/data
       - ${DOWNLOADS_DIR}:/downloads
       - ${MEDIA_DIR}:/media
     ports:
@@ -61,6 +63,7 @@ services:
       TZ: ${TZ}
     volumes:
       - ${CONFIG_DIR}/bazarr:/config
+      - ${FAMILY_DIR}:/data
       - ${MEDIA_DIR}:/media
     ports:
       - "6767:6767"
@@ -95,6 +98,7 @@ services:
       TORRENTING_PORT: "6881"
     volumes:
       - ${CONFIG_DIR}/qbittorrent:/config
+      - ${FAMILY_DIR}:/data
       - ${DOWNLOADS_DIR}:/downloads
     ports:
       - "8888:8888"

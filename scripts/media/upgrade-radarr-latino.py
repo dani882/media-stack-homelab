@@ -19,10 +19,9 @@ from common.arr import (
     ArrError as UpgradeError,
     read_api_key,
 )
-from common.latino import (
-    custom_format_names,
-    has_latino_format,
-    score_seed_sort_key as release_sort_key,
+from common.language import (
+    best_language_upgrade,
+    language_name,
 )
 
 
@@ -127,7 +126,6 @@ def main() -> int:
         )
 
         installed_score = 0
-        installed_latino = False
 
         if movie_file:
             installed_score = int(
@@ -137,13 +135,6 @@ def main() -> int:
                 )
                 or 0
             )
-
-            installed_latino = (
-                has_latino_format(movie_file)
-            )
-
-        if installed_latino:
-            continue
 
         print(
             f"Checking {title} ({year})...",
@@ -159,42 +150,13 @@ def main() -> int:
             f"/release?{query}"
         )
 
-        usable = [
-            release
-            for release in releases
-            if (
-                has_latino_format(release)
-                and int(
-                    release.get(
-                        "customFormatScore",
-                        0,
-                    )
-                    or 0
-                ) >= 7000
-                and not bool(
-                    release.get(
-                        "rejected",
-                        False,
-                    )
-                )
-                and bool(
-                    release.get(
-                        "downloadAllowed",
-                        True,
-                    )
-                )
-            )
-        ]
-
-        usable.sort(
-            key=release_sort_key,
-            reverse=True,
+        best = best_language_upgrade(
+            movie_file,
+            releases,
         )
 
-        if not usable:
+        if best is None:
             continue
-
-        best = usable[0]
 
         best_score = int(
             best.get(
@@ -204,8 +166,12 @@ def main() -> int:
             or 0
         )
 
-        if best_score <= installed_score:
-            continue
+        installed_language = language_name(
+            movie_file
+        )
+        candidate_language = language_name(
+            best
+        )
 
         actionable += 1
 
@@ -218,10 +184,14 @@ def main() -> int:
             f"  movie ID: {movie_id}"
         )
         print(
+            f"  language: {installed_language} -> "
+            f"{candidate_language}"
+        )
+        print(
             f"  current score: {installed_score}"
         )
         print(
-            f"  Latino score: {best_score}"
+            f"  candidate score: {best_score}"
         )
         print(
             f"  seeders: "
@@ -247,7 +217,8 @@ def main() -> int:
                 "guid or indexerId."
             )
 
-        client.post(
+        client.request(
+            "POST",
             "/release",
             {
                 "guid": guid,
@@ -263,7 +234,7 @@ def main() -> int:
         f"Movies processed: {len(selected)}"
     )
     print(
-        f"Actionable Latino upgrades: "
+        f"Actionable language upgrades: "
         f"{actionable}"
     )
 
