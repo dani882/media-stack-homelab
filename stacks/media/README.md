@@ -18,6 +18,7 @@ It is deployed to the UGREEN NAS through Docker Compose.
 | Jellyfin | Media server | Docker Compose |
 | FlareSolverr | Cloudflare-compatible proxy support | Docker Compose |
 | Recyclarr | TRaSH Guides synchronization | Docker Compose |
+| Profilarr | Optional profile/custom-format evaluation UI | Docker Compose profile |
 
 ## Storage
 
@@ -181,10 +182,43 @@ Preview the configuration without applying changes with
 
 The Sonarr and Radarr configuration is reconciled idempotently.
 
-Jellyfin library selection is also attempted automatically. The current
-Seerr behavior accepts the library enable request but does not persist the
-enabled state. The automation detects this condition, reports a warning,
-and allows the rest of the configuration and deployment to continue.
+Jellyfin library selection is also configured automatically. The managed
+script now uses the safe Jellyfin settings endpoint for reads and only uses
+the mutating library endpoint for the actual apply step, so the enabled
+library state persists correctly.
+
+## Profilarr Pilot
+
+Profilarr is not part of the default stack lifecycle.
+
+The repository includes an optional pilot integration so it can be evaluated
+without replacing the existing Recyclarr + custom-script workflow.
+
+The pilot is intentionally scoped as:
+
+- optional Docker Compose profile
+- separate config directory under `${CONFIG_DIR}/profilarr`
+- no automatic deployment hooks
+- no changes to Sonarr, Radarr, qBittorrent, Seerr, or cleanup automation
+
+Start the pilot manually with:
+
+```bash
+docker compose \
+  --env-file stacks/media/env/.env \
+  -f stacks/media/compose.yaml \
+  --profile profilarr up -d
+```
+
+Current pilot image pin:
+
+```text
+ghcr.io/dictionarry-hub/profilarr:2.1.0
+ghcr.io/dictionarry-hub/profilarr-parser:2.1.0
+```
+
+This keeps the evaluation reversible and isolated from the production
+configuration path.
 
 ## Latino Release Policy
 
