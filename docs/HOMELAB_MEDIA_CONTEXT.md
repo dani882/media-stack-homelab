@@ -20,7 +20,7 @@ It now serves two purposes:
 
 Current follow-on branch after the `v0.28.0` release:
 
-`codex/profilarr-pilot`
+`main`
 
 The goal is that ChatGPT, Codex, or another engineer can read this file and understand:
 - what the repository is trying to achieve,
@@ -54,7 +54,7 @@ Completed and released on `main` as `v0.28.0`:
 
 The current follow-on work is an optional Profilarr pilot on branch:
 
-`codex/profilarr-pilot`
+`main` (the pilot was merged after validation)
 
 Live Profilarr pilot status at the time of this update:
 
@@ -96,6 +96,20 @@ Additional live note from 2026-08-31:
   `make audit-hardlinks`
   `make install-media-observability`
   `make verify-hardlinks DOWNLOAD=... LIBRARY=...`
+
+Additional private-indexer note from 2026-08-31:
+
+- RetroToon World was added successfully through its Generic Torznab endpoint
+- it is Prowlarr indexer ID `8`, priority `8`, and requires at least one
+  seeder
+- its 72-hour requirement is propagated as a `4320` minute seed time for
+  torrents and season packs
+- live non-grabbing searches through Prowlarr returned valid TV and anime
+  results, and the indexer is present in both Sonarr and Radarr
+- the RetroToon passkey is stored only in
+  `/volume1/docker/media-stack/secrets/prowlarr-private-indexers.json`
+- treat that passkey as compromised if it is ever displayed outside the
+  tracker or NAS secret store; do not commit or log it
 
 ---
 

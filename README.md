@@ -165,6 +165,8 @@ stacks/media/secrets/prowlarr-private-indexers.example.json
 
 Private indexer templates currently exist for:
 
+- Milnueve API
+- RetroToon World (Generic Torznab)
 - Lat-Team API
 - ChileBT API
 - BTArg

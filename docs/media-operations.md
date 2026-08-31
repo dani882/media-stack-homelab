@@ -121,12 +121,26 @@ Cleanup is intentionally conservative.
 
 - private torrents are not removed unless the torrent reports a finite,
   positive seeding time limit and that limit has been satisfied
+- Milnueve currently requires 96 hours; RetroToon requires 72 hours. Both
+  limits are propagated per torrent through Prowlarr and are honored by the
+  cleanup guard
 - Force Start torrents are never removed automatically
 - destructive cleanup now refuses large batches unless the operator
   explicitly raises `--max-delete`
 - dangerous-file cleanup still honors private-tracker seeding obligations
 
 Always preview cleanup before a destructive run.
+
+## Private Indexers
+
+RetroToon World is an optional private Generic Torznab indexer. It is
+configured from the NAS-local Prowlarr secret file alongside Milnueve; its
+passkey must never be committed, copied into documentation, or printed.
+
+RetroToon searches are intentionally limited operationally to animation
+requests handled by Sonarr/Radarr. Its custom categories are normalized by
+Prowlarr to standard TV/Anime and Movies categories. Do not use it as an RSS
+autodownload source.
 
 If you want to separate workflows:
 

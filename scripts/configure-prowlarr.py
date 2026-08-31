@@ -51,6 +51,25 @@ PRIVATE_INDEXERS = {
         "minimum_seeders": 5,
         "fields": {},
     },
+    "retrotoon-torznab": {
+        # RetroToon supplies a Torznab endpoint rather than a native
+        # Cardigann definition.  The instance name below is the durable
+        # identity used to update this particular Generic Torznab indexer.
+        # Prowlarr displays this schema as "Generic Torznab", while its API
+        # identifies the underlying definition as "Torznab".
+        "definition": "Torznab",
+        "instance_name": "RetroToon World",
+        "enabled": True,
+        "priority": 8,
+        "minimum_seeders": 1,
+        "fields": {
+            "baseUrl": "https://www.retrotoon.world/",
+            "apiPath": "/torznab.php",
+            # RetroToon requires every completed torrent to seed for 72 h.
+            "torrentBaseSettings.seedTime": 4320,
+            "torrentBaseSettings.packSeedTime": 4320,
+        },
+    },
 }
 
 
@@ -310,10 +329,44 @@ def normalized_definition(value: str | None) -> str:
     return (value or "").strip().casefold()
 
 
+def indexer_identity(
+    payload: dict[str, Any],
+) -> str:
+    """Return the stable identity used by managed indexers.
+
+    Prowlarr may contain multiple Generic Torznab instances. Its API calls
+    their shared definition "Torznab", which is not unique, so their
+    configured display name is the identity for that one definition only.
+    """
+    definition = normalized_definition(
+        payload.get("definitionName")
+        or payload.get("definition")
+    )
+
+    if definition in {"generic torznab", "torznab"}:
+        return normalized_definition(payload.get("name"))
+
+    return definition
+
+
+def desired_indexer_identity(
+    desired: dict[str, Any],
+) -> str:
+    return normalized_definition(
+        desired.get("instance_name")
+        or desired["definition"]
+    )
+
+
 def managed_indexer_matches(
     payload: dict[str, Any],
     desired: dict[str, Any],
 ) -> bool:
+    instance_name = desired.get("instance_name")
+
+    if instance_name and payload.get("name") != instance_name:
+        return False
+
     if bool(payload.get("enable")) != desired.get("enabled", True):
         return False
 
@@ -335,7 +388,18 @@ def managed_indexer_matches(
         if field is None:
             continue
 
-        if field.get("value") != expected_value:
+        actual_value = field.get("value")
+
+        # Prowlarr masks API keys in indexer detail responses. The value was
+        # already validated during creation/update, so a masked response means
+        # the credential is retained rather than drifted.
+        if (
+            name == "apiKey"
+            and actual_value in {"********", "(removed)"}
+        ):
+            continue
+
+        if actual_value != expected_value:
             return False
 
     return True
@@ -349,8 +413,8 @@ def configure_indexer(
     dry_run: bool,
 ) -> None:
     definition = desired["definition"]
-    normalized = normalized_definition(definition)
-    existing = existing_by_definition.get(normalized)
+    identity = desired_indexer_identity(desired)
+    existing = existing_by_definition.get(identity)
     enabled = desired.get("enabled", True)
 
     if existing:
@@ -367,13 +431,17 @@ def configure_indexer(
             )
             return
 
-        schema = schema_by_definition.get(normalized)
+        schema = schema_by_definition.get(
+            normalized_definition(definition)
+        )
 
         if schema is None:
             print(f"SKIPPED: definition unavailable: {definition}")
             return
 
         payload = json.loads(json.dumps(schema))
+        if desired.get("instance_name"):
+            payload["name"] = desired["instance_name"]
         action = "CREATE"
 
     name = payload.get("name", definition)
@@ -481,11 +549,11 @@ def print_summary(client: ProwlarrClient) -> None:
         )
 
         configured_definitions = {
-            normalized_definition(item["definition"])
-            for item in INDEXERS
+            desired_indexer_identity(item)
+            for item in [*INDEXERS, *PRIVATE_INDEXERS.values()]
         }
 
-        if definition not in configured_definitions:
+        if indexer_identity(indexer) not in configured_definitions:
             continue
 
         enabled = "yes" if indexer.get("enable") else "no"
@@ -500,7 +568,7 @@ def print_summary(client: ProwlarrClient) -> None:
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Configure Prowlarr public indexers.",
+        description="Configure managed Prowlarr indexers.",
     )
 
     parser.add_argument(
@@ -559,7 +627,7 @@ def main() -> int:
         }
 
         existing_by_definition = {
-            normalized_definition(item.get("definitionName")): item
+            indexer_identity(item): item
             for item in existing
         }
 

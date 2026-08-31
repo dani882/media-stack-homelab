@@ -95,6 +95,10 @@ Private Prowlarr credentials, when configured, are loaded from:
 /volume1/docker/media-stack/secrets/prowlarr-private-indexers.json
 ```
 
+This file currently supports Milnueve and RetroToon World credentials.
+RetroToon uses Generic Torznab and receives a per-torrent 72-hour seeding
+limit through Prowlarr. Credentials and passkeys remain NAS-local.
+
 Only safe example files are version controlled.
 
 ## Configuration Automation

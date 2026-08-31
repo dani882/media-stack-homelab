@@ -104,9 +104,9 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
-Milnueve is currently the first production private tracker integrated with
-the stack. Its API credential remains NAS-local and is loaded from the
-private indexer secret file.
+Milnueve and RetroToon World are production private trackers integrated with
+the stack. Their credentials remain NAS-local and are loaded from the private
+indexer secret file.
 
 Managed Milnueve policy includes:
 
@@ -117,8 +117,18 @@ Managed Milnueve policy includes:
 - qBittorrent per-torrent seeding limits
 - cleanup protection that honors tracker-provided seeding limits
 
+RetroToon World is supported as an optional Generic Torznab indexer. Its
+passkey is an API credential and must remain NAS-local. Its managed policy
+uses priority `8`, at least one seeder, and a 72-hour (`4320` minute)
+per-torrent seed time. Prowlarr discovers RetroToon's Torznab categories and
+maps them to standard Sonarr/Radarr categories. Initially the intended scope
+is cartoons/anime and animated movies; ambiguous CGI and short-form content
+is intentionally not targeted by automation.
+
 Supported templates currently include:
 
+- Milnueve API
+- RetroToon World (Generic Torznab)
 - Lat-Team
 - ChileBT
 - BTArg
