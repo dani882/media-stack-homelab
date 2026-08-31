@@ -15,7 +15,7 @@ Start with:
 ## Current Repository Reality
 
 - main release: `v0.28.0`
-- follow-on evaluation branch: `codex/profilarr-pilot`
+- current working baseline: `main`
 - NAS SSH alias: `ssh ugreen-nas`
 - primary repo: `~/home-labs/homelab`
 
@@ -85,3 +85,12 @@ If extending the Profilarr pilot:
 3. treat `Sonarr Main` and `Radarr Movies` as the safe pilot scope
 4. keep Kids Movies, Seerr routing, qBittorrent policy, and cleanup logic
    outside Profilarr unless the architecture changes
+
+## Useful Commands
+
+- `make check`
+- `make check-media-live`
+- `make audit-bazarr`
+- `make sync-recyclarr`
+- `make sync-profilarr`
+- `make verify-hardlinks DOWNLOAD="..." LIBRARY="..."`

@@ -28,6 +28,11 @@ MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
+PROFILARR_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr.py"
+PROFILARR_SYNC_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr-sync.py"
+CHECK_MEDIA_LIVE_SCRIPT="${ROOT_DIR}/scripts/check-media-live.py"
+AUDIT_BAZARR_SCRIPT="${ROOT_DIR}/scripts/audit-bazarr.py"
+VERIFY_HARDLINKS_SCRIPT="${ROOT_DIR}/scripts/verify-hardlinks.py"
 BACKUP_SCRIPT="${ROOT_DIR}/scripts/backup.sh"
 RESTORE_SCRIPT="${ROOT_DIR}/scripts/restore.sh"
 WATCHDOG_SCRIPT="${ROOT_DIR}/scripts/watchdog.sh"
@@ -39,6 +44,7 @@ SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
 SERVARR_SETTINGS_MODULE="${SERVARR_MODULE_DIR}/settings.py"
 SERVARR_INIT_MODULE="${SERVARR_MODULE_DIR}/__init__.py"
 RECYCLARR_CONFIG="${STACK_DIR}/recyclarr/recyclarr.yml"
+PROFILARR_PILOT_CONFIG="${STACK_DIR}/profilarr/pilot-sync.json"
 SONARR_LATINO_CONFIG="${STACK_DIR}/servarr/custom-formats/sonarr-latino.json"
 RADARR_LATINO_CONFIG="${STACK_DIR}/servarr/custom-formats/radarr-latino.json"
 SONARR_SETTINGS_DIR="${STACK_DIR}/servarr/sonarr"
@@ -76,6 +82,11 @@ for required_file in \
   "$MEDIA_COMMON_LANGUAGE" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
+  "$PROFILARR_SCRIPT" \
+  "$PROFILARR_SYNC_SCRIPT" \
+  "$CHECK_MEDIA_LIVE_SCRIPT" \
+  "$AUDIT_BAZARR_SCRIPT" \
+  "$VERIFY_HARDLINKS_SCRIPT" \
   "$BACKUP_SCRIPT" \
   "$RESTORE_SCRIPT" \
   "$WATCHDOG_SCRIPT" \
@@ -96,6 +107,7 @@ for required_file in \
   "$RADARR_SETTINGS_DIR/naming.json" \
   "$RADARR_SETTINGS_DIR/media-management.json" \
   "$QBITTORRENT_CONFIG_DIR/categories.json" \
+  "$PROFILARR_PILOT_CONFIG" \
   "$QBITTORRENT_CONFIG_DIR/preferences.json"
 do
   if [[ ! -f "$required_file" ]]; then
@@ -169,6 +181,11 @@ REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USE
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
+REMOTE_PROFILARR_TEMP="${REMOTE_STAGING}/configure-profilarr-${USER}-$$.py"
+REMOTE_PROFILARR_SYNC_TEMP="${REMOTE_STAGING}/configure-profilarr-sync-${USER}-$$.py"
+REMOTE_CHECK_MEDIA_LIVE_TEMP="${REMOTE_STAGING}/check-media-live-${USER}-$$.py"
+REMOTE_AUDIT_BAZARR_TEMP="${REMOTE_STAGING}/audit-bazarr-${USER}-$$.py"
+REMOTE_VERIFY_HARDLINKS_TEMP="${REMOTE_STAGING}/verify-hardlinks-${USER}-$$.py"
 REMOTE_BACKUP_TEMP="${REMOTE_STAGING}/backup-media-stack-${USER}-$$.sh"
 REMOTE_RESTORE_TEMP="${REMOTE_STAGING}/restore-media-stack-${USER}-$$.sh"
 REMOTE_WATCHDOG_TEMP="${REMOTE_STAGING}/watchdog-media-stack-${USER}-$$.sh"
@@ -179,6 +196,7 @@ REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${U
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
 REMOTE_SERVARR_INIT_TEMP="${REMOTE_STAGING}/servarr-init-${USER}-$$.py"
 REMOTE_RECYCLARR_TEMP="${REMOTE_STAGING}/recyclarr-${USER}-$$.yml"
+REMOTE_PROFILARR_PILOT_TEMP="${REMOTE_STAGING}/profilarr-pilot-${USER}-$$.json"
 REMOTE_SONARR_LATINO_TEMP="${REMOTE_STAGING}/sonarr-latino-${USER}-$$.json"
 REMOTE_RADARR_LATINO_TEMP="${REMOTE_STAGING}/radarr-latino-${USER}-$$.json"
 REMOTE_SONARR_DOWNLOAD_CLIENTS_TEMP="${REMOTE_STAGING}/sonarr-download-clients-${USER}-$$.json"
@@ -430,6 +448,34 @@ echo "Uploading Seerr configuration script through SSH..."
   "cat > '${REMOTE_SEERR_TEMP}'" \
   < "$SEERR_SCRIPT"
 
+echo "Uploading Profilarr automation scripts through SSH..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PROFILARR_TEMP}'" \
+  < "$PROFILARR_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PROFILARR_SYNC_TEMP}'" \
+  < "$PROFILARR_SYNC_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PROFILARR_PILOT_TEMP}'" \
+  < "$PROFILARR_PILOT_CONFIG"
+
+echo "Uploading media live validation scripts through SSH..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_CHECK_MEDIA_LIVE_TEMP}'" \
+  < "$CHECK_MEDIA_LIVE_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_AUDIT_BAZARR_TEMP}'" \
+  < "$AUDIT_BAZARR_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_VERIFY_HARDLINKS_TEMP}'" \
+  < "$VERIFY_HARDLINKS_SCRIPT"
+
 echo "Uploading media backup script through SSH..."
 
 # Variables are intentionally expanded locally.
@@ -583,6 +629,26 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/configure-seerr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_PROFILARR_TEMP}' \
+    '${NAS_STACK_DIR}/configure-profilarr.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_PROFILARR_SYNC_TEMP}' \
+    '${NAS_STACK_DIR}/configure-profilarr-sync.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_CHECK_MEDIA_LIVE_TEMP}' \
+    '${NAS_STACK_DIR}/check-media-live.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_AUDIT_BAZARR_TEMP}' \
+    '${NAS_STACK_DIR}/audit-bazarr.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_VERIFY_HARDLINKS_TEMP}' \
+    '${NAS_STACK_DIR}/verify-hardlinks.py'
+
+  sudo install -m 0755 \
     '${REMOTE_BACKUP_TEMP}' \
     '${NAS_STACK_DIR}/backup.sh'
 
@@ -684,6 +750,13 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RECYCLARR_TEMP}' \
     '${NAS_STACK_DIR}/config/recyclarr/recyclarr.yml'
 
+  sudo install -d -m 0755 \
+    '${NAS_STACK_DIR}/profilarr'
+
+  sudo install -m 0644 \
+    '${REMOTE_PROFILARR_PILOT_TEMP}' \
+    '${NAS_STACK_DIR}/profilarr/pilot-sync.json'
+
   rm -f \
     '${REMOTE_TEMP}' \
     '${REMOTE_PROWLARR_TEMP}' \
@@ -705,6 +778,11 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
+    '${REMOTE_PROFILARR_TEMP}' \
+    '${REMOTE_PROFILARR_SYNC_TEMP}' \
+    '${REMOTE_CHECK_MEDIA_LIVE_TEMP}' \
+    '${REMOTE_AUDIT_BAZARR_TEMP}' \
+    '${REMOTE_VERIFY_HARDLINKS_TEMP}' \
     '${REMOTE_BACKUP_TEMP}' \
     '${REMOTE_RESTORE_TEMP}' \
     '${REMOTE_WATCHDOG_TEMP}' \
@@ -715,6 +793,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \
     '${REMOTE_SERVARR_INIT_TEMP}' \
     '${REMOTE_RECYCLARR_TEMP}' \
+    '${REMOTE_PROFILARR_PILOT_TEMP}' \
     '${REMOTE_SONARR_LATINO_TEMP}' \
     '${REMOTE_RADARR_LATINO_TEMP}' \
     '${REMOTE_SONARR_DOWNLOAD_CLIENTS_TEMP}' \
@@ -772,6 +851,26 @@ echo "Pulling images and applying the stack..."
   echo
   echo "Applying post-Recyclarr Radarr Latino policy..."
   sudo python3 '${NAS_STACK_DIR}/configure-radarr-policy.py'
+
+  if [[ \"\${PROFILARR_SYNC_ON_DEPLOY:-0}\" == \"1\" ]]; then
+    echo
+    echo \"Starting Profilarr pilot profile...\"
+    sudo docker compose --profile profilarr up -d profilarr profilarr-parser
+
+    echo
+    echo \"Bootstrapping Profilarr admin state...\"
+    sudo python3 '${NAS_STACK_DIR}/configure-profilarr.py'
+
+    echo
+    echo \"Synchronizing Profilarr pilot...\"
+    sudo python3 '${NAS_STACK_DIR}/configure-profilarr-sync.py' \
+      --config '${NAS_STACK_DIR}/profilarr/pilot-sync.json' \
+      --run-sync \
+      --wait
+  else
+    echo
+    echo \"Skipping Profilarr deploy sync (set PROFILARR_SYNC_ON_DEPLOY=1 to enable).\"
+  fi
 "
 
 echo "Deployment completed successfully."

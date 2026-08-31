@@ -30,6 +30,15 @@ def main() -> int:
         "--dry-run",
         action="store_true",
     )
+    parser.add_argument(
+        "--max-delete",
+        type=int,
+        default=10,
+        help=(
+            "Maximum number of downloads to remove in one "
+            "destructive run."
+        ),
+    )
 
     parser.add_argument(
         "--sonarr-url",
@@ -67,6 +76,7 @@ def main() -> int:
     return run_cleanup(
         config,
         args.dry_run,
+        max_delete=args.max_delete,
     )
 
 

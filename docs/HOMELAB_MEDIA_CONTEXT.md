@@ -87,6 +87,12 @@ Additional live note from 2026-08-31:
   score assignment
 - live preview syncs for both Sonarr and Radarr completed cleanly after that
   change
+- new operational commands now exist for:
+  `make sync-profilarr`
+  `make dry-run-sync-profilarr`
+  `make check-media-live`
+  `make audit-bazarr`
+  `make verify-hardlinks DOWNLOAD=... LIBRARY=...`
 
 ---
 

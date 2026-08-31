@@ -57,6 +57,7 @@ including:
 - Sonarr and Radarr download clients and root folders
 - Seerr request-management integration with Sonarr and Radarr
 - Recyclarr synchronization
+- optional Profilarr pilot synchronization
 - Spanish-language upgrade policy:
   `Latino > Castellano > English/original`
 - audio-description release rejection
@@ -177,6 +178,7 @@ Additional documentation:
 
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/adr/`](docs/adr/)
+- [`docs/media-operations.md`](docs/media-operations.md)
 - [`stacks/media/README.md`](stacks/media/README.md)
 - [`ROADMAP.md`](ROADMAP.md)
 - [`CHANGELOG.md`](CHANGELOG.md)

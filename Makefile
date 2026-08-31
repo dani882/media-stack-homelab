@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-recyclarr
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr verify-hardlinks
 
 validate:
 	@./scripts/validate.sh
@@ -67,6 +67,14 @@ sync-recyclarr:
 	     sync radarr --instance movies && \
 	   sudo -n python3 ./configure-radarr-policy.py"
 
+sync-profilarr:
+	@$(MAKE) configure-profilarr
+	@$(MAKE) configure-profilarr-pilot
+
+dry-run-sync-profilarr:
+	@$(MAKE) dry-run-configure-profilarr
+	@$(MAKE) dry-run-configure-profilarr-pilot
+
 configure-servarr:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
@@ -131,6 +139,37 @@ dry-run-configure-profilarr-pilot:
 	     --config /volume1/docker/media-stack/profilarr/pilot-sync.json \
 	     --run-sync \
 	     --dry-run"
+
+check-media-live:
+	@tmp_script="/tmp/check-media-live-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/check-media-live.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
+audit-bazarr:
+	@tmp_script="/tmp/audit-bazarr-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/audit-bazarr.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
+verify-hardlinks:
+	@test -n "$${DOWNLOAD}" || \
+	  { echo "ERROR: DOWNLOAD is required"; exit 1; }
+	@test -n "$${LIBRARY}" || \
+	  { echo "ERROR: LIBRARY is required"; exit 1; }
+	@tmp_script="/tmp/verify-hardlinks-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/verify-hardlinks.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script' \
+	     --download '$${DOWNLOAD}' \
+	     --library '$${LIBRARY}'; \
+	   rm -f '$$tmp_script'"
 
 configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \

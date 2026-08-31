@@ -20,6 +20,27 @@ It is deployed to the UGREEN NAS through Docker Compose.
 | Recyclarr | TRaSH Guides synchronization | Docker Compose |
 | Profilarr | Optional quality-profile/custom-format pilot | Docker Compose profile |
 
+## Control Plane Ownership
+
+The stack intentionally uses more than one automation layer.
+
+- repository-managed scripts and JSON files own:
+  qBittorrent categories, Sonarr/Radarr settings, Seerr routing, hardlink
+  storage layout, cleanup safety logic, and the Spanish-language preference
+  policy
+- Recyclarr owns:
+  TRaSH guide synchronization plus repository-managed exceptions
+- Profilarr pilot owns:
+  optional generic quality-profile sync for selected Arr instances only
+
+Do not treat Profilarr as the source of truth for:
+
+- `Latino > Castellano > English/original`
+- shared-Radarr multi-target routing
+- qBittorrent category naming and save-path policy
+- private-tracker cleanup protection
+- Seerr routing
+
 ## Storage
 
 Primary NAS paths:
@@ -198,7 +219,7 @@ The pilot is intentionally scoped as:
 
 - optional Docker Compose profile
 - separate config directory under `${CONFIG_DIR}/profilarr`
-- no automatic deployment hooks
+- optional deploy hook through `PROFILARR_SYNC_ON_DEPLOY=1`
 - no changes to Sonarr, Radarr, qBittorrent, Seerr, or cleanup automation
 
 Start the pilot manually with:
@@ -234,6 +255,18 @@ Apply the safe pilot configuration automatically with:
 
 ```bash
 make configure-profilarr-pilot
+```
+
+Run the full optional Profilarr automation flow with:
+
+```bash
+make sync-profilarr
+```
+
+Preview it with:
+
+```bash
+make dry-run-sync-profilarr
 ```
 
 Preview the pilot actions without applying them with:
@@ -488,6 +521,15 @@ make sync-recyclarr
 
 Custom local formats are preserved through configured exclusion patterns.
 
+The optional Profilarr pilot can also be synchronized automatically during
+`make deploy` by setting:
+
+```text
+PROFILARR_SYNC_ON_DEPLOY=1
+```
+
+in the NAS-side media environment file.
+
 ## Deployment
 
 Deploy the full stack:
@@ -509,6 +551,33 @@ The deployment workflow:
 9. configures Sonarr and Radarr
 10. synchronizes Recyclarr
 11. reapplies Radarr-specific post-Recyclarr policy
+12. optionally synchronizes Profilarr when `PROFILARR_SYNC_ON_DEPLOY=1`
+
+## Live Validation
+
+Run a quick live service check on the NAS:
+
+```bash
+make check-media-live
+```
+
+Audit Bazarr before removing compatibility mounts:
+
+```bash
+make audit-bazarr
+```
+
+Verify that a real download/import pair is a hardlink:
+
+```bash
+make verify-hardlinks \
+  DOWNLOAD="/data/Downloads/complete/tv/Example/file.mkv" \
+  LIBRARY="/data/Media/TV Shows/Example/Season 01/file.mkv"
+```
+
+Cleanup scripts now fail closed if a destructive run would remove more than
+ten downloads at once, unless the operator explicitly raises the limit with
+`--max-delete` after reviewing a dry run.
 
 ## Testing
 

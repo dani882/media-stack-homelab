@@ -46,6 +46,13 @@ class CleanupConfig:
     qbittorrent_secret: Path
 
 
+@dataclass(frozen=True)
+class CleanupCandidate:
+    queue_item: dict[str, Any]
+    torrent: dict[str, Any]
+    dangerous: bool
+
+
 def queue_warning_messages(
     queue_item: dict[str, Any],
 ) -> list[str]:
@@ -194,6 +201,7 @@ def torrent_is_safe_to_remove(
 def run_cleanup(
     config: CleanupConfig,
     dry_run: bool,
+    max_delete: int = 10,
 ) -> int:
     try:
         api_key = read_api_key(
@@ -247,8 +255,9 @@ def run_cleanup(
         for torrent in torrents
     }
 
-    candidates = 0
-    cleaned = 0
+    candidates: list[CleanupCandidate] = []
+    skipped = 0
+    skipped_reasons: dict[str, int] = {}
 
     for item in queue.get(
         "records",
@@ -293,6 +302,14 @@ def run_cleanup(
             print(
                 f"  {item.get('title', '')}"
             )
+            skipped += 1
+            skipped_reasons["torrent missing in qBittorrent"] = (
+                skipped_reasons.get(
+                    "torrent missing in qBittorrent",
+                    0,
+                )
+                + 1
+            )
             continue
 
         safe, reason = torrent_is_safe_to_remove(
@@ -308,9 +325,45 @@ def run_cleanup(
             print(
                 f"  reason: {reason}"
             )
+            skipped += 1
+            skipped_reasons[reason] = (
+                skipped_reasons.get(reason, 0)
+                + 1
+            )
             continue
 
-        candidates += 1
+        candidates.append(
+            CleanupCandidate(
+                queue_item=item,
+                torrent=torrent,
+                dangerous=dangerous,
+            )
+        )
+
+    if (
+        not dry_run
+        and len(candidates) > max_delete
+    ):
+        raise CleanupError(
+            "Refusing to remove "
+            f"{len(candidates)} downloads in one run; "
+            f"increase --max-delete above {max_delete} "
+            "after reviewing the dry run."
+        )
+
+    cleaned = 0
+    dangerous_candidates = 0
+    safe_candidates = 0
+
+    for candidate in candidates:
+        item = candidate.queue_item
+        torrent = candidate.torrent
+        dangerous = candidate.dangerous
+
+        if dangerous:
+            dangerous_candidates += 1
+        else:
+            safe_candidates += 1
 
         seeding_minutes = (
             int(
@@ -402,7 +455,17 @@ def run_cleanup(
     print()
     print("=== Summary ===")
     print(
-        f"Safe cleanup candidates: {candidates}"
+        f"Application: {config.app_name}"
+    )
+    print(
+        f"Safe cleanup candidates: {safe_candidates}"
+    )
+    print(
+        "Dangerous cleanup candidates: "
+        f"{dangerous_candidates}"
+    )
+    print(
+        f"Skipped queue items: {skipped}"
     )
 
     if dry_run:
@@ -413,5 +476,12 @@ def run_cleanup(
         print(
             f"Downloads cleaned: {cleaned}"
         )
+
+    if skipped_reasons:
+        print("Skip reasons:")
+        for reason, count in sorted(
+            skipped_reasons.items()
+        ):
+            print(f"  - {reason}: {count}")
 
     return 0

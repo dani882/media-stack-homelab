@@ -292,6 +292,23 @@ class CleanupHelpersTest(unittest.TestCase):
             "torrent is not complete",
         )
 
+    def test_private_tracker_category_mismatch_is_not_safe(
+        self,
+    ) -> None:
+        torrent = dict(self.completed_torrent)
+        torrent["private"] = True
+        torrent["seeding_time"] = 5760 * 60
+        torrent["seeding_time_limit"] = 5760
+        torrent["category"] = "movies"
+
+        safe, reason = torrent_is_safe_to_remove(
+            torrent,
+            "tv",
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("not 'tv'", reason)
+
 
 if __name__ == "__main__":
     unittest.main()
