@@ -27,6 +27,8 @@ The following work is already complete and validated:
   `Latino > Castellano > English/original`
 - `/data` storage migration for hardlink-safe Sonarr/Radarr imports
 - compatibility mounts `/downloads` and `/media` intentionally still present
+- Servarr root folders are reconciled to the `/data/Media` declarations, so
+  Seerr must not offer legacy `/media/...` destinations after configuration
 - Seerr automation for Sonarr, Radarr Movies, and Radarr Kids Movies
 - Milnueve and RetroToon private-tracker protections and cleanup safeguards
 
@@ -75,6 +77,9 @@ Validated live on 2026-08-31:
 - RetroToon is a private Generic Torznab indexer with a 72-hour seed-time
   requirement; its passkey is NAS-local only and must never be logged or
   committed
+- when RetroToon cannot resolve a TVDB search, use the guarded
+  `make grab-prowlarr-release` path with an exact title and a unique Seerr
+  request tag; do not bypass the private-tracker policy with manual URLs
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
 - prefer automation over manual NAS steps
@@ -95,6 +100,7 @@ If extending the Profilarr pilot:
 - `make check-media-live`
 - `make audit-bazarr`
 - `make audit-seerr`
+- `make audit-private-trackers`
 - `make audit-hardlinks`
 - `make sync-recyclarr`
 - `make sync-profilarr`

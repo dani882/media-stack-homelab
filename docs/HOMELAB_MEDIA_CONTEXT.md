@@ -52,6 +52,18 @@ Completed and released on `main` as `v0.28.0`:
 - Seerr fixes and validation
 - live hardlink proof for Sonarr and Radarr
 
+Follow-up note: compatibility mounts remain available, but the managed
+Servarr root-folder reconciliation removes obsolete `/media/...` root-folder
+entries once no library record references them. This prevents Seerr from
+offering legacy destinations while preserving compatibility for consumers
+that still require the mount.
+
+RetroToon manual-selection note: its Generic Torznab endpoint can return an
+exact title search while failing an ID-based Sonarr search. In that case, keep
+the Seerr request as the request record and use `make grab-prowlarr-release`
+with an exact title, TVDB validation, a unique request tag, and the required
+4320-minute seed limit. The helper must never log tracker URLs or passkeys.
+
 The current follow-on work is an optional Profilarr pilot on branch:
 
 `main` (the pilot was merged after validation)
@@ -110,6 +122,9 @@ Additional private-indexer note from 2026-08-31:
   `/volume1/docker/media-stack/secrets/prowlarr-private-indexers.json`
 - treat that passkey as compromised if it is ever displayed outside the
   tracker or NAS secret store; do not commit or log it
+- `make audit-private-trackers` and the 30-minute health timer audit
+  Milnueve and RetroToon obligations without logging announce URLs or
+  passkeys; unrecognized private trackers fail closed until a policy is added
 
 ---
 

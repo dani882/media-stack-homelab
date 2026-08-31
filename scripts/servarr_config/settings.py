@@ -191,6 +191,10 @@ def configure_root_folders(
         "/api/v3/rootfolder",
     )
 
+    desired_paths = {
+        item["path"]
+        for item in desired_folders
+    }
     current_paths = {
         item["path"]
         for item in current_folders
@@ -217,6 +221,30 @@ def configure_root_folders(
         print(
             f"CREATED ROOT FOLDER: "
             f"ID={created['id']} path={path}"
+        )
+
+    # Root folders are configuration, not storage.  Keeping an obsolete
+    # entry here makes the *arr UI and Seerr offer an old namespace even
+    # after every library item has moved to its replacement root folder.
+    # The API refuses deletion when an item still uses a folder, which keeps
+    # this reconciliation fail-closed.
+    for current in current_folders:
+        path = current["path"]
+
+        if path in desired_paths:
+            continue
+
+        if dry_run:
+            print(f"WOULD REMOVE ROOT FOLDER: {path}")
+            continue
+
+        client.request(
+            "DELETE",
+            f"/api/v3/rootfolder/{current['id']}",
+        )
+        print(
+            f"REMOVED ROOT FOLDER: "
+            f"ID={current['id']} path={path}"
         )
 
 

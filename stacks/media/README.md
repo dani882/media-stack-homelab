@@ -117,6 +117,11 @@ Managed Milnueve policy includes:
 - qBittorrent per-torrent seeding limits
 - cleanup protection that honors tracker-provided seeding limits
 
+Both private trackers are additionally covered by the periodic
+private-tracker audit. It checks qBittorrent's reported tracker host and
+seeding-time limit without logging announce URLs or passkeys, and treats any
+unknown private tracker as an alert until it has an explicit policy.
+
 RetroToon World is supported as an optional Generic Torznab indexer. Its
 passkey is an API credential and must remain NAS-local. Its managed policy
 uses priority `8`, at least one seeder, and a 72-hour (`4320` minute)
@@ -124,6 +129,12 @@ per-torrent seed time. Prowlarr discovers RetroToon's Torznab categories and
 maps them to standard Sonarr/Radarr categories. Initially the intended scope
 is cartoons/anime and animated movies; ambiguous CGI and short-form content
 is intentionally not targeted by automation.
+
+If a known RetroToon release is missing from Sonarr/Radarr because its Torznab
+metadata does not resolve by TVDB/TMDB ID, retain the Seerr request and use
+the guarded `make grab-prowlarr-release` helper. It accepts only an exact
+Prowlarr result, uses the standard qBittorrent category, and enforces the
+private tracker seed-time policy without printing its download URL.
 
 Supported templates currently include:
 
@@ -205,6 +216,11 @@ The repository automatically configures Seerr with:
 - the `Latino 1080p` quality profile
 - the appropriate Sonarr and Radarr root folders
 - automatic Seerr initialization
+
+Servarr root folders are declarative. The managed configuration removes root
+folder entries not present in `servarr/*/root-folders.json` after Servarr has
+migrated all library records. This keeps obsolete `/media/...` destinations
+out of Seerr while retaining the Docker compatibility mounts themselves.
 
 Run the managed configuration with `make configure-seerr`.
 
@@ -587,6 +603,12 @@ Audit recent hardlink-backed imports automatically:
 
 ```bash
 make audit-hardlinks
+```
+
+Audit private-tracker seeding protection:
+
+```bash
+make audit-private-trackers
 ```
 
 Verify that a real download/import pair is a hardlink:

@@ -49,6 +49,18 @@ Audit Bazarr for legacy mount assumptions:
 make audit-bazarr
 ```
 
+Audit private-tracker protection without exposing announce URLs or passkeys:
+
+```bash
+make audit-private-trackers
+```
+
+This is also part of the 30-minute media-stack health audit. It reports the
+short torrent hash, tracker name, configured seeding requirement, and time
+remaining. It fails safely for an unrecognized private tracker, a missing
+finite seed limit, or a limit below Milnueve's 96-hour / RetroToon's 72-hour
+policy. It never pauses, removes, or otherwise changes torrents.
+
 Audit recent hardlink-backed imports automatically:
 
 ```bash
@@ -141,6 +153,22 @@ RetroToon searches are intentionally limited operationally to animation
 requests handled by Sonarr/Radarr. Its custom categories are normalized by
 Prowlarr to standard TV/Anime and Movies categories. Do not use it as an RSS
 autodownload source.
+
+Some RetroToon records have incomplete ID-based Torznab metadata. When an
+existing Seerr request cannot be found by Sonarr/Radarr but an exact Prowlarr
+title search succeeds, use the guarded helper rather than downloading a
+passkey URL manually:
+
+```bash
+QUERY='Exact search title' TITLE='Exact release title' INDEXER_ID=8 \
+TVDB_ID='expected-tvdb-id' SEED_TIME_MINUTES=4320 \
+TAGS='retrotoon-manual,seerr-request-<id>' make grab-prowlarr-release
+```
+
+The helper requires one exact match from the nominated indexer, checks the
+TVDB ID and minimum seeder count, translates Prowlarr's loopback download URL
+only for the Docker network, assigns the normal `tv` category, and applies the
+72-hour per-torrent seed limit. It does not expose or persist tracker URLs.
 
 If you want to separate workflows:
 

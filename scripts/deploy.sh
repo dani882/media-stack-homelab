@@ -33,6 +33,7 @@ PROFILARR_SYNC_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr-sync.py"
 CHECK_MEDIA_LIVE_SCRIPT="${ROOT_DIR}/scripts/check-media-live.py"
 AUDIT_BAZARR_SCRIPT="${ROOT_DIR}/scripts/audit-bazarr.py"
 AUDIT_SEERR_SCRIPT="${ROOT_DIR}/scripts/audit-seerr.py"
+AUDIT_PRIVATE_TRACKERS_SCRIPT="${ROOT_DIR}/scripts/audit-private-trackers.py"
 AUDIT_HARDLINKS_SCRIPT="${ROOT_DIR}/scripts/audit-hardlinks.py"
 VERIFY_HARDLINKS_SCRIPT="${ROOT_DIR}/scripts/verify-hardlinks.py"
 MONITOR_MEDIA_STACK_SCRIPT="${ROOT_DIR}/scripts/monitor-media-stack.sh"
@@ -94,6 +95,7 @@ for required_file in \
   "$CHECK_MEDIA_LIVE_SCRIPT" \
   "$AUDIT_BAZARR_SCRIPT" \
   "$AUDIT_SEERR_SCRIPT" \
+  "$AUDIT_PRIVATE_TRACKERS_SCRIPT" \
   "$AUDIT_HARDLINKS_SCRIPT" \
   "$VERIFY_HARDLINKS_SCRIPT" \
   "$MONITOR_MEDIA_STACK_SCRIPT" \
@@ -200,6 +202,7 @@ REMOTE_PROFILARR_SYNC_TEMP="${REMOTE_STAGING}/configure-profilarr-sync-${USER}-$
 REMOTE_CHECK_MEDIA_LIVE_TEMP="${REMOTE_STAGING}/check-media-live-${USER}-$$.py"
 REMOTE_AUDIT_BAZARR_TEMP="${REMOTE_STAGING}/audit-bazarr-${USER}-$$.py"
 REMOTE_AUDIT_SEERR_TEMP="${REMOTE_STAGING}/audit-seerr-${USER}-$$.py"
+REMOTE_AUDIT_PRIVATE_TRACKERS_TEMP="${REMOTE_STAGING}/audit-private-trackers-${USER}-$$.py"
 REMOTE_AUDIT_HARDLINKS_TEMP="${REMOTE_STAGING}/audit-hardlinks-${USER}-$$.py"
 REMOTE_VERIFY_HARDLINKS_TEMP="${REMOTE_STAGING}/verify-hardlinks-${USER}-$$.py"
 REMOTE_MONITOR_MEDIA_STACK_TEMP="${REMOTE_STAGING}/monitor-media-stack-${USER}-$$.sh"
@@ -498,6 +501,10 @@ echo "Uploading media live validation scripts through SSH..."
   < "$AUDIT_SEERR_SCRIPT"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_AUDIT_PRIVATE_TRACKERS_TEMP}'" \
+  < "$AUDIT_PRIVATE_TRACKERS_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_AUDIT_HARDLINKS_TEMP}'" \
   < "$AUDIT_HARDLINKS_SCRIPT"
 
@@ -698,6 +705,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/audit-seerr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_AUDIT_PRIVATE_TRACKERS_TEMP}' \
+    '${NAS_STACK_DIR}/audit-private-trackers.py'
+
+  sudo install -m 0755 \
     '${REMOTE_AUDIT_HARDLINKS_TEMP}' \
     '${NAS_STACK_DIR}/audit-hardlinks.py'
 
@@ -863,6 +874,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_CHECK_MEDIA_LIVE_TEMP}' \
     '${REMOTE_AUDIT_BAZARR_TEMP}' \
     '${REMOTE_AUDIT_SEERR_TEMP}' \
+    '${REMOTE_AUDIT_PRIVATE_TRACKERS_TEMP}' \
     '${REMOTE_AUDIT_HARDLINKS_TEMP}' \
     '${REMOTE_VERIFY_HARDLINKS_TEMP}' \
     '${REMOTE_MONITOR_MEDIA_STACK_TEMP}' \

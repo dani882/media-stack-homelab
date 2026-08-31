@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-hardlinks verify-hardlinks install-media-observability dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers grab-prowlarr-release audit-hardlinks verify-hardlinks install-media-observability dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 validate:
 	@./scripts/validate.sh
@@ -164,6 +164,25 @@ audit-seerr:
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
 
+audit-private-trackers:
+	@tmp_script="/tmp/audit-private-trackers-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/audit-private-trackers.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
+grab-prowlarr-release:
+	@test -n "$${QUERY}" || { echo "ERROR: QUERY is required"; exit 1; }
+	@test -n "$${TITLE}" || { echo "ERROR: TITLE is required"; exit 1; }
+	@test -n "$${INDEXER_ID}" || { echo "ERROR: INDEXER_ID is required"; exit 1; }
+	@test -n "$${TVDB_ID}" || { echo "ERROR: TVDB_ID is required"; exit 1; }
+	@test -n "$${SEED_TIME_MINUTES}" || { echo "ERROR: SEED_TIME_MINUTES is required"; exit 1; }
+	@test -n "$${TAGS}" || { echo "ERROR: TAGS is required"; exit 1; }
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 -u - --query '$${QUERY}' --title '$${TITLE}' --indexer-id '$${INDEXER_ID}' --tvdb-id '$${TVDB_ID}' --seed-time-minutes '$${SEED_TIME_MINUTES}' --tags '$${TAGS}' $(if $(DRY_RUN),--dry-run)" \
+	  < scripts/grab-prowlarr-release.py
+
 audit-hardlinks:
 	@tmp_script="/tmp/audit-hardlinks-$$$$.py"; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
@@ -192,6 +211,7 @@ install-media-observability:
 	tmp_live="/tmp/check-media-live-$$$$.py"; \
 	tmp_bazarr="/tmp/audit-bazarr-$$$$.py"; \
 	tmp_seerr="/tmp/audit-seerr-$$$$.py"; \
+	tmp_private="/tmp/audit-private-trackers-$$$$.py"; \
 	tmp_hardlink_py="/tmp/audit-hardlinks-$$$$.py"; \
 	tmp_health="/tmp/media-stack-healthcheck-$$$$.service"; \
 	tmp_health_timer="/tmp/media-stack-healthcheck-$$$$.timer"; \
@@ -201,6 +221,7 @@ install-media-observability:
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_live'" < scripts/check-media-live.py; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_bazarr'" < scripts/audit-bazarr.py; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_seerr'" < scripts/audit-seerr.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_private'" < scripts/audit-private-trackers.py; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_hardlink_py'" < scripts/audit-hardlinks.py; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_health'" < stacks/media/systemd/media-stack-healthcheck.service; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_health_timer'" < stacks/media/systemd/media-stack-healthcheck.timer; \
@@ -210,6 +231,7 @@ install-media-observability:
 	  sudo -n install -m 755 '$$tmp_live' /volume1/docker/media-stack/check-media-live.py && \
 	  sudo -n install -m 755 '$$tmp_bazarr' /volume1/docker/media-stack/audit-bazarr.py && \
 	  sudo -n install -m 755 '$$tmp_seerr' /volume1/docker/media-stack/audit-seerr.py && \
+	  sudo -n install -m 755 '$$tmp_private' /volume1/docker/media-stack/audit-private-trackers.py && \
 	  sudo -n install -m 755 '$$tmp_hardlink_py' /volume1/docker/media-stack/audit-hardlinks.py && \
 	  sudo -n install -m 644 '$$tmp_health' /etc/systemd/system/media-stack-healthcheck.service && \
 	  sudo -n install -m 644 '$$tmp_health_timer' /etc/systemd/system/media-stack-healthcheck.timer && \
@@ -217,7 +239,7 @@ install-media-observability:
 	  sudo -n install -m 644 '$$tmp_hardlinks_timer' /etc/systemd/system/media-stack-hardlink-audit.timer && \
 	  sudo -n systemctl daemon-reload && \
 	  sudo -n systemctl enable --now media-stack-healthcheck.timer media-stack-hardlink-audit.timer && \
-	  rm -f '$$tmp_monitor' '$$tmp_live' '$$tmp_bazarr' '$$tmp_seerr' '$$tmp_hardlink_py' '$$tmp_health' '$$tmp_health_timer' '$$tmp_hardlinks' '$$tmp_hardlinks_timer'"
+	  rm -f '$$tmp_monitor' '$$tmp_live' '$$tmp_bazarr' '$$tmp_seerr' '$$tmp_private' '$$tmp_hardlink_py' '$$tmp_health' '$$tmp_health_timer' '$$tmp_hardlinks' '$$tmp_hardlinks_timer'"
 
 configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
