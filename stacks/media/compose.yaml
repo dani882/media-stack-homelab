@@ -85,6 +85,36 @@ services:
     networks:
       - media
 
+  profilarr:
+    profiles: ["profilarr"]
+    image: ghcr.io/dictionarry-hub/profilarr:${PROFILARR_TAG:-latest}
+    container_name: profilarr
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      PARSER_HOST: profilarr-parser
+      PARSER_PORT: "5000"
+    volumes:
+      - ${CONFIG_DIR}/profilarr:/config
+    ports:
+      - "${PROFILARR_PORT:-6868}:6868"
+    depends_on:
+      - profilarr-parser
+    networks:
+      - media
+
+  profilarr-parser:
+    profiles: ["profilarr"]
+    image: ghcr.io/dictionarry-hub/profilarr-parser:${PROFILARR_TAG:-latest}
+    container_name: profilarr-parser
+    restart: unless-stopped
+    expose:
+      - "5000"
+    networks:
+      - media
+
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent

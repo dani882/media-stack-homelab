@@ -23,7 +23,7 @@ is treated as a deployment target.
 The media stack is the primary production workload and is fully managed
 with Docker Compose.
 
-Current release: `v0.26.0`
+Current release: `v0.28.0`
 
 | Stack | Status |
 | --- | --- |
@@ -57,7 +57,8 @@ including:
 - Sonarr and Radarr download clients and root folders
 - Seerr request-management integration with Sonarr and Radarr
 - Recyclarr synchronization
-- Latino Spanish custom formats and release policies
+- Spanish-language upgrade policy:
+  `Latino > Castellano > English/original`
 - audio-description release rejection
 - release auditing and upgrade automation
 - Sonarr and Radarr download cleanup
@@ -65,6 +66,10 @@ including:
 - automated media configuration backups with retention and checksums
 - validated media configuration restore with safety backup and rollback
 - automatic recovery of stopped media-stack services through a systemd watchdog
+- `/data`-based download and library paths so Sonarr/Radarr imports can use
+  hardlinks while qBittorrent continues seeding
+- an optional Profilarr pilot for evaluating partial replacement of Recyclarr
+  quality-profile management
 
 ## Repository Layout
 

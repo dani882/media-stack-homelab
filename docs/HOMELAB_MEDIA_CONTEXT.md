@@ -6,6 +6,22 @@ This document is the canonical handoff/checkpoint for the current homelab media-
 
 It is intentionally verbose.
 
+Historical note:
+
+This file began as the canonical checkpoint for the
+`feat/spanish-language-upgrades` branch. The underlying work from that
+branch was later completed, merged, and released as `v0.28.0`.
+
+It now serves two purposes:
+
+- preserve the detailed migration history and validation trail
+- provide current handoff notes for follow-on work such as the Profilarr
+  pilot
+
+Current follow-on branch after the `v0.28.0` release:
+
+`codex/profilarr-pilot`
+
 The goal is that ChatGPT, Codex, or another engineer can read this file and understand:
 - what the repository is trying to achieve,
 - what has already been changed,
@@ -19,6 +35,47 @@ The goal is that ChatGPT, Codex, or another engineer can read this file and unde
 - and what safe next steps look like.
 
 Before making changes, read this entire file.
+
+---
+
+# 0A. Current State After `v0.28.0`
+
+The original branch work described throughout this file is now complete.
+
+Completed and released on `main` as `v0.28.0`:
+
+- Spanish-language upgrade policy:
+  `Latino > Castellano > English/original`
+- `/data` migration for hardlink-safe imports
+- qBittorrent namespace migration for new downloads
+- Sonarr and Radarr root-folder migration to `/data/Media/...`
+- Seerr fixes and validation
+- live hardlink proof for Sonarr and Radarr
+
+The current follow-on work is an optional Profilarr pilot on branch:
+
+`codex/profilarr-pilot`
+
+Live Profilarr pilot status at the time of this update:
+
+- Profilarr is running successfully on the NAS
+- URL:
+  `http://10.0.0.123:6868`
+- automated admin bootstrap/recovery exists through
+  `make configure-profilarr`
+- Sonarr and one Radarr instance were linked successfully during live
+  evaluation
+
+Important live conclusion from the Profilarr pilot:
+
+- Profilarr looks viable as a partial replacement for generic Recyclarr-like
+  sync surfaces
+- Profilarr does not currently replace the repository-managed
+  Spanish-language policy
+- Profilarr rejected a second logical target for the same Radarr instance
+  with `This instance target is already configured`, which means it does not
+  directly model separate Movies and Kids Movies flows on the same Radarr
+  instance
 
 ---
 

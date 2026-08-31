@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr sync-recyclarr
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-recyclarr
 
 validate:
 	@./scripts/validate.sh
@@ -54,7 +54,7 @@ dry-run-restore:
 	   sudo -n ./restore.sh --dry-run '$${BACKUP}'"
 
 configure-prowlarr:
-	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-prowlarr.py"
 
@@ -68,7 +68,7 @@ sync-recyclarr:
 	   sudo -n python3 ./configure-radarr-policy.py"
 
 configure-servarr:
-	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-10.0.0.123}" \
+	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo python3 ./configure-servarr.py"
 
@@ -81,6 +81,56 @@ dry-run-seerr:
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./configure-seerr.py --dry-run"
+
+configure-profilarr:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-profilarr.py"
+
+dry-run-configure-profilarr:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-profilarr.py --dry-run"
+
+configure-profilarr-pilot:
+	@tmp_script="/tmp/configure-profilarr-sync-$$$$.py"; \
+	tmp_config="/tmp/profilarr-pilot-sync-$$$$.json"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/configure-profilarr-sync.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_config'" \
+	  < stacks/media/profilarr/pilot-sync.json; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n install -m 755 '$$tmp_script' /volume1/docker/media-stack/configure-profilarr-sync.py && \
+	   sudo -n install -d -m 755 /volume1/docker/media-stack/profilarr && \
+	   sudo -n install -m 644 '$$tmp_config' /volume1/docker/media-stack/profilarr/pilot-sync.json && \
+	   rm -f '$$tmp_script' '$$tmp_config' && \
+	   cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-profilarr-sync.py \
+	     --config /volume1/docker/media-stack/profilarr/pilot-sync.json \
+	     --run-sync \
+	     --wait"
+
+dry-run-configure-profilarr-pilot:
+	@tmp_script="/tmp/configure-profilarr-sync-$$$$.py"; \
+	tmp_config="/tmp/profilarr-pilot-sync-$$$$.json"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/configure-profilarr-sync.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_config'" \
+	  < stacks/media/profilarr/pilot-sync.json; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n install -m 755 '$$tmp_script' /volume1/docker/media-stack/configure-profilarr-sync.py && \
+	   sudo -n install -d -m 755 /volume1/docker/media-stack/profilarr && \
+	   sudo -n install -m 644 '$$tmp_config' /volume1/docker/media-stack/profilarr/pilot-sync.json && \
+	   rm -f '$$tmp_script' '$$tmp_config' && \
+	   cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-profilarr-sync.py \
+	     --config /volume1/docker/media-stack/profilarr/pilot-sync.json \
+	     --run-sync \
+	     --dry-run"
 
 configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \

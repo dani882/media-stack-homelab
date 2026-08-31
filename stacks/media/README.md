@@ -18,6 +18,7 @@ It is deployed to the UGREEN NAS through Docker Compose.
 | Jellyfin | Media server | Docker Compose |
 | FlareSolverr | Cloudflare-compatible proxy support | Docker Compose |
 | Recyclarr | TRaSH Guides synchronization | Docker Compose |
+| Profilarr | Optional quality-profile/custom-format pilot | Docker Compose profile |
 
 ## Storage
 
@@ -181,20 +182,110 @@ Preview the configuration without applying changes with
 
 The Sonarr and Radarr configuration is reconciled idempotently.
 
-Jellyfin library selection is also attempted automatically. The current
-Seerr behavior accepts the library enable request but does not persist the
-enabled state. The automation detects this condition, reports a warning,
-and allows the rest of the configuration and deployment to continue.
+Jellyfin library selection is also configured automatically. The managed
+script now uses the safe Jellyfin settings endpoint for reads and only uses
+the mutating library endpoint for the actual apply step, so the enabled
+library state persists correctly.
 
-## Latino Release Policy
+## Profilarr Pilot
 
-The media stack prefers Spanish Latino releases while allowing English
-fallback releases when Latino media is not yet available.
+Profilarr is not part of the default stack lifecycle.
+
+The repository includes an optional pilot integration so it can be evaluated
+without replacing the existing Recyclarr + custom-script workflow.
+
+The pilot is intentionally scoped as:
+
+- optional Docker Compose profile
+- separate config directory under `${CONFIG_DIR}/profilarr`
+- no automatic deployment hooks
+- no changes to Sonarr, Radarr, qBittorrent, Seerr, or cleanup automation
+
+Start the pilot manually with:
+
+```bash
+docker compose \
+  --env-file stacks/media/env/.env \
+  -f stacks/media/compose.yaml \
+  --profile profilarr up -d
+```
+
+Default pilot image channel:
+
+```text
+ghcr.io/dictionarry-hub/profilarr:latest
+ghcr.io/dictionarry-hub/profilarr-parser:latest
+```
+
+If you want to test a specific release, override `PROFILARR_TAG` in
+`stacks/media/env/.env`.
+
+
+This keeps the evaluation reversible and isolated from the production
+configuration path.
+
+Bootstrap or recover the Profilarr admin credentials automatically with:
+
+```bash
+make configure-profilarr
+```
+
+Apply the safe pilot configuration automatically with:
+
+```bash
+make configure-profilarr-pilot
+```
+
+Preview the pilot actions without applying them with:
+
+```bash
+make dry-run-configure-profilarr-pilot
+```
+
+Current assessment:
+
+- Profilarr works well as a generic sync surface for quality profiles,
+  release-group logic, and media-management presets
+- Profilarr does not currently replace the repository-managed
+  Spanish-language ranking policy
+- Profilarr is instance-oriented and does not model separate logical targets
+  on the same Radarr instance; the live pilot rejected a second target for
+  Kids Movies with `This instance target is already configured`
+
+Recommended pilot scope:
+
+- `Sonarr Main`
+- `Radarr Movies`
+
+Keep outside Profilarr for now:
+
+- `Latino > Castellano > English/original`
+- Kids Movies routing on the shared Radarr instance
+- qBittorrent, Seerr, cleanup, and private-tracker automation
+
+## Spanish Language Upgrade Policy
+
+The media stack intentionally prefers:
+
+```text
+Latino > Castellano > English/original
+```
+
+This is not a simple "prefer Spanish" rule.
+
+The repository-managed implementation is designed to:
+
+- keep Latino as the strongest preference
+- allow Castellano as the next-best Spanish fallback
+- allow English/original when neither preferred Spanish variant exists
+- keep monitoring and upgrade to a better language match later
+- handle token-aware title detection rather than unsafe substring matching
 
 Custom formats include:
 
 - `[Latino] Spanish Latino`
 - `[Latino] Spanish Latino + English`
+- `[Spanish] Castellano`
 - `[Latino] French Bonus`
 - `[Audio] Audio Description`
 
@@ -203,6 +294,7 @@ Current scores:
 ```text
 [Latino] Spanish Latino             7000
 [Latino] Spanish Latino + English   7000
+[Spanish] Castellano                6000
 [Latino] French Bonus                250
 [Audio] Audio Description         -10000
 ```
@@ -211,9 +303,10 @@ This allows the stack to:
 
 1. download an acceptable fallback release
 2. continue monitoring for a better Latino release
-3. replace the fallback when a suitable Latino upgrade becomes available
+3. replace the fallback when a better Castellano or Latino candidate becomes
+   available
 
-## Sonarr Latino Audit and Upgrades
+## Sonarr Spanish Audit and Upgrades
 
 Audit available Latino releases:
 
@@ -233,7 +326,7 @@ Apply upgrades:
 make upgrade-latino SERIES="Silo" SEASON=3
 ```
 
-## Radarr Latino Audit and Upgrades
+## Radarr Spanish Audit and Upgrades
 
 Audit a movie:
 
