@@ -10,6 +10,15 @@ sonarr:
 
     delete_old_custom_formats: true
 
+    # The default Sonarr guide-backed profile auto-syncs the
+    # [Optional] Language Profiles group, which already includes
+    # "Language: Not Original" with the guide's reverse-scoring
+    # default. Skip that group so we can assign the CF once with a
+    # local score of 0 and avoid duplicate-score warnings.
+    custom_format_groups:
+      skip:
+        - 74aff4168620ed49dcc67e92b2c2a5b4
+
     quality_definition:
       type: series
 
