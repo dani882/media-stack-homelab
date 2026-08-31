@@ -49,15 +49,15 @@ speculative version numbers to unfinished work.
 - [x] Implement automated media configuration backups
 - [x] Implement validated media configuration restore
 - [x] Add automatic recovery for stopped media-stack services
-- [ ] Document disaster-recovery procedures
-- [ ] Continue reducing manual application configuration
+- [x] Document disaster-recovery procedures
+- [x] Continue reducing manual application configuration
 
 ### Monitoring
 
 - [ ] Select the monitoring toolchain
 - [ ] Collect host metrics
 - [ ] Collect container metrics
-- [ ] Add service-health monitoring
+- [x] Add service-health monitoring for the media stack
 - [ ] Add centralized logging
 - [ ] Add dashboards
 - [ ] Add alerting

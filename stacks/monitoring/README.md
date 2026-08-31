@@ -1,8 +1,19 @@
 # Monitoring Stack
 
-Status: planned.
+Status: lightweight observability in place, full stack planned.
 
-The monitoring stack will provide observability for the homelab.
+The homelab now has a lightweight media-stack observability layer through
+systemd timers plus repository-managed audits.
+
+Current implemented coverage for the media stack:
+
+- periodic live service reachability checks
+- periodic Seerr policy/routing audit
+- periodic Bazarr compatibility audit
+- periodic hardlink audit
+- log output under `/volume1/docker/media-stack/logs`
+
+A fuller monitoring stack is still planned for broader homelab coverage.
 
 Planned areas include:
 
@@ -13,6 +24,6 @@ Planned areas include:
 - dashboards
 - alerting
 
-The final monitoring toolchain has not yet been selected.
+The final full monitoring toolchain has not yet been selected.
 
 See the project [roadmap](../../ROADMAP.md).

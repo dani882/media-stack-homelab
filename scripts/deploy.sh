@@ -32,12 +32,19 @@ PROFILARR_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr.py"
 PROFILARR_SYNC_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr-sync.py"
 CHECK_MEDIA_LIVE_SCRIPT="${ROOT_DIR}/scripts/check-media-live.py"
 AUDIT_BAZARR_SCRIPT="${ROOT_DIR}/scripts/audit-bazarr.py"
+AUDIT_SEERR_SCRIPT="${ROOT_DIR}/scripts/audit-seerr.py"
+AUDIT_HARDLINKS_SCRIPT="${ROOT_DIR}/scripts/audit-hardlinks.py"
 VERIFY_HARDLINKS_SCRIPT="${ROOT_DIR}/scripts/verify-hardlinks.py"
+MONITOR_MEDIA_STACK_SCRIPT="${ROOT_DIR}/scripts/monitor-media-stack.sh"
 BACKUP_SCRIPT="${ROOT_DIR}/scripts/backup.sh"
 RESTORE_SCRIPT="${ROOT_DIR}/scripts/restore.sh"
 WATCHDOG_SCRIPT="${ROOT_DIR}/scripts/watchdog.sh"
 WATCHDOG_SERVICE="${STACK_DIR}/systemd/media-stack-watchdog.service"
 WATCHDOG_TIMER="${STACK_DIR}/systemd/media-stack-watchdog.timer"
+HEALTHCHECK_SERVICE="${STACK_DIR}/systemd/media-stack-healthcheck.service"
+HEALTHCHECK_TIMER="${STACK_DIR}/systemd/media-stack-healthcheck.timer"
+HARDLINK_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-hardlink-audit.service"
+HARDLINK_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-hardlink-audit.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -86,12 +93,19 @@ for required_file in \
   "$PROFILARR_SYNC_SCRIPT" \
   "$CHECK_MEDIA_LIVE_SCRIPT" \
   "$AUDIT_BAZARR_SCRIPT" \
+  "$AUDIT_SEERR_SCRIPT" \
+  "$AUDIT_HARDLINKS_SCRIPT" \
   "$VERIFY_HARDLINKS_SCRIPT" \
+  "$MONITOR_MEDIA_STACK_SCRIPT" \
   "$BACKUP_SCRIPT" \
   "$RESTORE_SCRIPT" \
   "$WATCHDOG_SCRIPT" \
   "$WATCHDOG_SERVICE" \
   "$WATCHDOG_TIMER" \
+  "$HEALTHCHECK_SERVICE" \
+  "$HEALTHCHECK_TIMER" \
+  "$HARDLINK_AUDIT_SERVICE" \
+  "$HARDLINK_AUDIT_TIMER" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -185,12 +199,19 @@ REMOTE_PROFILARR_TEMP="${REMOTE_STAGING}/configure-profilarr-${USER}-$$.py"
 REMOTE_PROFILARR_SYNC_TEMP="${REMOTE_STAGING}/configure-profilarr-sync-${USER}-$$.py"
 REMOTE_CHECK_MEDIA_LIVE_TEMP="${REMOTE_STAGING}/check-media-live-${USER}-$$.py"
 REMOTE_AUDIT_BAZARR_TEMP="${REMOTE_STAGING}/audit-bazarr-${USER}-$$.py"
+REMOTE_AUDIT_SEERR_TEMP="${REMOTE_STAGING}/audit-seerr-${USER}-$$.py"
+REMOTE_AUDIT_HARDLINKS_TEMP="${REMOTE_STAGING}/audit-hardlinks-${USER}-$$.py"
 REMOTE_VERIFY_HARDLINKS_TEMP="${REMOTE_STAGING}/verify-hardlinks-${USER}-$$.py"
+REMOTE_MONITOR_MEDIA_STACK_TEMP="${REMOTE_STAGING}/monitor-media-stack-${USER}-$$.sh"
 REMOTE_BACKUP_TEMP="${REMOTE_STAGING}/backup-media-stack-${USER}-$$.sh"
 REMOTE_RESTORE_TEMP="${REMOTE_STAGING}/restore-media-stack-${USER}-$$.sh"
 REMOTE_WATCHDOG_TEMP="${REMOTE_STAGING}/watchdog-media-stack-${USER}-$$.sh"
 REMOTE_WATCHDOG_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-watchdog-${USER}-$$.service"
 REMOTE_WATCHDOG_TIMER_TEMP="${REMOTE_STAGING}/media-stack-watchdog-${USER}-$$.timer"
+REMOTE_HEALTHCHECK_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-healthcheck-${USER}-$$.service"
+REMOTE_HEALTHCHECK_TIMER_TEMP="${REMOTE_STAGING}/media-stack-healthcheck-${USER}-$$.timer"
+REMOTE_HARDLINK_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.service"
+REMOTE_HARDLINK_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -473,8 +494,20 @@ echo "Uploading media live validation scripts through SSH..."
   < "$AUDIT_BAZARR_SCRIPT"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_AUDIT_SEERR_TEMP}'" \
+  < "$AUDIT_SEERR_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_AUDIT_HARDLINKS_TEMP}'" \
+  < "$AUDIT_HARDLINKS_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_VERIFY_HARDLINKS_TEMP}'" \
   < "$VERIFY_HARDLINKS_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MONITOR_MEDIA_STACK_TEMP}'" \
+  < "$MONITOR_MEDIA_STACK_SCRIPT"
 
 echo "Uploading media backup script through SSH..."
 
@@ -513,6 +546,22 @@ echo "Uploading media watchdog systemd units through SSH..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_WATCHDOG_TIMER_TEMP}'" \
   < "$WATCHDOG_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_HEALTHCHECK_SERVICE_TEMP}'" \
+  < "$HEALTHCHECK_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_HEALTHCHECK_TIMER_TEMP}'" \
+  < "$HEALTHCHECK_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_HARDLINK_AUDIT_SERVICE_TEMP}'" \
+  < "$HARDLINK_AUDIT_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}'" \
+  < "$HARDLINK_AUDIT_TIMER"
 
 echo "Uploading qBittorrent configuration files..."
 
@@ -645,8 +694,20 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/audit-bazarr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_AUDIT_SEERR_TEMP}' \
+    '${NAS_STACK_DIR}/audit-seerr.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_AUDIT_HARDLINKS_TEMP}' \
+    '${NAS_STACK_DIR}/audit-hardlinks.py'
+
+  sudo install -m 0755 \
     '${REMOTE_VERIFY_HARDLINKS_TEMP}' \
     '${NAS_STACK_DIR}/verify-hardlinks.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_MONITOR_MEDIA_STACK_TEMP}' \
+    '${NAS_STACK_DIR}/monitor-media-stack.sh'
 
   sudo install -m 0755 \
     '${REMOTE_BACKUP_TEMP}' \
@@ -668,8 +729,27 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_WATCHDOG_TIMER_TEMP}' \
     /etc/systemd/system/media-stack-watchdog.timer
 
+  sudo install -m 0644 \
+    '${REMOTE_HEALTHCHECK_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-healthcheck.service
+
+  sudo install -m 0644 \
+    '${REMOTE_HEALTHCHECK_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-healthcheck.timer
+
+  sudo install -m 0644 \
+    '${REMOTE_HARDLINK_AUDIT_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-hardlink-audit.service
+
+  sudo install -m 0644 \
+    '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-hardlink-audit.timer
+
   sudo systemctl daemon-reload
-  sudo systemctl enable --now media-stack-watchdog.timer
+  sudo systemctl enable --now \
+    media-stack-watchdog.timer \
+    media-stack-healthcheck.timer \
+    media-stack-hardlink-audit.timer
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
@@ -782,12 +862,19 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PROFILARR_SYNC_TEMP}' \
     '${REMOTE_CHECK_MEDIA_LIVE_TEMP}' \
     '${REMOTE_AUDIT_BAZARR_TEMP}' \
+    '${REMOTE_AUDIT_SEERR_TEMP}' \
+    '${REMOTE_AUDIT_HARDLINKS_TEMP}' \
     '${REMOTE_VERIFY_HARDLINKS_TEMP}' \
+    '${REMOTE_MONITOR_MEDIA_STACK_TEMP}' \
     '${REMOTE_BACKUP_TEMP}' \
     '${REMOTE_RESTORE_TEMP}' \
     '${REMOTE_WATCHDOG_TEMP}' \
     '${REMOTE_WATCHDOG_SERVICE_TEMP}' \
     '${REMOTE_WATCHDOG_TIMER_TEMP}' \
+    '${REMOTE_HEALTHCHECK_SERVICE_TEMP}' \
+    '${REMOTE_HEALTHCHECK_TIMER_TEMP}' \
+    '${REMOTE_HARDLINK_AUDIT_SERVICE_TEMP}' \
+    '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \

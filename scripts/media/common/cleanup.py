@@ -202,7 +202,14 @@ def run_cleanup(
     config: CleanupConfig,
     dry_run: bool,
     max_delete: int = 10,
+    dangerous_only: bool = False,
+    normal_only: bool = False,
 ) -> int:
+    if dangerous_only and normal_only:
+        raise CleanupError(
+            "--dangerous-only and --normal-only cannot be used together."
+        )
+
     try:
         api_key = read_api_key(
             config.config_file
@@ -282,6 +289,12 @@ def run_cleanup(
         normal_cleanup = has_safe_warning(item)
 
         if not dangerous and not normal_cleanup:
+            continue
+
+        if dangerous_only and not dangerous:
+            continue
+
+        if normal_only and dangerous:
             continue
 
         download_id = str(
@@ -457,6 +470,12 @@ def run_cleanup(
     print(
         f"Application: {config.app_name}"
     )
+    if dangerous_only:
+        print("Mode: dangerous-only")
+    elif normal_only:
+        print("Mode: normal-only")
+    else:
+        print("Mode: combined")
     print(
         f"Safe cleanup candidates: {safe_candidates}"
     )

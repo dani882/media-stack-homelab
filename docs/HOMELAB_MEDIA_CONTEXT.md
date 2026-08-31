@@ -92,6 +92,9 @@ Additional live note from 2026-08-31:
   `make dry-run-sync-profilarr`
   `make check-media-live`
   `make audit-bazarr`
+  `make audit-seerr`
+  `make audit-hardlinks`
+  `make install-media-observability`
   `make verify-hardlinks DOWNLOAD=... LIBRARY=...`
 
 ---

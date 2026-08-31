@@ -39,6 +39,16 @@ def main() -> int:
             "destructive run."
         ),
     )
+    parser.add_argument(
+        "--dangerous-only",
+        action="store_true",
+        help="Only process dangerous-download cleanup candidates.",
+    )
+    parser.add_argument(
+        "--normal-only",
+        action="store_true",
+        help="Only process normal stale completed-download candidates.",
+    )
 
     parser.add_argument(
         "--radarr-url",
@@ -77,6 +87,8 @@ def main() -> int:
         config,
         args.dry_run,
         max_delete=args.max_delete,
+        dangerous_only=args.dangerous_only,
+        normal_only=args.normal_only,
     )
 
 

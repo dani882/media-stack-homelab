@@ -29,6 +29,10 @@ Current ADRs:
 - [`../CHANGELOG.md`](../CHANGELOG.md) - release history
 - [`HOMELAB_MEDIA_CONTEXT.md`](HOMELAB_MEDIA_CONTEXT.md) - canonical media
   stack handoff/checkpoint
+- [`disaster-recovery.md`](disaster-recovery.md) - media-stack recovery
+  checklist
+- [`media-legacy-mount-removal.md`](media-legacy-mount-removal.md) - legacy
+  mount retirement checklist
 - [`media-operations.md`](media-operations.md) - short media-stack
   operations runbook
 - [`profilarr-assessment.md`](profilarr-assessment.md) - current Profilarr

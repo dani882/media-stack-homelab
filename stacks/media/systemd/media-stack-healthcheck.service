@@ -1,0 +1,7 @@
+[Unit]
+Description=Media Stack Live Health Audit
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/volume1/docker/media-stack/monitor-media-stack.sh

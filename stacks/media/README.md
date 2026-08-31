@@ -561,10 +561,22 @@ Run a quick live service check on the NAS:
 make check-media-live
 ```
 
+Audit live Seerr routing:
+
+```bash
+make audit-seerr
+```
+
 Audit Bazarr before removing compatibility mounts:
 
 ```bash
 make audit-bazarr
+```
+
+Audit recent hardlink-backed imports automatically:
+
+```bash
+make audit-hardlinks
 ```
 
 Verify that a real download/import pair is a hardlink:
@@ -578,6 +590,30 @@ make verify-hardlinks \
 Cleanup scripts now fail closed if a destructive run would remove more than
 ten downloads at once, unless the operator explicitly raises the limit with
 `--max-delete` after reviewing a dry run.
+
+If you want to separate normal stale cleanup from dangerous-download
+remediation, use:
+
+```bash
+make dry-run-cleanup-sonarr-dangerous
+make dry-run-cleanup-radarr-dangerous
+make dry-run-cleanup-sonarr-normal
+make dry-run-cleanup-radarr-normal
+```
+
+## Periodic Observability
+
+Install the repository-managed observability timers on the NAS with:
+
+```bash
+make install-media-observability
+```
+
+This installs:
+
+- a 30-minute live health audit timer
+- a 12-hour hardlink audit timer
+- log output at `/volume1/docker/media-stack/logs/media-observability.log`
 
 ## Testing
 

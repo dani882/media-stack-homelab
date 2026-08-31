@@ -37,10 +37,22 @@ Validate live service reachability on the NAS:
 make check-media-live
 ```
 
+Audit Seerr routing and profile bindings:
+
+```bash
+make audit-seerr
+```
+
 Audit Bazarr for legacy mount assumptions:
 
 ```bash
 make audit-bazarr
+```
+
+Audit recent hardlink-backed imports automatically:
+
+```bash
+make audit-hardlinks
 ```
 
 Synchronize Recyclarr:
@@ -59,6 +71,12 @@ Preview the optional Profilarr pilot sync:
 
 ```bash
 make dry-run-sync-profilarr
+```
+
+Install the periodic media observability timers on the NAS:
+
+```bash
+make install-media-observability
 ```
 
 Verify a real hardlink import end-to-end:
@@ -109,6 +127,15 @@ Cleanup is intentionally conservative.
 - dangerous-file cleanup still honors private-tracker seeding obligations
 
 Always preview cleanup before a destructive run.
+
+If you want to separate workflows:
+
+```bash
+make dry-run-cleanup-sonarr-dangerous
+make dry-run-cleanup-radarr-dangerous
+make dry-run-cleanup-sonarr-normal
+make dry-run-cleanup-radarr-normal
+```
 
 ## Hardlink Guardrails
 

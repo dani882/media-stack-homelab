@@ -91,6 +91,9 @@ If extending the Profilarr pilot:
 - `make check`
 - `make check-media-live`
 - `make audit-bazarr`
+- `make audit-seerr`
+- `make audit-hardlinks`
 - `make sync-recyclarr`
 - `make sync-profilarr`
+- `make install-media-observability`
 - `make verify-hardlinks DOWNLOAD="..." LIBRARY="..."`

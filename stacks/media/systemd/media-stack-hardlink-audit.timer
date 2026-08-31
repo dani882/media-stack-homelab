@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Media Stack Hardlink Audit
+
+[Timer]
+OnBootSec=20min
+OnUnitActiveSec=12h
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

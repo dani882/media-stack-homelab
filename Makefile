@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr verify-hardlinks
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-hardlinks verify-hardlinks install-media-observability dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 validate:
 	@./scripts/validate.sh
@@ -156,6 +156,22 @@ audit-bazarr:
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
 
+audit-seerr:
+	@tmp_script="/tmp/audit-seerr-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/audit-seerr.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
+audit-hardlinks:
+	@tmp_script="/tmp/audit-hardlinks-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/audit-hardlinks.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
 verify-hardlinks:
 	@test -n "$${DOWNLOAD}" || \
 	  { echo "ERROR: DOWNLOAD is required"; exit 1; }
@@ -170,6 +186,38 @@ verify-hardlinks:
 	     --download '$${DOWNLOAD}' \
 	     --library '$${LIBRARY}'; \
 	   rm -f '$$tmp_script'"
+
+install-media-observability:
+	@tmp_monitor="/tmp/monitor-media-stack-$$$$.sh"; \
+	tmp_live="/tmp/check-media-live-$$$$.py"; \
+	tmp_bazarr="/tmp/audit-bazarr-$$$$.py"; \
+	tmp_seerr="/tmp/audit-seerr-$$$$.py"; \
+	tmp_hardlink_py="/tmp/audit-hardlinks-$$$$.py"; \
+	tmp_health="/tmp/media-stack-healthcheck-$$$$.service"; \
+	tmp_health_timer="/tmp/media-stack-healthcheck-$$$$.timer"; \
+	tmp_hardlinks="/tmp/media-stack-hardlink-audit-$$$$.service"; \
+	tmp_hardlinks_timer="/tmp/media-stack-hardlink-audit-$$$$.timer"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_monitor'" < scripts/monitor-media-stack.sh; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_live'" < scripts/check-media-live.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_bazarr'" < scripts/audit-bazarr.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_seerr'" < scripts/audit-seerr.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_hardlink_py'" < scripts/audit-hardlinks.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_health'" < stacks/media/systemd/media-stack-healthcheck.service; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_health_timer'" < stacks/media/systemd/media-stack-healthcheck.timer; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_hardlinks'" < stacks/media/systemd/media-stack-hardlink-audit.service; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_hardlinks_timer'" < stacks/media/systemd/media-stack-hardlink-audit.timer; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "sudo -n install -m 755 '$$tmp_monitor' /volume1/docker/media-stack/monitor-media-stack.sh && \
+	  sudo -n install -m 755 '$$tmp_live' /volume1/docker/media-stack/check-media-live.py && \
+	  sudo -n install -m 755 '$$tmp_bazarr' /volume1/docker/media-stack/audit-bazarr.py && \
+	  sudo -n install -m 755 '$$tmp_seerr' /volume1/docker/media-stack/audit-seerr.py && \
+	  sudo -n install -m 755 '$$tmp_hardlink_py' /volume1/docker/media-stack/audit-hardlinks.py && \
+	  sudo -n install -m 644 '$$tmp_health' /etc/systemd/system/media-stack-healthcheck.service && \
+	  sudo -n install -m 644 '$$tmp_health_timer' /etc/systemd/system/media-stack-healthcheck.timer && \
+	  sudo -n install -m 644 '$$tmp_hardlinks' /etc/systemd/system/media-stack-hardlink-audit.service && \
+	  sudo -n install -m 644 '$$tmp_hardlinks_timer' /etc/systemd/system/media-stack-hardlink-audit.timer && \
+	  sudo -n systemctl daemon-reload && \
+	  sudo -n systemctl enable --now media-stack-healthcheck.timer media-stack-hardlink-audit.timer && \
+	  rm -f '$$tmp_monitor' '$$tmp_live' '$$tmp_bazarr' '$$tmp_seerr' '$$tmp_hardlink_py' '$$tmp_health' '$$tmp_health_timer' '$$tmp_hardlinks' '$$tmp_hardlinks_timer'"
 
 configure-qbittorrent:
 	@ssh -t "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
@@ -234,6 +282,30 @@ dry-run-cleanup-sonarr-downloads:
 	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
 	   --dry-run"
 
+dry-run-cleanup-sonarr-dangerous:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
+	   --dry-run --dangerous-only"
+
+cleanup-sonarr-dangerous:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
+	   --dangerous-only"
+
+dry-run-cleanup-sonarr-normal:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
+	   --dry-run --normal-only"
+
+cleanup-sonarr-normal:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-sonarr-downloads.py \
+	   --normal-only"
+
 .PHONY: upgrade-latino dry-run-upgrade-latino
 
 upgrade-latino:
@@ -287,3 +359,27 @@ dry-run-cleanup-radarr-downloads:
 	  "sudo -n python3 \
 	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
 	   --dry-run"
+
+dry-run-cleanup-radarr-dangerous:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
+	   --dry-run --dangerous-only"
+
+cleanup-radarr-dangerous:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
+	   --dangerous-only"
+
+dry-run-cleanup-radarr-normal:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
+	   --dry-run --normal-only"
+
+cleanup-radarr-normal:
+	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 \
+	   /volume1/docker/media-stack/scripts/cleanup-radarr-downloads.py \
+	   --normal-only"

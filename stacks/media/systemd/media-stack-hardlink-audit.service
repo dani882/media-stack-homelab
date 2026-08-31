@@ -1,0 +1,7 @@
+[Unit]
+Description=Media Stack Hardlink Audit
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /volume1/docker/media-stack/audit-hardlinks.py

@@ -1,6 +1,6 @@
 # Profilarr Assessment
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 This note captures the current evaluation of Profilarr against the live
 homelab media stack.
@@ -14,6 +14,7 @@ Recommended scope:
 
 - use Profilarr for generic quality-profile, release-group, and media
   management sync
+- treat Profilarr as a complementary layer, not the top-level source of truth
 - keep the repository-managed Spanish-language preference logic outside
   Profilarr
 - keep separate request-routing and root-folder behavior outside Profilarr

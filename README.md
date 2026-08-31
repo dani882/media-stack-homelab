@@ -178,6 +178,8 @@ Additional documentation:
 
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/adr/`](docs/adr/)
+- [`docs/disaster-recovery.md`](docs/disaster-recovery.md)
+- [`docs/media-legacy-mount-removal.md`](docs/media-legacy-mount-removal.md)
 - [`docs/media-operations.md`](docs/media-operations.md)
 - [`stacks/media/README.md`](stacks/media/README.md)
 - [`ROADMAP.md`](ROADMAP.md)
