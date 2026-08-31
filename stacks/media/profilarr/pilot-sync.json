@@ -1,0 +1,17 @@
+{
+  "database": "Dictionarry",
+  "instances": [
+    {
+      "name": "Sonarr Main",
+      "qualityProfiles": [
+        "1080p Balanced"
+      ]
+    },
+    {
+      "name": "Radarr Movies",
+      "qualityProfiles": [
+        "1080p Balanced"
+      ]
+    }
+  ]
+}

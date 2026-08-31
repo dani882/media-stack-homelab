@@ -4,6 +4,38 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+### Added
+
+- Optional Profilarr pilot integration for evaluating generic quality-policy
+  sync without replacing the existing language and operations workflow.
+- Automated Profilarr admin bootstrap and password recovery.
+- Technical assessment documenting the safe scope for a partial Profilarr
+  rollout.
+
+## v0.28.0 - 2026-08-30
+
+### Added
+
+- Castellano-aware language ranking between Latino and English/original.
+- Shared language helper module for safer Spanish release detection.
+- Hardlink-safe `/data` storage layout for Sonarr and Radarr imports.
+- qBittorrent namespace migration for new downloads under
+  `/data/Downloads/...`.
+- Deployment support for the new shared language module.
+
+### Changed
+
+- Updated the media policy from Latino-versus-English handling to
+  `Latino > Castellano > English/original`.
+- Migrated Sonarr and Radarr library/root paths to `/data/Media/...`.
+- Updated qBittorrent, Seerr, and Servarr configuration to match the
+  hardlink-safe storage model while preserving compatibility mounts.
+
+### Fixed
+
+- Resolved the Seerr library-state persistence issue in the managed
+  configuration flow.
+
 ## v0.26.0 - 2026-08-28
 
 ### Added

@@ -27,3 +27,7 @@ Current ADRs:
 - [`../README.md`](../README.md) - project overview
 - [`../ROADMAP.md`](../ROADMAP.md) - development roadmap
 - [`../CHANGELOG.md`](../CHANGELOG.md) - release history
+- [`HOMELAB_MEDIA_CONTEXT.md`](HOMELAB_MEDIA_CONTEXT.md) - canonical media
+  stack handoff/checkpoint
+- [`profilarr-assessment.md`](profilarr-assessment.md) - current Profilarr
+  pilot evaluation

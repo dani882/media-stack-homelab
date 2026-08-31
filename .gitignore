@@ -47,3 +47,5 @@ __pycache__/
 
 # NAS-only private tracker credentials
 stacks/media/secrets/prowlarr-private-indexers.json
+
+CLAUDE.MD
