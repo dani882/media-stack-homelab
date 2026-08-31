@@ -1,6 +1,6 @@
 # Claude Working Notes
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 Read this file before making homelab media-stack changes from Claude.
 
@@ -52,6 +52,20 @@ Interpretation:
   logic
 - not a drop-in replacement for multi-workflow routing on one Radarr
   instance
+
+## Recyclarr Note
+
+Validated live on 2026-08-31:
+
+- Recyclarr itself was working correctly
+- Sonarr had one duplicate-score warning for
+  `Language: Not Original (ae575f95ab639ba5d15f663bf019e3e8)`
+- cause: the default guide-backed Sonarr language group already assigned
+  that CF with the guide score, while the local config also assigned it
+  explicitly with score `0`
+- fix: skip Sonarr custom format group
+  `74aff4168620ed49dcc67e92b2c2a5b4` so the CF is assigned only once
+- live Sonarr and Radarr preview syncs both completed cleanly after the fix
 
 ## Guardrails
 

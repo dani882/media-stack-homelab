@@ -1,6 +1,6 @@
 # Homelab Media Stack — Exhaustive Working Context / Canonical Checkpoint
 
-Last updated: 2026-08-30
+Last updated: 2026-08-31
 
 This document is the canonical handoff/checkpoint for the current homelab media-stack work.
 
@@ -76,6 +76,17 @@ Important live conclusion from the Profilarr pilot:
   with `This instance target is already configured`, which means it does not
   directly model separate Movies and Kids Movies flows on the same Radarr
   instance
+
+Additional live note from 2026-08-31:
+
+- Recyclarr preview validation confirmed the stack was healthy overall
+- a Sonarr-only warning was traced to duplicate scoring of
+  `Language: Not Original (ae575f95ab639ba5d15f663bf019e3e8)`
+- the repository fix was to skip Sonarr TRaSH custom format group
+  `74aff4168620ed49dcc67e92b2c2a5b4` and keep the repository-managed local
+  score assignment
+- live preview syncs for both Sonarr and Radarr completed cleanly after that
+  change
 
 ---
 

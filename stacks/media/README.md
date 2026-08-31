@@ -474,6 +474,12 @@ Restore safety controls include:
 
 Recyclarr synchronizes TRaSH Guides configuration with Sonarr and Radarr.
 
+One live Sonarr warning was intentionally resolved on 2026-08-31 by skipping
+the default Sonarr language custom-format group that already assigned
+`Language: Not Original`, because the repository keeps a local override for
+that same custom format. This avoids duplicate-score warnings during sync
+while preserving the intended language behavior.
+
 Run manually with:
 
 ```bash
