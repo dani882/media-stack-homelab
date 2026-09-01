@@ -2620,10 +2620,12 @@ The work is complete only when all of the following are true:
 On 2026-09-01, `Play on Jellyfin` was found to use the Docker-only URL
 `http://jellyfin:8096/...`, which fails in LAN browsers with
 `ERR_NAME_NOT_RESOLVED`. The repository now manages Seerr's
-`externalHostname` as `http://10.0.0.123:8899`, while preserving the internal
-Docker endpoint `jellyfin:8096` for Seerr-to-Jellyfin API traffic.
+`externalHostname` dynamically from the NAS mDNS hostname and Jellyfin's
+published Docker port, while preserving the internal Docker endpoint
+`jellyfin:8096` for Seerr-to-Jellyfin API traffic.
 
-Live deployment and `make audit-seerr` confirmed the external URL persisted,
-the internal endpoint remains unchanged, and Jellyfin libraries plus Servarr
-routing are healthy. Revisit the configured external hostname if the NAS LAN
-address changes; a stable local DNS name is preferable when one is available.
+`DH4300PLUS-9186.local` was verified from macOS as browser-reachable. Live
+deployment and `make audit-seerr` confirmed the external URL persisted, the
+internal endpoint remains unchanged, and Jellyfin libraries plus Servarr
+routing are healthy. The next configuration run automatically adapts if the
+NAS hostname or published Jellyfin port changes.

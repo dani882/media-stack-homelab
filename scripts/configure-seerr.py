@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import socket
+import subprocess
 import sys
 import time
 import urllib.error
@@ -18,7 +21,8 @@ DEFAULT_SEERR_URL = "http://127.0.0.1:5055"
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 JELLYFIN_MEDIA_SERVER_TYPE = 2
-JELLYFIN_EXTERNAL_HOSTNAME = "http://10.0.0.123:8899"
+JELLYFIN_CONTAINER = "jellyfin"
+JELLYFIN_CONTAINER_PORT = "8096/tcp"
 
 JELLYFIN_LIBRARIES = (
     "Movies",
@@ -393,15 +397,49 @@ def configure_jellyfin_libraries(
     )
 
 
+def detect_jellyfin_external_hostname() -> str:
+    hostname = socket.gethostname().split(".", 1)[0].lower()
+    if not re.fullmatch(r"[a-z0-9-]+", hostname):
+        raise SeerrError(
+            "NAS hostname cannot be used for a local URL: "
+            + hostname
+        )
+
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "port",
+                JELLYFIN_CONTAINER,
+                JELLYFIN_CONTAINER_PORT,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SeerrError(
+            "Unable to discover Jellyfin's published port."
+        ) from error
+
+    for line in result.stdout.splitlines():
+        match = re.search(r":(\d+)$", line.strip())
+        if match:
+            return f"http://{hostname}.local:{match.group(1)}"
+
+    raise SeerrError("Jellyfin has no published TCP port.")
+
+
 def configure_jellyfin_external_hostname(
     client: SeerrClient,
     dry_run: bool,
+    external_hostname: str,
 ) -> None:
     jellyfin = client.request("GET", "/settings/jellyfin")
     if not isinstance(jellyfin, dict):
         raise SeerrError("Unexpected Jellyfin settings response.")
 
-    desired = JELLYFIN_EXTERNAL_HOSTNAME.rstrip("/")
+    desired = external_hostname.rstrip("/")
     current = str(jellyfin.get("externalHostname", "")).rstrip("/")
     if current == desired:
         print("SEERR JELLYFIN EXTERNAL URL OK: " + desired)
@@ -784,6 +822,7 @@ def main() -> int:
         configure_jellyfin_external_hostname(
             client,
             arguments.dry_run,
+            detect_jellyfin_external_hostname(),
         )
 
         sonarr_probe = test_arr(

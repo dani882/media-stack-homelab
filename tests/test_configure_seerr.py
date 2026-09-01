@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 MODULE_PATH = Path("scripts/configure-seerr.py")
@@ -582,23 +584,43 @@ class SeerrInitializationTest(unittest.TestCase):
 
 
 class SeerrJellyfinExternalUrlTest(unittest.TestCase):
+    def test_external_url_is_discovered_from_hostname_and_port(self):
+        with (
+            patch.object(
+                MODULE.socket,
+                "gethostname",
+                return_value="My-NAS",
+            ),
+            patch.object(
+                MODULE.subprocess,
+                "run",
+                return_value=SimpleNamespace(
+                    stdout="0.0.0.0:49152\n[::]:49152\n"
+                ),
+            ),
+        ):
+            detected = MODULE.detect_jellyfin_external_hostname()
+
+        self.assertEqual(detected, "http://my-nas.local:49152")
+
     def test_external_url_already_configured(self):
+        expected = "http://nas.local:8899"
         client = FakeClient(
             {
                 ("GET", "/settings/jellyfin"): {
-                    "externalHostname": (
-                        MODULE.JELLYFIN_EXTERNAL_HOSTNAME
-                    )
+                    "externalHostname": expected
                 },
             }
         )
 
-        MODULE.configure_jellyfin_external_hostname(client, False)
+        MODULE.configure_jellyfin_external_hostname(
+            client, False, expected
+        )
 
         self.assertEqual(len(client.calls), 1)
 
     def test_external_url_is_updated_and_verified(self):
-        desired = MODULE.JELLYFIN_EXTERNAL_HOSTNAME
+        desired = "http://nas.local:8899"
 
         def jellyfin_response(_):
             return {
@@ -614,7 +636,9 @@ class SeerrJellyfinExternalUrlTest(unittest.TestCase):
             }
         )
 
-        MODULE.configure_jellyfin_external_hostname(client, False)
+        MODULE.configure_jellyfin_external_hostname(
+            client, False, desired
+        )
 
         self.assertEqual(
             client.calls[1],

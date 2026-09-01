@@ -258,11 +258,12 @@ library state persists correctly.
 
 ### Browser-facing Jellyfin links
 
-Seerr keeps `jellyfin:8096` as its Docker-internal connection and manages
-`http://10.0.0.123:8899` as the browser-facing Jellyfin URL. `Play on
-Jellyfin` links therefore use the NAS-published port instead of the
-Docker-only hostname. `make audit-seerr` verifies both the media libraries and
-the external URL.
+Seerr keeps `jellyfin:8096` as its Docker-internal connection. During each
+configuration run it discovers the NAS hostname and Jellyfin's published Docker
+port, then manages a browser-facing mDNS URL such as
+`http://dh4300plus-9186.local:8899`. `Play on Jellyfin` links therefore avoid
+both Docker-only hostnames and hard-coded IP addresses. `make audit-seerr`
+verifies the discovered external URL as well as the media libraries.
 
 ## Profilarr Pilot
 

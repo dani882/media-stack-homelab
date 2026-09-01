@@ -92,9 +92,9 @@ Validated live on 2026-08-31:
   or multi-episode files untouched
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
-- Seerr keeps `jellyfin:8096` for internal Docker traffic and manages
-  `http://10.0.0.123:8899` as Jellyfin's browser-facing external URL; verify
-  it with `make audit-seerr` after any network-address change
+- Seerr keeps `jellyfin:8096` for internal Docker traffic and dynamically
+  derives Jellyfin's browser-facing mDNS URL from the NAS hostname plus the
+  published Docker port; verify it with `make audit-seerr`
 - prefer automation over manual NAS steps
 
 ## Recommended Direction

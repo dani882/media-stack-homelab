@@ -116,11 +116,13 @@ Sonarr to rescan the series.
 
 ## Seerr to Jellyfin browser links
 
-Seerr uses `jellyfin:8096` only for its internal Docker connection and
-manages `http://10.0.0.123:8899` as Jellyfin's external hostname. This keeps
-the API traffic inside Docker while `Play on Jellyfin` opens a LAN-reachable
-address in macOS browsers. `make audit-seerr` verifies the external URL along
-with library and Servarr routing.
+Seerr uses `jellyfin:8096` only for its internal Docker connection. The
+managed configuration discovers the NAS hostname and Jellyfin's published
+Docker port, then sets a LAN-reachable mDNS URL such as
+`http://dh4300plus-9186.local:8899`. This keeps API traffic inside Docker while
+`Play on Jellyfin` opens a browser-reachable address without hard-coding an IP.
+`make audit-seerr` verifies the discovered external URL along with library and
+Servarr routing.
 
 ## Recovery
 

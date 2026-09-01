@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import socket
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -16,7 +19,34 @@ DEFAULT_SEERR_URL = "http://127.0.0.1:5055"
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 EXPECTED_LIBRARIES = {"Movies", "Kids", "Series"}
 EXPECTED_PROFILE = "Latino 1080p"
-EXPECTED_JELLYFIN_EXTERNAL_HOSTNAME = "http://10.0.0.123:8899"
+
+
+def detect_jellyfin_external_hostname() -> str:
+    hostname = socket.gethostname().split(".", 1)[0].lower()
+    if not re.fullmatch(r"[a-z0-9-]+", hostname):
+        raise SeerrAuditError(
+            "NAS hostname cannot be used for a local URL: "
+            + hostname
+        )
+
+    try:
+        result = subprocess.run(
+            ["docker", "port", "jellyfin", "8096/tcp"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SeerrAuditError(
+            "Unable to discover Jellyfin's published port."
+        ) from error
+
+    for line in result.stdout.splitlines():
+        match = re.search(r":(\d+)$", line.strip())
+        if match:
+            return f"http://{hostname}.local:{match.group(1)}"
+
+    raise SeerrAuditError("Jellyfin has no published TCP port.")
 
 
 class SeerrAuditError(RuntimeError):
@@ -152,7 +182,8 @@ def validate_libraries(
     external_hostname = str(
         jellyfin.get("externalHostname", "")
     ).rstrip("/")
-    if external_hostname != EXPECTED_JELLYFIN_EXTERNAL_HOSTNAME:
+    expected_hostname = detect_jellyfin_external_hostname()
+    if external_hostname != expected_hostname:
         raise SeerrAuditError(
             "Unexpected Seerr Jellyfin external URL: "
             f"{external_hostname or 'none'}"
