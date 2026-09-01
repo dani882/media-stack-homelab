@@ -18,6 +18,7 @@ DEFAULT_SEERR_URL = "http://127.0.0.1:5055"
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 JELLYFIN_MEDIA_SERVER_TYPE = 2
+JELLYFIN_EXTERNAL_HOSTNAME = "http://10.0.0.123:8899"
 
 JELLYFIN_LIBRARIES = (
     "Movies",
@@ -392,6 +393,50 @@ def configure_jellyfin_libraries(
     )
 
 
+def configure_jellyfin_external_hostname(
+    client: SeerrClient,
+    dry_run: bool,
+) -> None:
+    jellyfin = client.request("GET", "/settings/jellyfin")
+    if not isinstance(jellyfin, dict):
+        raise SeerrError("Unexpected Jellyfin settings response.")
+
+    desired = JELLYFIN_EXTERNAL_HOSTNAME.rstrip("/")
+    current = str(jellyfin.get("externalHostname", "")).rstrip("/")
+    if current == desired:
+        print("SEERR JELLYFIN EXTERNAL URL OK: " + desired)
+        return
+
+    if dry_run:
+        print("WOULD SET SEERR JELLYFIN EXTERNAL URL: " + desired)
+        return
+
+    # The API merges this field into existing Jellyfin settings. Do not send
+    # internal `ip`, port, or credential fields: Docker connectivity remains
+    # managed by the existing bootstrap configuration.
+    client.request(
+        "POST",
+        "/settings/jellyfin",
+        {"externalHostname": desired},
+    )
+    persisted = client.request("GET", "/settings/jellyfin")
+    if not isinstance(persisted, dict):
+        raise SeerrError(
+            "Unexpected Jellyfin settings response after update."
+        )
+
+    persisted_url = str(
+        persisted.get("externalHostname", "")
+    ).rstrip("/")
+    if persisted_url != desired:
+        raise SeerrError(
+            "Seerr Jellyfin external URL did not persist. "
+            f"Expected {desired}; got {persisted_url or 'none'}"
+        )
+
+    print("SET SEERR JELLYFIN EXTERNAL URL: " + desired)
+
+
 def managed_service_matches(
     current: dict[str, Any],
     desired: dict[str, Any],
@@ -732,6 +777,11 @@ def main() -> int:
             )
 
         configure_jellyfin_libraries(
+            client,
+            arguments.dry_run,
+        )
+
+        configure_jellyfin_external_hostname(
             client,
             arguments.dry_run,
         )

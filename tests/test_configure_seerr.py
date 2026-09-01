@@ -581,5 +581,50 @@ class SeerrInitializationTest(unittest.TestCase):
             )
 
 
+class SeerrJellyfinExternalUrlTest(unittest.TestCase):
+    def test_external_url_already_configured(self):
+        client = FakeClient(
+            {
+                ("GET", "/settings/jellyfin"): {
+                    "externalHostname": (
+                        MODULE.JELLYFIN_EXTERNAL_HOSTNAME
+                    )
+                },
+            }
+        )
+
+        MODULE.configure_jellyfin_external_hostname(client, False)
+
+        self.assertEqual(len(client.calls), 1)
+
+    def test_external_url_is_updated_and_verified(self):
+        desired = MODULE.JELLYFIN_EXTERNAL_HOSTNAME
+
+        def jellyfin_response(_):
+            return {
+                "externalHostname": (
+                    "" if len(client.calls) == 1 else desired
+                )
+            }
+
+        client = FakeClient(
+            {
+                ("GET", "/settings/jellyfin"): jellyfin_response,
+                ("POST", "/settings/jellyfin"): {},
+            }
+        )
+
+        MODULE.configure_jellyfin_external_hostname(client, False)
+
+        self.assertEqual(
+            client.calls[1],
+            (
+                "POST",
+                "/settings/jellyfin",
+                {"externalHostname": desired},
+            ),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

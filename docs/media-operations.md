@@ -114,13 +114,13 @@ Use `make import-sonarr-title-matched` only after reviewing the preview. It
 creates hardlinks, retains the source for private-tracker seeding, and asks
 Sonarr to rescan the series.
 
-## Pending: Seerr to Jellyfin browser links
+## Seerr to Jellyfin browser links
 
-Seerr currently opens `jellyfin:8096` for the `Play on Jellyfin` action. This
-is a Docker service hostname, not a LAN DNS name, so macOS browsers report a
-name-resolution error. The follow-up is to configure a browser-reachable
-Jellyfin public URL while retaining the existing internal Docker endpoint for
-Seerr-to-Jellyfin API communication.
+Seerr uses `jellyfin:8096` only for its internal Docker connection and
+manages `http://10.0.0.123:8899` as Jellyfin's external hostname. This keeps
+the API traffic inside Docker while `Play on Jellyfin` opens a LAN-reachable
+address in macOS browsers. `make audit-seerr` verifies the external URL along
+with library and Servarr routing.
 
 ## Recovery
 

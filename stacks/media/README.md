@@ -256,13 +256,13 @@ script now uses the safe Jellyfin settings endpoint for reads and only uses
 the mutating library endpoint for the actual apply step, so the enabled
 library state persists correctly.
 
-### Pending: browser-facing Jellyfin links
+### Browser-facing Jellyfin links
 
-Seerr's current `Play on Jellyfin` link uses the Docker-internal hostname
-`jellyfin:8096`. That hostname is valid between containers but cannot be
-resolved by a browser on the LAN. Keep this as a separate follow-up: configure
-Seerr with a browser-reachable Jellyfin public URL (the NAS IP or a local DNS
-name) and validate deep links without changing the internal Docker connection.
+Seerr keeps `jellyfin:8096` as its Docker-internal connection and manages
+`http://10.0.0.123:8899` as the browser-facing Jellyfin URL. `Play on
+Jellyfin` links therefore use the NAS-published port instead of the
+Docker-only hostname. `make audit-seerr` verifies both the media libraries and
+the external URL.
 
 ## Profilarr Pilot
 

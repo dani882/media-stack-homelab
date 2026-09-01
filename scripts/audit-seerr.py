@@ -16,6 +16,7 @@ DEFAULT_SEERR_URL = "http://127.0.0.1:5055"
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 EXPECTED_LIBRARIES = {"Movies", "Kids", "Series"}
 EXPECTED_PROFILE = "Latino 1080p"
+EXPECTED_JELLYFIN_EXTERNAL_HOSTNAME = "http://10.0.0.123:8899"
 
 
 class SeerrAuditError(RuntimeError):
@@ -146,6 +147,19 @@ def validate_libraries(
     print(
         "SEERR JELLYFIN LIBRARIES OK: "
         + ", ".join(sorted(enabled))
+    )
+
+    external_hostname = str(
+        jellyfin.get("externalHostname", "")
+    ).rstrip("/")
+    if external_hostname != EXPECTED_JELLYFIN_EXTERNAL_HOSTNAME:
+        raise SeerrAuditError(
+            "Unexpected Seerr Jellyfin external URL: "
+            f"{external_hostname or 'none'}"
+        )
+
+    print(
+        "SEERR JELLYFIN EXTERNAL URL OK: " + external_hostname
     )
 
 

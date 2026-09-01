@@ -92,9 +92,9 @@ Validated live on 2026-08-31:
   or multi-episode files untouched
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
-- pending: Seerr `Play on Jellyfin` links currently use Docker-only
-  `jellyfin:8096`; configure a browser-reachable Jellyfin public URL without
-  changing the internal API endpoint
+- Seerr keeps `jellyfin:8096` for internal Docker traffic and manages
+  `http://10.0.0.123:8899` as Jellyfin's browser-facing external URL; verify
+  it with `make audit-seerr` after any network-address change
 - prefer automation over manual NAS steps
 
 ## Recommended Direction
