@@ -165,6 +165,10 @@ Real credentials must never be committed.
 
 qBittorrent configuration is automated.
 
+Download queueing remains capped at three active downloads, but torrents below
+2 KiB/s for 60 seconds do not consume a slot. This lets stalled torrents wait
+for peers without blocking a healthy download; it avoids using Force Start.
+
 Managed categories include:
 
 ```text

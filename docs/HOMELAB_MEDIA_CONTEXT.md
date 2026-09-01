@@ -89,6 +89,11 @@ maximum of ten deletions per run and skips all private or ambiguous torrents.
 It was deployed and verified on 2026-08-31: the first run removed seven
 eligible public torrents and retained all three Milnueve torrents.
 
+qBittorrent queue policy: the active-download limit remains three, but slow
+or stalled torrents below 2 KiB/s for 60 seconds do not consume a slot. This
+prevents unavailable torrents from blocking the next eligible download without
+requiring Force Start.
+
 The current follow-on work is an optional Profilarr pilot on branch:
 
 `main` (the pilot was merged after validation)
