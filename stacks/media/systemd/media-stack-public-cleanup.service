@@ -1,0 +1,7 @@
+[Unit]
+Description=Clean imported public media torrents after the retention window
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/volume1/docker/media-stack/cleanup-public-imported.py --max-delete 10

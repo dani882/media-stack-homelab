@@ -59,7 +59,9 @@ This is also part of the 30-minute media-stack health audit. It reports the
 short torrent hash, tracker name, configured seeding requirement, and time
 remaining. It fails safely for an unrecognized private tracker, a missing
 finite seed limit, or a limit below Milnueve's 96-hour / RetroToon's 72-hour
-policy. It never pauses, removes, or otherwise changes torrents.
+policy. For RetroToon, it also alerts when the remaining seed time cannot fit
+within the tracker's ten-day completion window. It never pauses, removes, or
+otherwise changes torrents.
 
 Audit recent hardlink-backed imports automatically:
 
@@ -140,6 +142,9 @@ Cleanup is intentionally conservative.
 - destructive cleanup now refuses large batches unless the operator
   explicitly raises `--max-delete`
 - dangerous-file cleanup still honors private-tracker seeding obligations
+- public torrents are removed automatically only after a recorded Sonarr or
+  Radarr import and 30 minutes of seeding; the 15-minute job skips anything
+  private, incomplete, Force Start, or not explicitly identified as public
 
 Always preview cleanup before a destructive run.
 

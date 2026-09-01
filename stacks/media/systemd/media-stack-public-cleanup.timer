@@ -1,0 +1,10 @@
+[Unit]
+Description=Run public media torrent cleanup
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -35,13 +35,48 @@ class PrivateTrackerAuditTest(unittest.TestCase):
                 "progress": 1,
                 "seeding_time_limit": 4320,
                 "seeding_time": 60,
+                "completion_on": 1_000_000,
             },
             {"tracker.retrotoon.world"},
+            now=1_000_001,
         )
 
         self.assertTrue(safe)
         self.assertIn("RetroToon World", message)
         self.assertIn("PENDING", message)
+
+    def test_retrotoon_deadline_alerts_when_remaining_seed_time_will_not_fit(self) -> None:
+        complete_at = 1_000_000
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "e" * 40,
+                "progress": 1,
+                "seeding_time_limit": 4320,
+                "seeding_time": 60 * 60,
+                "completion_on": complete_at,
+            },
+            {"ann.retrotoon.world"},
+            now=complete_at + (9 * 24 * 60 * 60),
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("AT RISK", message)
+        self.assertIn("deadline_remaining", message)
+
+    def test_retrotoon_missing_completion_timestamp_is_at_risk(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "f" * 40,
+                "progress": 1,
+                "seeding_time_limit": 4320,
+                "seeding_time": 60,
+                "completion_on": -1,
+            },
+            {"tracker.retrotoon.world"},
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("timestamp", message)
 
     def test_missing_seed_limit_is_at_risk(self) -> None:
         safe, message = MODULE.audit_torrent(

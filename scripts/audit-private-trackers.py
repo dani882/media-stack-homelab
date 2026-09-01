@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ class TrackerPolicy:
     name: str
     host_suffixes: tuple[str, ...]
     minimum_seed_minutes: int
+    completion_window_minutes: int | None = None
 
 
 TRACKER_POLICIES = (
@@ -44,6 +46,9 @@ TRACKER_POLICIES = (
         name="RetroToon World",
         host_suffixes=("retrotoon.world",),
         minimum_seed_minutes=4320,
+        # RetroToon requires the full 72 hours within ten days of a completed
+        # download. This audit only alerts; it never changes torrent state.
+        completion_window_minutes=10 * 24 * 60,
     ),
 )
 
@@ -91,6 +96,8 @@ def torrent_hosts(
 def audit_torrent(
     torrent: dict[str, Any],
     hosts: set[str],
+    *,
+    now: float | None = None,
 ) -> tuple[bool, str]:
     torrent_hash = str(torrent.get("hash", ""))[:12].upper()
     policy = matching_policy(hosts)
@@ -127,6 +134,27 @@ def audit_torrent(
         )
 
     remaining_minutes = max(required_minutes - seeded_minutes, 0)
+
+    if policy.completion_window_minutes is not None and remaining_minutes:
+        completed_on = float(torrent.get("completion_on", 0) or 0)
+        if completed_on <= 0:
+            return False, (
+                f"AT RISK {prefix}: completion timestamp is unavailable; "
+                "cannot verify the tracker deadline"
+            )
+
+        current_time = time.time() if now is None else now
+        deadline = completed_on + policy.completion_window_minutes * 60
+        latest_completion = current_time + remaining_minutes * 60
+        deadline_remaining_minutes = (deadline - current_time) / 60
+
+        if latest_completion > deadline:
+            status = "OVERDUE" if current_time > deadline else "AT RISK"
+            return False, (
+                f"{status} {prefix}: seeded={seeded_minutes:.0f}m "
+                f"remaining={remaining_minutes:.0f}m "
+                f"deadline_remaining={deadline_remaining_minutes:.0f}m"
+            )
 
     if remaining_minutes:
         return True, (

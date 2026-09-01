@@ -125,7 +125,10 @@ unknown private tracker as an alert until it has an explicit policy.
 RetroToon World is supported as an optional Generic Torznab indexer. Its
 passkey is an API credential and must remain NAS-local. Its managed policy
 uses priority `8`, at least one seeder, and a 72-hour (`4320` minute)
-per-torrent seed time. Prowlarr discovers RetroToon's Torznab categories and
+per-torrent seed time. RetroToon also requires that the 72 hours be reached
+within ten days of a completed download; the periodic private-tracker audit
+alerts when the remaining seed time cannot fit in that window. Prowlarr
+discovers RetroToon's Torznab categories and
 maps them to standard Sonarr/Radarr categories. Initially the intended scope
 is cartoons/anime and animated movies; ambiguous CGI and short-form content
 is intentionally not targeted by automation.
@@ -463,6 +466,16 @@ make cleanup-sonarr-downloads
 make cleanup-radarr-downloads
 ```
 
+Imported public torrents have a separate automated retention policy: after a
+confirmed Sonarr or Radarr import and 30 minutes of seeding, they are removed
+from qBittorrent and disk every 15 minutes. The job removes only torrents that
+qBittorrent explicitly reports as public; private, incomplete, Force Start,
+or unconfirmed torrents are skipped. Preview it with:
+
+```bash
+make dry-run-cleanup-public-imported
+```
+
 ## Backup and Restore
 
 The media stack supports automated configuration backups and validated
@@ -645,6 +658,7 @@ This installs:
 
 - a 30-minute live health audit timer
 - a 12-hour hardlink audit timer
+- a 15-minute public-import cleanup timer, with a 30-minute seed retention
 - log output at `/volume1/docker/media-stack/logs/media-observability.log`
 
 ## Testing

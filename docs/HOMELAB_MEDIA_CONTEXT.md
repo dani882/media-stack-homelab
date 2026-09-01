@@ -64,6 +64,31 @@ the Seerr request as the request record and use `make grab-prowlarr-release`
 with an exact title, TVDB validation, a unique request tag, and the required
 4320-minute seed limit. The helper must never log tracker URLs or passkeys.
 
+RetroToon rule update: its 72 hours of seeding must be completed within ten
+days of completion. `scripts/audit-private-trackers.py` enforces this as an
+alert-only deadline check: it never pauses, removes, or changes torrents.
+
+Powerpuff Girls request validation (2026-08-31): the RetroToon torrent
+`Las Supernenas (1992)` is private, queued at zero percent, and therefore has
+not contributed tracker transfer statistics or library media yet. Sonarr
+previously imported public `Kitsune` season packs before the series was
+unmonitored; an inspected season-three file has only an `eng` audio stream.
+Do not treat a tracker listing labelled "Spanish, English" as proof that the
+default playback audio is Spanish. Keep this series unmonitored until the
+RetroToon release completes and its actual streams are inspected.
+
+The incorrectly imported public `Kitsune` torrents and their thirteen
+English-only season-three library files were removed with explicit approval.
+After the cleanup, Sonarr reports zero episode files for this series and qBittorrent
+contains only the protected RetroToon torrent.
+
+Public retention policy: repository-managed automation removes a torrent only
+when qBittorrent explicitly marks it public, Servarr history confirms import,
+and it has seeded for at least 30 minutes. It runs every 15 minutes with a
+maximum of ten deletions per run and skips all private or ambiguous torrents.
+It was deployed and verified on 2026-08-31: the first run removed seven
+eligible public torrents and retained all three Milnueve torrents.
+
 The current follow-on work is an optional Profilarr pilot on branch:
 
 `main` (the pilot was merged after validation)

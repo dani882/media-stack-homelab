@@ -17,6 +17,7 @@ SONARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-sonarr-downloa
 RADARR_LATINO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/media/audit-radarr-latino.py"
 RADARR_LATINO_UPGRADE_SCRIPT="${ROOT_DIR}/scripts/media/upgrade-radarr-latino.py"
 RADARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-radarr-downloads.py"
+PUBLIC_IMPORTED_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-public-imported.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
 MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
@@ -46,6 +47,8 @@ HEALTHCHECK_SERVICE="${STACK_DIR}/systemd/media-stack-healthcheck.service"
 HEALTHCHECK_TIMER="${STACK_DIR}/systemd/media-stack-healthcheck.timer"
 HARDLINK_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-hardlink-audit.service"
 HARDLINK_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-hardlink-audit.timer"
+PUBLIC_CLEANUP_SERVICE="${STACK_DIR}/systemd/media-stack-public-cleanup.service"
+PUBLIC_CLEANUP_TIMER="${STACK_DIR}/systemd/media-stack-public-cleanup.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -82,6 +85,7 @@ for required_file in \
   "$RADARR_LATINO_AUDIT_SCRIPT" \
   "$RADARR_LATINO_UPGRADE_SCRIPT" \
   "$RADARR_DOWNLOAD_CLEANUP_SCRIPT" \
+  "$PUBLIC_IMPORTED_CLEANUP_SCRIPT" \
   "$MEDIA_COMMON_INIT" \
   "$MEDIA_COMMON_ARR" \
   "$MEDIA_COMMON_QBITTORRENT" \
@@ -108,6 +112,8 @@ for required_file in \
   "$HEALTHCHECK_TIMER" \
   "$HARDLINK_AUDIT_SERVICE" \
   "$HARDLINK_AUDIT_TIMER" \
+  "$PUBLIC_CLEANUP_SERVICE" \
+  "$PUBLIC_CLEANUP_TIMER" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -187,6 +193,7 @@ REMOTE_SONARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-sonarr-downloads-
 REMOTE_RADARR_LATINO_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_LATINO_UPGRADE_TEMP="${REMOTE_STAGING}/upgrade-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-radarr-downloads-${USER}-$$.py"
+REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-public-imported-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
@@ -215,6 +222,8 @@ REMOTE_HEALTHCHECK_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-healthcheck-${USE
 REMOTE_HEALTHCHECK_TIMER_TEMP="${REMOTE_STAGING}/media-stack-healthcheck-${USER}-$$.timer"
 REMOTE_HARDLINK_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.service"
 REMOTE_HARDLINK_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.timer"
+REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.service"
+REMOTE_PUBLIC_CLEANUP_TIMER_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -438,6 +447,12 @@ echo "Uploading Radarr download cleanup script through SSH..."
   "cat > '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}'" \
   < "$RADARR_DOWNLOAD_CLEANUP_SCRIPT"
 
+echo "Uploading imported public torrent cleanup script through SSH..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}'" \
+  < "$PUBLIC_IMPORTED_CLEANUP_SCRIPT"
+
 echo "Uploading shared media modules..."
 
 "${SSH[@]}" "$REMOTE" \
@@ -570,6 +585,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   "cat > '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}'" \
   < "$HARDLINK_AUDIT_TIMER"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP}'" \
+  < "$PUBLIC_CLEANUP_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}'" \
+  < "$PUBLIC_CLEANUP_TIMER"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -648,6 +671,10 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
     '${NAS_STACK_DIR}/scripts/cleanup-radarr-downloads.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
+    '${NAS_STACK_DIR}/cleanup-public-imported.py'
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/scripts/common'
@@ -756,11 +783,20 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
     /etc/systemd/system/media-stack-hardlink-audit.timer
 
+  sudo install -m 0644 \
+    '${REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-public-cleanup.service
+
+  sudo install -m 0644 \
+    '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-public-cleanup.timer
+
   sudo systemctl daemon-reload
   sudo systemctl enable --now \
     media-stack-watchdog.timer \
     media-stack-healthcheck.timer \
-    media-stack-hardlink-audit.timer
+    media-stack-hardlink-audit.timer \
+    media-stack-public-cleanup.timer
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
@@ -861,6 +897,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RADARR_LATINO_AUDIT_TEMP}' \
     '${REMOTE_RADARR_LATINO_UPGRADE_TEMP}' \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
+    '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
     '${REMOTE_MEDIA_COMMON_INIT_TEMP}' \
     '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
     '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
@@ -887,6 +924,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_HEALTHCHECK_TIMER_TEMP}' \
     '${REMOTE_HARDLINK_AUDIT_SERVICE_TEMP}' \
     '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
+    '${REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP}' \
+    '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \

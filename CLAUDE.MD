@@ -74,9 +74,13 @@ Validated live on 2026-08-31:
 - do not reset, restore, stash, or discard user changes
 - do not remove compatibility mounts `/downloads` or `/media` yet
 - do not weaken Milnueve/private-tracker seeding protections
+- public torrents may be removed only after a confirmed Sonarr/Radarr import
+  and 30 minutes of seed time; the automated job must fail closed for private
+  or ambiguously classified torrents
 - RetroToon is a private Generic Torznab indexer with a 72-hour seed-time
-  requirement; its passkey is NAS-local only and must never be logged or
-  committed
+  requirement to be met within ten days of completion; its passkey is
+  NAS-local only and must never be logged or committed. The private-tracker
+  audit alerts if the remaining seed time cannot fit in that window.
 - when RetroToon cannot resolve a TVDB search, use the guarded
   `make grab-prowlarr-release` path with an exact title and a unique Seerr
   request tag; do not bypass the private-tracker policy with manual URLs
