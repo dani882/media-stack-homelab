@@ -139,6 +139,21 @@ the guarded `make grab-prowlarr-release` helper. It accepts only an exact
 Prowlarr result, uses the standard qBittorrent category, and enforces the
 private tracker seed-time policy without printing its download URL.
 
+For an already completed, non-standard RetroToon TV pack, use the title-matched
+import helper. It previews by default and creates only hardlinks whose English
+episode title has exactly one Sonarr match; ambiguous, multi-episode, and
+localized-only filenames are left untouched for review.
+
+```bash
+make dry-run-import-sonarr-title-matched \
+  SERIES_ID=31 \
+  SOURCE="/volume1/Family/Downloads/complete/tv/Las Supernenas (1992)"
+```
+
+After reviewing the preview, replace `dry-run-` with `import-`. The helper
+rescans the series after it creates links and never removes the download, so
+the private torrent remains seedable.
+
 Supported templates currently include:
 
 - Milnueve API
@@ -240,6 +255,14 @@ Jellyfin library selection is also configured automatically. The managed
 script now uses the safe Jellyfin settings endpoint for reads and only uses
 the mutating library endpoint for the actual apply step, so the enabled
 library state persists correctly.
+
+### Pending: browser-facing Jellyfin links
+
+Seerr's current `Play on Jellyfin` link uses the Docker-internal hostname
+`jellyfin:8096`. That hostname is valid between containers but cannot be
+resolved by a browser on the LAN. Keep this as a separate follow-up: configure
+Seerr with a browser-reachable Jellyfin public URL (the NAS IP or a local DNS
+name) and validate deep links without changing the internal Docker connection.
 
 ## Profilarr Pilot
 

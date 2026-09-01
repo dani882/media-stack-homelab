@@ -86,8 +86,15 @@ Validated live on 2026-08-31:
 - when RetroToon cannot resolve a TVDB search, use the guarded
   `make grab-prowlarr-release` path with an exact title and a unique Seerr
   request tag; do not bypass the private-tracker policy with manual URLs
+- completed RetroToon TV packs with non-standard numbering may use
+  `make dry-run-import-sonarr-title-matched` followed by its explicit apply
+  target; it hardlinks only unique English title matches and leaves ambiguous
+  or multi-episode files untouched
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
+- pending: Seerr `Play on Jellyfin` links currently use Docker-only
+  `jellyfin:8096`; configure a browser-reachable Jellyfin public URL without
+  changing the internal API endpoint
 - prefer automation over manual NAS steps
 
 ## Recommended Direction

@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers grab-prowlarr-release audit-hardlinks verify-hardlinks install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers grab-prowlarr-release audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 validate:
 	@./scripts/validate.sh
@@ -213,6 +213,20 @@ verify-hardlinks:
 	     --download '$${DOWNLOAD}' \
 	     --library '$${LIBRARY}'; \
 	   rm -f '$$tmp_script'"
+
+dry-run-import-sonarr-title-matched:
+	@test -n "$${SERIES_ID}" || { echo "ERROR: SERIES_ID is required"; exit 1; }
+	@test -n "$${SOURCE}" || { echo "ERROR: SOURCE is required"; exit 1; }
+	@tmp_script="/tmp/import-sonarr-title-matched-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_script'" < scripts/media/import-sonarr-title-matched.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "sudo -n python3 '$$tmp_script' --series-id '$${SERIES_ID}' --source '$${SOURCE}'; rm -f '$$tmp_script'"
+
+import-sonarr-title-matched:
+	@test -n "$${SERIES_ID}" || { echo "ERROR: SERIES_ID is required"; exit 1; }
+	@test -n "$${SOURCE}" || { echo "ERROR: SOURCE is required"; exit 1; }
+	@tmp_script="/tmp/import-sonarr-title-matched-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "cat > '$$tmp_script'" < scripts/media/import-sonarr-title-matched.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" "sudo -n python3 '$$tmp_script' --series-id '$${SERIES_ID}' --source '$${SOURCE}' --apply; rm -f '$$tmp_script'"
 
 install-media-observability:
 	@tmp_monitor="/tmp/monitor-media-stack-$$$$.sh"; \

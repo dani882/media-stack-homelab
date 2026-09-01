@@ -2612,3 +2612,17 @@ The work is complete only when all of the following are true:
 - no active consumer requires old paths before compatibility mounts are removed
 - README reflects final path behavior
 - compatibility mount removal, if desired, happens only as a separate later cleanup
+
+---
+
+# 56. Pending Seerr browser link correction
+
+On 2026-09-01, the `Play on Jellyfin` action in Seerr was verified to open a
+URL beginning with `http://jellyfin:8096/...`. `jellyfin` is the Docker service
+hostname and works only on the internal Compose network; it is not resolvable
+by browsers on the LAN. The browser therefore fails with `ERR_NAME_NOT_RESOLVED`.
+
+Keep the existing internal Seerr-to-Jellyfin API connection unchanged. In a
+separate, safe follow-up, configure Seerr's browser-facing Jellyfin public URL
+to a LAN-reachable address (preferably stable local DNS, otherwise the NAS IP)
+and validate a deep link from Seerr to a real Jellyfin item.

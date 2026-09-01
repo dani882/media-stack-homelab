@@ -101,6 +101,27 @@ make verify-hardlinks \
   LIBRARY="/data/Media/TV Shows/Example/Season 01/file.mkv"
 ```
 
+For completed RetroToon packs that Sonarr cannot match automatically, preview
+the strict title-matched helper first. It never guesses localized titles or
+multi-episode files:
+
+```bash
+make dry-run-import-sonarr-title-matched SERIES_ID=31 \
+  SOURCE="/volume1/Family/Downloads/complete/tv/Las Supernenas (1992)"
+```
+
+Use `make import-sonarr-title-matched` only after reviewing the preview. It
+creates hardlinks, retains the source for private-tracker seeding, and asks
+Sonarr to rescan the series.
+
+## Pending: Seerr to Jellyfin browser links
+
+Seerr currently opens `jellyfin:8096` for the `Play on Jellyfin` action. This
+is a Docker service hostname, not a LAN DNS name, so macOS browsers report a
+name-resolution error. The follow-up is to configure a browser-reachable
+Jellyfin public URL while retaining the existing internal Docker endpoint for
+Seerr-to-Jellyfin API communication.
+
 ## Recovery
 
 Recover or bootstrap Profilarr admin credentials:
