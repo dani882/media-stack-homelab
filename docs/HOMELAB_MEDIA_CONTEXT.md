@@ -2629,3 +2629,59 @@ deployment and `make audit-seerr` confirmed the external URL persisted, the
 internal endpoint remains unchanged, and Jellyfin libraries plus Servarr
 routing are healthy. The next configuration run automatically adapts if the
 NAS hostname or published Jellyfin port changes.
+
+---
+
+# 57. Follow-up audit: Powerpuff, Seerr, and legacy mounts (2026-09-01)
+
+The stack was re-audited after the RetroToon Powerpuff import and Seerr
+browser-link fix.
+
+Validated live:
+
+- all Compose services answered their health checks
+- Bazarr had no `/downloads`, `/media`, or `/data` references in its stored
+  configuration; its `/media` mount remains compatibility-only
+- Seerr request `37` maps by TVDB identity to Sonarr series `31` at
+  `/data/Media/TV Shows/The Powerpuff Girls`
+- Sonarr reports 49 library episodes for that request and recent files have
+  verified qBittorrent-to-library hardlinks (same inode, link count `2`)
+- all four private torrents remain protected by the tracker audit; the
+  RetroToon torrent is still within its 72-hour requirement and the three
+  Milnueve torrents retain their configured 5760-minute obligations
+
+The RetroToon Powerpuff package was inspected. Its media files contain a
+Spanish (`spa`, titled `Español Latino`) stream plus English, but its episode
+layout is incomplete and mixes alternate numbering. The guarded title-matched
+import correctly created only 49 unambiguous hardlinks. Do not fabricate
+Sonarr season/episode mappings for the remaining files; source material for
+Sonarr's season 3 is not present and several remaining files are
+multi-episode or localized-title releases.
+
+`make audit-legacy-mounts` is now the canonical read-only pre-removal audit.
+The latest inventory found seven public qBittorrent torrents still using
+`/downloads`; all are incomplete, metadata-only, or stalled downloads. A
+previous completed and imported public torrent was removed automatically after
+its 30-minute retention period. Consequently `/downloads` and `/media` must
+remain mounted. Root folders themselves are correct:
+
+```text
+Sonarr: /data/Media/TV Shows
+Radarr: /data/Media/Movies
+        /data/Media/Kids Movies
+```
+
+The Silo S03E09 Milnueve release is already imported and still seeding. Sonarr
+may retry its same RSS result because the imported file's historical custom
+format score differs from the release score. Do not use Sonarr's generic
+"mark as failed" endpoint without an explicit, tracker-safe confirmation: it
+may invoke failed-download handling and its effect on the protected torrent
+was not proven. Keep the qBittorrent torrent unchanged while the private
+tracker requirement is outstanding.
+
+New commands:
+
+```bash
+make audit-legacy-mounts
+make audit-seerr-request-flow REQUEST_ID=37
+```

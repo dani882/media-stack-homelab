@@ -1,6 +1,6 @@
 # Claude Working Notes
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 Read this file before making homelab media-stack changes from Claude.
 
@@ -90,6 +90,13 @@ Validated live on 2026-08-31:
   `make dry-run-import-sonarr-title-matched` followed by its explicit apply
   target; it hardlinks only unique English title matches and leaves ambiguous
   or multi-episode files untouched
+- `make audit-legacy-mounts` is the authoritative read-only check before a
+  future compatibility-mount removal. At the latest audit, Sonarr/Radarr
+  roots were already under `/data/Media`, but old-path qBittorrent torrents
+  still required `/downloads`; do not remove either legacy mount.
+- `make audit-seerr-request-flow REQUEST_ID=...` confirms a retained Seerr
+  request maps by TVDB/TMDB identity to a `/data/Media` Sonarr/Radarr item.
+  Pair it with `make audit-hardlinks` to validate the storage layer.
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
 - Seerr keeps `jellyfin:8096` for internal Docker traffic and dynamically
@@ -114,6 +121,8 @@ If extending the Profilarr pilot:
 - `make audit-bazarr`
 - `make audit-seerr`
 - `make audit-private-trackers`
+- `make audit-legacy-mounts`
+- `make audit-seerr-request-flow REQUEST_ID=37`
 - `make audit-hardlinks`
 - `make sync-recyclarr`
 - `make sync-profilarr`

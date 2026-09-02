@@ -634,10 +634,27 @@ Audit live Seerr routing:
 make audit-seerr
 ```
 
+Audit one retained Seerr request against its Sonarr or Radarr item. This
+verifies identity-based routing and confirms the library item is managed below
+`/data/Media`; pair it with the hardlink audit for storage validation:
+
+```bash
+make audit-seerr-request-flow REQUEST_ID=37
+```
+
 Audit Bazarr before removing compatibility mounts:
 
 ```bash
 make audit-bazarr
+```
+
+Audit every compatibility-mount consumer and the qBittorrent inventory before
+planning any removal. A non-zero result is expected while a torrent still
+uses `/downloads`; the command is read-only and never removes a mount or a
+torrent:
+
+```bash
+make audit-legacy-mounts
 ```
 
 Audit recent hardlink-backed imports automatically:
