@@ -17,13 +17,26 @@ VIDEO_EXTENSIONS = {
     ".ts",
     ".wmv",
 }
+HOST_DATA_ROOT = Path("/volume1/Family")
+CONTAINER_DATA_ROOT = Path("/data")
 
 
 class HardlinkVerificationError(RuntimeError):
     pass
 
 
+def host_equivalent(path: Path) -> Path:
+    """Accept either a host path or the /data path shown by the containers."""
+    if path == CONTAINER_DATA_ROOT:
+        return HOST_DATA_ROOT
+    try:
+        return HOST_DATA_ROOT / path.relative_to(CONTAINER_DATA_ROOT)
+    except ValueError:
+        return path
+
+
 def resolve_media_path(path: Path) -> Path:
+    path = host_equivalent(path)
     if not path.exists():
         raise HardlinkVerificationError(
             f"Path not found: {path}"

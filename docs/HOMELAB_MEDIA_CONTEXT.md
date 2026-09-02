@@ -2685,3 +2685,6 @@ New commands:
 make audit-legacy-mounts
 make audit-seerr-request-flow REQUEST_ID=37
 ```
+
+`make verify-hardlinks` accepts either the host paths under
+`/volume1/Family/...` or the container namespace under `/data/...`.
