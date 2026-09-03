@@ -109,6 +109,14 @@ Validated live on 2026-08-31:
   with its 4320-minute limit, but its filename claimed 1080p while MediaInfo
   detected 960x540 (`WEBDL-480p`) and English audio only. Treat MediaInfo and
   *arr's resulting quality/languages as authoritative over release titles.
+- private-first selection is intentionally a guarded Seerr-adjacent flow, not
+  a blanket override of Arr scoring: the explicit private grab helper defaults
+  to Castilian-or-Latino and a 720p title claim. English/original requires an
+  explicit `MINIMUM_LANGUAGE=english` override; the required private seeding
+  obligation still applies even if the imported copy is under review.
+- the policy is deployed as `private-release-policy.json` on the NAS and is
+  read by `grab-prowlarr-release`; do not duplicate its defaults in scripts or
+  silently relax it for a tracker title that merely claims a language/quality.
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
 - Seerr keeps `jellyfin:8096` for internal Docker traffic and dynamically

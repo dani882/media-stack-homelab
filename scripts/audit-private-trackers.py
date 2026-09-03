@@ -188,13 +188,32 @@ def run_audit(
         return 0
 
     failures = 0
+    statistics: dict[str, dict[str, int]] = {}
 
     for torrent in private_torrents:
         hosts = torrent_hosts(client, str(torrent.get("hash", "")))
+        policy = matching_policy(hosts)
         safe, message = audit_torrent(torrent, hosts)
         print(message)
         if not safe:
             failures += 1
+        if policy is not None:
+            totals = statistics.setdefault(
+                policy.name,
+                {"torrents": 0, "uploaded": 0, "downloaded": 0},
+            )
+            totals["torrents"] += 1
+            totals["uploaded"] += int(torrent.get("uploaded", 0) or 0)
+            totals["downloaded"] += int(torrent.get("downloaded", 0) or 0)
+
+    for name in sorted(statistics):
+        totals = statistics[name]
+        print(
+            "TRACKER STATS "
+            f"{name}: torrents={totals['torrents']} "
+            f"uploaded={totals['uploaded']}B "
+            f"downloaded={totals['downloaded']}B"
+        )
 
     if failures:
         raise PrivateTrackerAuditError(

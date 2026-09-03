@@ -1,0 +1,13 @@
+{
+  "automaticPrivateGrab": {
+    "minimumLanguage": "castilian",
+    "minimumTitleResolution": 720,
+    "englishFallback": "explicit-only"
+  },
+  "postImportReview": {
+    "releaseTitleIsNotAuthoritative": true,
+    "retainPrivateTorrentForRequiredSeedTime": true,
+    "reviewWhenActualLanguageIsBelow": "castilian",
+    "reviewWhenActualResolutionIsBelowTitleClaim": true
+  }
+}

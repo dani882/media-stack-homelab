@@ -120,6 +120,20 @@ class PrivateTrackerAuditTest(unittest.TestCase):
         self.assertFalse(safe)
         self.assertIn("UNRECOGNIZED", message)
 
+    def test_torrenthaven_uses_72_hour_policy(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "h" * 40,
+                "progress": 1,
+                "seeding_time_limit": 4320,
+                "seeding_time": 60,
+            },
+            {"tracker.torrenthaven.org"},
+        )
+
+        self.assertTrue(safe)
+        self.assertIn("Torrent Haven", message)
+
 
 if __name__ == "__main__":
     unittest.main()

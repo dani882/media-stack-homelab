@@ -96,3 +96,29 @@ class SelectReleaseTests(unittest.TestCase):
                 "movie",
                 1,
             )
+
+    def test_private_policy_rejects_english_when_spanish_is_required(self) -> None:
+        with self.assertRaises(MODULE.GrabError):
+            MODULE.select_release(
+                [release(title="Example.English.1080p", tvdbId=76200)],
+                "Example.English.1080p",
+                8,
+                76200,
+                "tv",
+                1,
+                "castilian",
+                720,
+            )
+
+    def test_private_policy_accepts_latino_720p_or_better(self) -> None:
+        selected = MODULE.select_release(
+            [release(title="Example.Spanish.Latino.1080p", tvdbId=76200)],
+            "Example.Spanish.Latino.1080p",
+            8,
+            76200,
+            "tv",
+            1,
+            "castilian",
+            720,
+        )
+        self.assertEqual(selected["tvdbId"], 76200)

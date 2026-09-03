@@ -198,7 +198,7 @@ grab-prowlarr-release:
 	@test -n "$${SEED_TIME_MINUTES}" || { echo "ERROR: SEED_TIME_MINUTES is required"; exit 1; }
 	@test -n "$${TAGS}" || { echo "ERROR: TAGS is required"; exit 1; }
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
-	  "sudo -n python3 -u - --query '$${QUERY}' --title '$${TITLE}' --indexer-id '$${INDEXER_ID}' --media-type '$${MEDIA_TYPE:-tv}' $(if $(TVDB_ID),--tvdb-id '$(TVDB_ID)') $(if $(TMDB_ID),--tmdb-id '$(TMDB_ID)') --category '$${CATEGORY:-tv}' --seed-time-minutes '$${SEED_TIME_MINUTES}' --tags '$${TAGS}' $(if $(DRY_RUN),--dry-run)" \
+	  "sudo -n python3 -u - --query '$${QUERY}' --title '$${TITLE}' --indexer-id '$${INDEXER_ID}' --media-type '$${MEDIA_TYPE:-tv}' $(if $(TVDB_ID),--tvdb-id '$(TVDB_ID)') $(if $(TMDB_ID),--tmdb-id '$(TMDB_ID)') --category '$${CATEGORY:-tv}' --seed-time-minutes '$${SEED_TIME_MINUTES}' --tags '$${TAGS}' $(if $(MINIMUM_LANGUAGE),--minimum-language '$(MINIMUM_LANGUAGE)') $(if $(MINIMUM_TITLE_RESOLUTION),--minimum-title-resolution '$(MINIMUM_TITLE_RESOLUTION)') $(if $(DRY_RUN),--dry-run)" \
 	  < scripts/grab-prowlarr-release.py
 
 audit-hardlinks:

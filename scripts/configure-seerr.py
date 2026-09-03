@@ -23,6 +23,10 @@ DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 JELLYFIN_MEDIA_SERVER_TYPE = 2
 JELLYFIN_CONTAINER = "jellyfin"
 JELLYFIN_CONTAINER_PORT = "8096/tcp"
+SONARR_CONTAINER = "sonarr"
+SONARR_CONTAINER_PORT = "8989/tcp"
+RADARR_CONTAINER = "radarr"
+RADARR_CONTAINER_PORT = "7878/tcp"
 
 JELLYFIN_LIBRARIES = (
     "Movies",
@@ -397,7 +401,10 @@ def configure_jellyfin_libraries(
     )
 
 
-def detect_jellyfin_external_hostname() -> str:
+def detect_published_external_url(
+    container: str,
+    container_port: str,
+) -> str:
     hostname = socket.gethostname().split(".", 1)[0].lower()
     if not re.fullmatch(r"[a-z0-9-]+", hostname):
         raise SeerrError(
@@ -410,8 +417,8 @@ def detect_jellyfin_external_hostname() -> str:
             [
                 "docker",
                 "port",
-                JELLYFIN_CONTAINER,
-                JELLYFIN_CONTAINER_PORT,
+                container,
+                container_port,
             ],
             check=True,
             capture_output=True,
@@ -419,7 +426,7 @@ def detect_jellyfin_external_hostname() -> str:
         )
     except (OSError, subprocess.CalledProcessError) as error:
         raise SeerrError(
-            "Unable to discover Jellyfin's published port."
+            f"Unable to discover {container}'s published port."
         ) from error
 
     for line in result.stdout.splitlines():
@@ -427,7 +434,14 @@ def detect_jellyfin_external_hostname() -> str:
         if match:
             return f"http://{hostname}.local:{match.group(1)}"
 
-    raise SeerrError("Jellyfin has no published TCP port.")
+    raise SeerrError(f"{container} has no published TCP port.")
+
+
+def detect_jellyfin_external_hostname() -> str:
+    return detect_published_external_url(
+        JELLYFIN_CONTAINER,
+        JELLYFIN_CONTAINER_PORT,
+    )
 
 
 def configure_jellyfin_external_hostname(
@@ -485,6 +499,7 @@ def managed_service_matches(
         "port",
         "useSsl",
         "baseUrl",
+        "externalUrl",
         "activeProfileId",
         "activeProfileName",
         "activeDirectory",
@@ -585,6 +600,7 @@ def reconcile_service(
 def build_sonarr_settings(
     api_key: str,
     probe: dict[str, Any],
+    external_url: str = "",
 ) -> dict[str, Any]:
     profile = find_profile(
         probe,
@@ -614,7 +630,7 @@ def build_sonarr_settings(
         "is4k": False,
         "enableSeasonFolders": True,
         "isDefault": True,
-        "externalUrl": "",
+        "externalUrl": external_url,
         "syncEnabled": True,
         "preventSearch": False,
     }
@@ -624,6 +640,7 @@ def build_radarr_settings(
     api_key: str,
     probe: dict[str, Any],
     instance: dict[str, Any],
+    external_url: str = "",
 ) -> dict[str, Any]:
     profile = find_profile(
         probe,
@@ -648,7 +665,7 @@ def build_radarr_settings(
         "is4k": False,
         "minimumAvailability": "released",
         "isDefault": instance["isDefault"],
-        "externalUrl": "",
+        "externalUrl": external_url,
         "syncEnabled": True,
         "preventSearch": False,
     }
@@ -836,6 +853,10 @@ def main() -> int:
         sonarr_settings = build_sonarr_settings(
             sonarr_api_key,
             sonarr_probe,
+            detect_published_external_url(
+                SONARR_CONTAINER,
+                SONARR_CONTAINER_PORT,
+            ),
         )
 
         reconcile_service(
@@ -858,6 +879,10 @@ def main() -> int:
                 radarr_api_key,
                 radarr_probe,
                 instance,
+                detect_published_external_url(
+                    RADARR_CONTAINER,
+                    RADARR_CONTAINER_PORT,
+                ),
             )
 
             reconcile_service(

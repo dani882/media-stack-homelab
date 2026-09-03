@@ -2743,3 +2743,15 @@ Conclusion: identity, tracker privacy, seeding protection, Arr import, and
 hardlink behavior are all proven. Release names are not trusted as a quality
 or language claim; use Radarr/Sonarr's resulting MediaInfo-derived fields as
 the source of truth.
+
+The resulting policy is intentionally strict for future automatic private
+grabs: require Castilian-or-Latino and a title claim of at least 720p. English
+is only an explicit fallback. This keeps private priority from overriding the
+repository's Spanish-first behavior while still allowing a chosen private
+torrent to seed until its tracker requirement is satisfied.
+
+The policy was deployed and tested with a dry-run of the same Madagascar
+Torrent Haven result. The helper rejected it before contacting qBittorrent:
+the Prowlarr result did not prove a Castilian-or-Latino language, despite its
+`1080p` title claim. This is expected: title resolution is only a preliminary
+gate; post-import MediaInfo remains authoritative.

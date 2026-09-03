@@ -61,6 +61,7 @@ RADARR_LATINO_CONFIG="${STACK_DIR}/servarr/custom-formats/radarr-latino.json"
 SONARR_SETTINGS_DIR="${STACK_DIR}/servarr/sonarr"
 RADARR_SETTINGS_DIR="${STACK_DIR}/servarr/radarr"
 QBITTORRENT_CONFIG_DIR="${STACK_DIR}/qbittorrent"
+PRIVATE_RELEASE_POLICY="${STACK_DIR}/private-release-policy.json"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: Missing environment file:"
@@ -129,6 +130,7 @@ for required_file in \
   "$RADARR_SETTINGS_DIR/naming.json" \
   "$RADARR_SETTINGS_DIR/media-management.json" \
   "$QBITTORRENT_CONFIG_DIR/categories.json" \
+  "$PRIVATE_RELEASE_POLICY" \
   "$PROFILARR_PILOT_CONFIG" \
   "$QBITTORRENT_CONFIG_DIR/preferences.json"
 do
@@ -242,6 +244,7 @@ REMOTE_RADARR_NAMING_TEMP="${REMOTE_STAGING}/radarr-naming-${USER}-$$.json"
 REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP="${REMOTE_STAGING}/radarr-media-management-${USER}-$$.json"
 REMOTE_QBITTORRENT_CATEGORIES_TEMP="${REMOTE_STAGING}/qbittorrent-categories-${USER}-$$.json"
 REMOTE_QBITTORRENT_PREFERENCES_TEMP="${REMOTE_STAGING}/qbittorrent-preferences-${USER}-$$.json"
+REMOTE_PRIVATE_RELEASE_POLICY_TEMP="${REMOTE_STAGING}/private-release-policy-${USER}-$$.json"
 
 echo "Validating locally..."
 docker compose \
@@ -607,6 +610,10 @@ echo "Uploading qBittorrent configuration files..."
   "cat > '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}'" \
   < "$QBITTORRENT_CONFIG_DIR/preferences.json"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}'" \
+  < "$PRIVATE_RELEASE_POLICY"
+
 echo "Uploading Recyclarr configuration through SSH..."
 
 # Variables are intentionally expanded locally.
@@ -872,6 +879,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}' \
     '${NAS_STACK_DIR}/qbittorrent/preferences.json'
 
+  sudo install -m 0644 \
+    '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}' \
+    '${NAS_STACK_DIR}/private-release-policy.json'
+
   sudo mkdir -p '${NAS_STACK_DIR}/config/recyclarr'
   sudo install -o 1000 -g 10 -m 0640 \
     '${REMOTE_RECYCLARR_TEMP}' \
@@ -943,7 +954,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RADARR_NAMING_TEMP}' \
     '${REMOTE_RADARR_MEDIA_MANAGEMENT_TEMP}' \
     '${REMOTE_QBITTORRENT_CATEGORIES_TEMP}' \
-    '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}'
+    '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}' \
+    '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}'
 
   cd '${NAS_STACK_DIR}'
   sudo docker compose config >/dev/null

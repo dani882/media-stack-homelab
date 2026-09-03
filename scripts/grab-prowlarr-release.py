@@ -22,17 +22,46 @@ from typing import Any
 
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
+DEFAULT_PRIVATE_POLICY_FILE = DEFAULT_STACK_DIR / "private-release-policy.json"
 DEPLOYED_SCRIPT_DIR = DEFAULT_STACK_DIR / "scripts"
 LOCAL_MEDIA_SCRIPT_DIR = Path(__file__).resolve().parent / "media"
 for script_dir in (LOCAL_MEDIA_SCRIPT_DIR, DEPLOYED_SCRIPT_DIR):
     if str(script_dir) not in sys.path:
         sys.path.insert(0, str(script_dir))
 
+from common.language import LanguageRank, language_rank
 from common.qbittorrent import QBittorrentClient, QBittorrentError, read_credentials
 
 
 class GrabError(RuntimeError):
     pass
+
+
+LANGUAGE_FLOORS = {
+    "unknown": LanguageRank.UNKNOWN,
+    "english": LanguageRank.ENGLISH,
+    "castilian": LanguageRank.CASTILIAN,
+    "latino": LanguageRank.LATINO,
+}
+
+
+def title_resolution(release: dict[str, Any]) -> int:
+    """Return a conservative resolution claim without trusting it as media data."""
+    title = str(release.get("title", "")).casefold()
+    for resolution in (2160, 1080, 720, 540, 480):
+        if f"{resolution}p" in title:
+            return resolution
+    return 0
+
+
+def release_meets_private_policy(
+    release: dict[str, Any],
+    minimum_language: str,
+    minimum_title_resolution: int,
+) -> bool:
+    if language_rank(release) < LANGUAGE_FLOORS[minimum_language]:
+        return False
+    return title_resolution(release) >= minimum_title_resolution
 
 
 def read_api_key(config_file: Path) -> str:
@@ -45,6 +74,20 @@ def read_api_key(config_file: Path) -> str:
         raise GrabError(f"No API key found in {config_file}")
 
     return key
+
+
+def read_private_policy(policy_file: Path) -> tuple[str, int]:
+    try:
+        payload = json.loads(policy_file.read_text(encoding="utf-8"))
+        automatic = payload["automaticPrivateGrab"]
+        language = str(automatic["minimumLanguage"])
+        resolution = int(automatic["minimumTitleResolution"])
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise GrabError(f"Unable to read private release policy {policy_file}: {error}") from error
+
+    if language not in LANGUAGE_FLOORS or resolution < 0:
+        raise GrabError(f"Invalid private release policy in {policy_file}")
+    return language, resolution
 
 
 def prowlarr_search(
@@ -85,6 +128,8 @@ def select_release(
     expected_media_id: int | None,
     media_type: str,
     minimum_seeders: int,
+    minimum_language: str = "unknown",
+    minimum_title_resolution: int = 0,
 ) -> dict[str, Any]:
     title = expected_title.casefold()
     candidates = [
@@ -114,6 +159,20 @@ def select_release(
 
     if int(release.get("seeders", 0) or 0) < minimum_seeders:
         raise GrabError("Selected release has too few seeders.")
+
+    if not release_meets_private_policy(
+        release,
+        minimum_language,
+        minimum_title_resolution,
+    ):
+        actual_language = language_rank(release).name.lower()
+        actual_resolution = title_resolution(release)
+        raise GrabError(
+            "Selected release does not meet the private fallback policy: "
+            f"language={actual_language} (requires {minimum_language}), "
+            f"title_resolution={actual_resolution}p "
+            f"(requires {minimum_title_resolution}p)."
+        )
 
     if not release.get("downloadUrl"):
         raise GrabError("Selected release does not provide a download URL.")
@@ -257,10 +316,23 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--tvdb-id", type=int)
     parser.add_argument("--tmdb-id", type=int)
     parser.add_argument("--minimum-seeders", type=int, default=1)
+    parser.add_argument(
+        "--minimum-language",
+        choices=tuple(LANGUAGE_FLOORS),
+        default=None,
+        help="Private auto-grabs require Spanish by default; English is opt-in.",
+    )
+    parser.add_argument(
+        "--minimum-title-resolution",
+        type=int,
+        default=None,
+        help="Reject titles that do not claim at least this resolution.",
+    )
     parser.add_argument("--seed-time-minutes", required=True, type=int)
     parser.add_argument("--category", default="tv")
     parser.add_argument("--tags", required=True)
     parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
+    parser.add_argument("--policy-file", type=Path)
     parser.add_argument("--prowlarr-url", default="http://127.0.0.1:9696")
     parser.add_argument("--qbittorrent-url", default="http://127.0.0.1:8888")
     parser.add_argument("--dry-run", action="store_true")
@@ -273,6 +345,16 @@ def main() -> int:
         raise GrabError("--seed-time-minutes must be positive.")
     if arguments.minimum_seeders < 1:
         raise GrabError("--minimum-seeders must be at least one.")
+    policy_file = arguments.policy_file or arguments.stack_dir / "private-release-policy.json"
+    policy_language, policy_resolution = read_private_policy(policy_file)
+    minimum_language = arguments.minimum_language or policy_language
+    minimum_title_resolution = (
+        policy_resolution
+        if arguments.minimum_title_resolution is None
+        else arguments.minimum_title_resolution
+    )
+    if minimum_title_resolution < 0:
+        raise GrabError("--minimum-title-resolution must not be negative.")
     expected_media_id = (
         arguments.tvdb_id
         if arguments.media_type == "tv"
@@ -309,6 +391,8 @@ def main() -> int:
         expected_media_id,
         arguments.media_type,
         arguments.minimum_seeders,
+        minimum_language,
+        minimum_title_resolution,
     )
     add_to_qbittorrent(
         client,

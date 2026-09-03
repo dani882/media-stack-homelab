@@ -168,6 +168,25 @@ the actual media with MediaInfo; for example, a Torrent Haven release labeled
 imported quality and audio languages before treating a release as a preferred
 replacement.
 
+### Private-first request policy
+
+`stacks/media/private-release-policy.json` makes the operational policy
+explicit. Private candidates are considered before public candidates only when
+they meet the language policy and identity checks; it never replaces the
+existing `Latino > Castellano > English/original` rule with tracker priority
+alone. The guarded helper therefore defaults to Castilian-or-Latino and a
+720p title claim. An English/original private release can still be retained
+for its required seeding time, but needs an explicit
+`MINIMUM_LANGUAGE=english` override and is treated as a fallback to review,
+not an automatic preferred replacement.
+
+The health audit runs every 30 minutes and records per-tracker torrent count,
+uploaded bytes, downloaded bytes, seeding status, and any compliance risk in
+`logs/media-observability.log`. This is also the scheduled evidence for the
+24–48 hour Torrent Haven check; account-side statistics must be compared in
+Torrent Haven's web UI because its API integration does not expose a stable
+account-statistics endpoint.
+
 For an already completed, non-standard RetroToon TV pack, use the title-matched
 import helper. It previews by default and creates only hardlinks whose English
 episode title has exactly one Sonarr match; ambiguous, multi-episode, and

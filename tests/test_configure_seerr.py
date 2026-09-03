@@ -603,6 +603,21 @@ class SeerrJellyfinExternalUrlTest(unittest.TestCase):
 
         self.assertEqual(detected, "http://my-nas.local:49152")
 
+    def test_external_url_is_discovered_for_arr_services(self):
+        with (
+            patch.object(MODULE.socket, "gethostname", return_value="My-NAS"),
+            patch.object(
+                MODULE.subprocess,
+                "run",
+                return_value=MODULE.subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="0.0.0.0:7878\n"
+                ),
+            ),
+        ):
+            detected = MODULE.detect_published_external_url("radarr", "7878/tcp")
+
+        self.assertEqual(detected, "http://my-nas.local:7878")
+
     def test_external_url_already_configured(self):
         expected = "http://nas.local:8899"
         client = FakeClient(

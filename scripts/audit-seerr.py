@@ -21,7 +21,7 @@ EXPECTED_LIBRARIES = {"Movies", "Kids", "Series"}
 EXPECTED_PROFILE = "Latino 1080p"
 
 
-def detect_jellyfin_external_hostname() -> str:
+def detect_published_external_url(container: str, container_port: str) -> str:
     hostname = socket.gethostname().split(".", 1)[0].lower()
     if not re.fullmatch(r"[a-z0-9-]+", hostname):
         raise SeerrAuditError(
@@ -31,14 +31,14 @@ def detect_jellyfin_external_hostname() -> str:
 
     try:
         result = subprocess.run(
-            ["docker", "port", "jellyfin", "8096/tcp"],
+            ["docker", "port", container, container_port],
             check=True,
             capture_output=True,
             text=True,
         )
     except (OSError, subprocess.CalledProcessError) as error:
         raise SeerrAuditError(
-            "Unable to discover Jellyfin's published port."
+            f"Unable to discover {container}'s published port."
         ) from error
 
     for line in result.stdout.splitlines():
@@ -46,7 +46,11 @@ def detect_jellyfin_external_hostname() -> str:
         if match:
             return f"http://{hostname}.local:{match.group(1)}"
 
-    raise SeerrAuditError("Jellyfin has no published TCP port.")
+    raise SeerrAuditError(f"{container} has no published TCP port.")
+
+
+def detect_jellyfin_external_hostname() -> str:
+    return detect_published_external_url("jellyfin", "8096/tcp")
 
 
 class SeerrAuditError(RuntimeError):
@@ -233,6 +237,9 @@ def validate_services(
         raise SeerrAuditError(
             "Seerr Sonarr API key does not match live Sonarr config."
         )
+    expected_sonarr_url = detect_published_external_url("sonarr", "8989/tcp")
+    if str(sonarr_main.get("externalUrl", "")).rstrip("/") != expected_sonarr_url:
+        raise SeerrAuditError("Unexpected Sonarr external URL in Seerr.")
 
     radarr_movies = next(
         (
@@ -278,8 +285,13 @@ def validate_services(
             raise SeerrAuditError(
                 f"Seerr {item.get('name')} API key does not match live Radarr config."
             )
+        expected_radarr_url = detect_published_external_url("radarr", "7878/tcp")
+        if str(item.get("externalUrl", "")).rstrip("/") != expected_radarr_url:
+            raise SeerrAuditError(
+                f"Unexpected Radarr external URL for {item.get('name')}."
+            )
 
-    print("SEERR SONARR/RADARR ROUTING OK")
+    print("SEERR SONARR/RADARR ROUTING AND EXTERNAL URLS OK")
 
 
 def validate_public(
