@@ -2688,3 +2688,58 @@ make audit-seerr-request-flow REQUEST_ID=37
 
 `make verify-hardlinks` accepts either the host paths under
 `/volume1/Family/...` or the container namespace under `/data/...`.
+
+---
+
+# 58. Torrent Haven native Prowlarr integration (2026-09-02)
+
+Torrent Haven (`torrenthaven.org`) was added as Prowlarr indexer `ID=9` using
+the native `torrenthaven-api` Cardigann definition. Its API token is stored
+only in the NAS-local private-indexer secret and must never be committed or
+logged.
+
+Managed policy:
+
+- priority `9`; minimum seeders `1`
+- 72-hour (`4320` minute) seed time for both normal releases and packs
+- no ratio-based early stop, despite the tracker allowing either 1:1 or 72 h
+- private-tracker audit recognizes `torrenthaven.org` and requires at least
+  4320 minutes
+
+The tracker rules also prohibit DHT, PEX, and additional tracker URLs for
+Torrent Haven torrents. qBittorrent currently keeps discovery enabled
+globally for public torrents; do not change those global defaults without
+  first validating that Torrent Haven's downloaded `.torrent` is private and
+  that qBittorrent suppresses discovery for it.
+
+---
+
+# 59. Torrent Haven movie end-to-end proof (2026-09-03)
+
+A Seerr request for TMDB `953` (Madagascar, 2005) was used to exercise the
+movie workflow while retaining the request record. Radarr initially selected a
+public fallback; it was explicitly marked failed, its qBittorrent payload was
+removed, and the public imported file was removed from Radarr before the
+private selection was allowed to import.
+
+The guarded `grab-prowlarr-release` helper now supports both media types:
+
+- TV: exact title + TVDB ID validation
+- movie: exact title + TMDB ID validation, `MEDIA_TYPE=movie`, and the
+  `radarr` qBittorrent category
+
+The selected Torrent Haven torrent was verified after completion as follows:
+
+- `private=true`; tracker hosts: only `torrenthaven.org`
+- tags include `private` and `torrenthaven`; seed-time limit `4320` minutes
+- qBittorrent state is seeding/stalled-up after completion, rather than being
+  eligible for public-torrent cleanup
+- Radarr imported it using a hardlink: download and library file have the same
+  inode and a link count of `2`
+- MediaInfo reports only English audio. Despite `1080p` in the release name,
+  the actual video is 960x540 and Radarr classifies it as `WEBDL-480p`.
+
+Conclusion: identity, tracker privacy, seeding protection, Arr import, and
+hardlink behavior are all proven. Release names are not trusted as a quality
+or language claim; use Radarr/Sonarr's resulting MediaInfo-derived fields as
+the source of truth.

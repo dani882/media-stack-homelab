@@ -193,11 +193,12 @@ grab-prowlarr-release:
 	@test -n "$${QUERY}" || { echo "ERROR: QUERY is required"; exit 1; }
 	@test -n "$${TITLE}" || { echo "ERROR: TITLE is required"; exit 1; }
 	@test -n "$${INDEXER_ID}" || { echo "ERROR: INDEXER_ID is required"; exit 1; }
-	@test -n "$${TVDB_ID}" || { echo "ERROR: TVDB_ID is required"; exit 1; }
+	@test "$${MEDIA_TYPE:-tv}" = movie -o -n "$${TVDB_ID}" || { echo "ERROR: TVDB_ID is required for TV releases"; exit 1; }
+	@test "$${MEDIA_TYPE:-tv}" != movie -o -n "$${TMDB_ID}" || { echo "ERROR: TMDB_ID is required for movie releases"; exit 1; }
 	@test -n "$${SEED_TIME_MINUTES}" || { echo "ERROR: SEED_TIME_MINUTES is required"; exit 1; }
 	@test -n "$${TAGS}" || { echo "ERROR: TAGS is required"; exit 1; }
 	@ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
-	  "sudo -n python3 -u - --query '$${QUERY}' --title '$${TITLE}' --indexer-id '$${INDEXER_ID}' --tvdb-id '$${TVDB_ID}' --seed-time-minutes '$${SEED_TIME_MINUTES}' --tags '$${TAGS}' $(if $(DRY_RUN),--dry-run)" \
+	  "sudo -n python3 -u - --query '$${QUERY}' --title '$${TITLE}' --indexer-id '$${INDEXER_ID}' --media-type '$${MEDIA_TYPE:-tv}' $(if $(TVDB_ID),--tvdb-id '$(TVDB_ID)') $(if $(TMDB_ID),--tmdb-id '$(TMDB_ID)') --category '$${CATEGORY:-tv}' --seed-time-minutes '$${SEED_TIME_MINUTES}' --tags '$${TAGS}' $(if $(DRY_RUN),--dry-run)" \
 	  < scripts/grab-prowlarr-release.py
 
 audit-hardlinks:

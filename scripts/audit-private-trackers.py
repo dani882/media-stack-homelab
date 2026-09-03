@@ -50,6 +50,11 @@ TRACKER_POLICIES = (
         # download. This audit only alerts; it never changes torrent state.
         completion_window_minutes=10 * 24 * 60,
     ),
+    TrackerPolicy(
+        name="Torrent Haven",
+        host_suffixes=("torrenthaven.org",),
+        minimum_seed_minutes=4320,
+    ),
 )
 
 

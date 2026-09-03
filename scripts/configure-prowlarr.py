@@ -70,6 +70,22 @@ PRIVATE_INDEXERS = {
             "torrentBaseSettings.packSeedTime": 4320,
         },
     },
+    "torrenthaven-api": {
+        # Torrent Haven ships a native Prowlarr Cardigann definition. The API
+        # token is read exclusively from the NAS-local private-indexer secret.
+        "definition": "torrenthaven-api",
+        "enabled": True,
+        "priority": 9,
+        "minimum_seeders": 1,
+        "fields": {
+            # The tracker permits either 1:1 or 72 hours, but its rules also
+            # request continued seeding. A 72-hour limit is the conservative
+            # and deterministic policy; do not use ratio as an early stop.
+            "torrentBaseSettings.seedTime": 4320,
+            "torrentBaseSettings.packSeedTime": 4320,
+            "freeleech": False,
+        },
+    },
 }
 
 

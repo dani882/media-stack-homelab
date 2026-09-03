@@ -52,12 +52,13 @@ def prowlarr_search(
     api_key: str,
     query: str,
     indexer_id: int,
+    media_type: str,
 ) -> list[dict[str, Any]]:
     parameters = urllib.parse.urlencode(
         {
             "query": query,
             "indexerIds": indexer_id,
-            "type": "tvsearch",
+            "type": "tvsearch" if media_type == "tv" else "movie",
         }
     )
     request = urllib.request.Request(
@@ -81,7 +82,8 @@ def select_release(
     releases: list[dict[str, Any]],
     expected_title: str,
     indexer_id: int,
-    expected_tvdb_id: int | None,
+    expected_media_id: int | None,
+    media_type: str,
     minimum_seeders: int,
 ) -> dict[str, Any]:
     title = expected_title.casefold()
@@ -102,10 +104,13 @@ def select_release(
     if release.get("protocol") != "torrent":
         raise GrabError("Selected release is not a torrent.")
 
-    if expected_tvdb_id is not None and int(
-        release.get("tvdbId", -1)
-    ) != expected_tvdb_id:
-        raise GrabError("Selected release has an unexpected TVDB ID.")
+    media_id_field = "tvdbId" if media_type == "tv" else "tmdbId"
+    if expected_media_id is not None and int(
+        release.get(media_id_field, -1)
+    ) != expected_media_id:
+        raise GrabError(
+            f"Selected release has an unexpected {media_id_field}."
+        )
 
     if int(release.get("seeders", 0) or 0) < minimum_seeders:
         raise GrabError("Selected release has too few seeders.")
@@ -248,7 +253,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--query", required=True)
     parser.add_argument("--title", required=True)
     parser.add_argument("--indexer-id", required=True, type=int)
+    parser.add_argument("--media-type", choices=("tv", "movie"), default="tv")
     parser.add_argument("--tvdb-id", type=int)
+    parser.add_argument("--tmdb-id", type=int)
     parser.add_argument("--minimum-seeders", type=int, default=1)
     parser.add_argument("--seed-time-minutes", required=True, type=int)
     parser.add_argument("--category", default="tv")
@@ -266,6 +273,14 @@ def main() -> int:
         raise GrabError("--seed-time-minutes must be positive.")
     if arguments.minimum_seeders < 1:
         raise GrabError("--minimum-seeders must be at least one.")
+    expected_media_id = (
+        arguments.tvdb_id
+        if arguments.media_type == "tv"
+        else arguments.tmdb_id
+    )
+    if expected_media_id is None:
+        required = "--tvdb-id" if arguments.media_type == "tv" else "--tmdb-id"
+        raise GrabError(f"{required} is required for {arguments.media_type} releases.")
 
     prowlarr_key = read_api_key(
         arguments.stack_dir / "config/prowlarr/config.xml"
@@ -285,12 +300,14 @@ def main() -> int:
         prowlarr_key,
         arguments.query,
         arguments.indexer_id,
+        arguments.media_type,
     )
     release = select_release(
         releases,
         arguments.title,
         arguments.indexer_id,
-        arguments.tvdb_id,
+        expected_media_id,
+        arguments.media_type,
         arguments.minimum_seeders,
     )
     add_to_qbittorrent(

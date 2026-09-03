@@ -32,6 +32,7 @@ class SelectReleaseTests(unittest.TestCase):
             "Las Supernenas (1992)",
             8,
             76200,
+            "tv",
             1,
         )
         self.assertEqual(selected["indexerId"], 8)
@@ -43,6 +44,7 @@ class SelectReleaseTests(unittest.TestCase):
                 "Las Supernenas (1992)",
                 8,
                 76200,
+                "tv",
                 1,
             )
 
@@ -53,6 +55,7 @@ class SelectReleaseTests(unittest.TestCase):
                 "Las Supernenas (1992)",
                 8,
                 76200,
+                "tv",
                 1,
             )
 
@@ -64,3 +67,32 @@ class SelectReleaseTests(unittest.TestCase):
             rewritten,
             "http://prowlarr:9696/api/v1/download?id=opaque",
         )
+
+    def test_selects_exact_movie_with_matching_tmdb_id(self) -> None:
+        selected = MODULE.select_release(
+            [
+                release(
+                    title="Madagascar 2005 1080p NF WEB-DL H.264-TORRENTAVENUE",
+                    indexerId=9,
+                    tmdbId=953,
+                )
+            ],
+            "Madagascar 2005 1080p NF WEB-DL H.264-TORRENTAVENUE",
+            9,
+            953,
+            "movie",
+            1,
+        )
+
+        self.assertEqual(selected["tmdbId"], 953)
+
+    def test_rejects_movie_with_unexpected_tmdb_id(self) -> None:
+        with self.assertRaises(MODULE.GrabError):
+            MODULE.select_release(
+                [release(indexerId=9, tmdbId=999)],
+                "Las Supernenas (1992)",
+                9,
+                953,
+                "movie",
+                1,
+            )

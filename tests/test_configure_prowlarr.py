@@ -18,6 +18,17 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PrivateIndexerLoaderTest(unittest.TestCase):
+    def test_private_indexers_always_win_priority_tiebreakers(self) -> None:
+        private_priorities = [
+            indexer["priority"]
+            for indexer in MODULE.PRIVATE_INDEXERS.values()
+        ]
+        public_priorities = [
+            indexer["priority"] for indexer in MODULE.INDEXERS
+        ]
+
+        self.assertLess(max(private_priorities), min(public_priorities))
+
     def test_missing_secret_returns_empty(self) -> None:
         result = MODULE.load_private_indexers(
             Path("/tmp/does-not-exist-prowlarr-secret.json")

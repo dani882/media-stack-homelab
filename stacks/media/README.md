@@ -104,9 +104,16 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
-Milnueve and RetroToon World are production private trackers integrated with
+Milnueve, RetroToon World, and Torrent Haven are production private trackers integrated with
 the stack. Their credentials remain NAS-local and are loaded from the private
 indexer secret file.
+
+All managed private-indexer priorities are numerically ahead of every public
+indexer (lower is preferred by Sonarr/Radarr). This prioritizes a private
+release when otherwise acceptable results tie, while the existing
+`Latino > Castellano > English/original` quality and language policy remains
+the primary selection guardrail. A regression test prevents public indexers
+from being moved ahead of private ones accidentally.
 
 Managed Milnueve policy includes:
 
@@ -133,11 +140,33 @@ maps them to standard Sonarr/Radarr categories. Initially the intended scope
 is cartoons/anime and animated movies; ambiguous CGI and short-form content
 is intentionally not targeted by automation.
 
-If a known RetroToon release is missing from Sonarr/Radarr because its Torznab
-metadata does not resolve by TVDB/TMDB ID, retain the Seerr request and use
-the guarded `make grab-prowlarr-release` helper. It accepts only an exact
-Prowlarr result, uses the standard qBittorrent category, and enforces the
-private tracker seed-time policy without printing its download URL.
+Torrent Haven uses Prowlarr's native `torrenthaven-api` definition. Its API
+token is generated in Torrent Haven's **My Settings → API Key** page and must
+be kept only in the NAS-local private-indexer secret. The managed policy uses
+priority `9`, at least one seeder, and a conservative 72-hour (`4320` minute)
+seed time for both torrents and packs. Although its rules also accept a 1:1
+ratio, the stack does not use ratio as an early-stop condition. Torrent Haven
+private torrents are covered by the same private-tracker audit. Its rules also
+prohibit DHT, PEX, and additional tracker URLs; qBittorrent currently leaves
+discovery enabled globally for public torrents, so do not change those global
+settings. A real Torrent Haven torrent has been verified `private=true` with
+only `torrenthaven.org` announced, which is the per-torrent behavior required
+by the tracker.
+
+If a known private release is missing from Sonarr/Radarr because its metadata
+does not resolve through the normal TVDB/TMDB search, retain the Seerr request
+and use the guarded `make grab-prowlarr-release` helper. It accepts only an
+exact Prowlarr result, validates TVDB for TV or TMDB for movies, uses the
+standard qBittorrent category, and enforces the private tracker seed-time
+policy without printing its download URL. For movies, set
+`MEDIA_TYPE=movie`, `TMDB_ID=...`, and `CATEGORY=radarr`; TV remains the
+default and requires `TVDB_ID=...`.
+
+The release title is not a quality guarantee. Radarr/Sonarr imports classify
+the actual media with MediaInfo; for example, a Torrent Haven release labeled
+`1080p` was detected as 960x540 and retained as `WEBDL-480p`. Confirm the
+imported quality and audio languages before treating a release as a preferred
+replacement.
 
 For an already completed, non-standard RetroToon TV pack, use the title-matched
 import helper. It previews by default and creates only hardlinks whose English
@@ -158,6 +187,7 @@ Supported templates currently include:
 
 - Milnueve API
 - RetroToon World (Generic Torznab)
+- Torrent Haven (native API)
 - Lat-Team
 - ChileBT
 - BTArg

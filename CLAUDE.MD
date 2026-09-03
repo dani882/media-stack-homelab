@@ -30,7 +30,8 @@ The following work is already complete and validated:
 - Servarr root folders are reconciled to the `/data/Media` declarations, so
   Seerr must not offer legacy `/media/...` destinations after configuration
 - Seerr automation for Sonarr, Radarr Movies, and Radarr Kids Movies
-- Milnueve and RetroToon private-tracker protections and cleanup safeguards
+- Milnueve, RetroToon, and Torrent Haven private-tracker protections and
+  cleanup safeguards
 
 ## Profilarr Pilot Reality
 
@@ -83,9 +84,10 @@ Validated live on 2026-08-31:
   requirement to be met within ten days of completion; its passkey is
   NAS-local only and must never be logged or committed. The private-tracker
   audit alerts if the remaining seed time cannot fit in that window.
-- when RetroToon cannot resolve a TVDB search, use the guarded
-  `make grab-prowlarr-release` path with an exact title and a unique Seerr
-  request tag; do not bypass the private-tracker policy with manual URLs
+- when a private indexer cannot resolve a normal *arr ID search, retain the
+  Seerr request and use the guarded `make grab-prowlarr-release` path with an
+  exact title, a unique request tag, and TVDB (TV) or TMDB (movie) identity
+  validation; do not bypass the private-tracker policy with manual URLs
 - completed RetroToon TV packs with non-standard numbering may use
   `make dry-run-import-sonarr-title-matched` followed by its explicit apply
   target; it hardlinks only unique English title matches and leaves ambiguous
@@ -97,6 +99,16 @@ Validated live on 2026-08-31:
 - `make audit-seerr-request-flow REQUEST_ID=...` confirms a retained Seerr
   request maps by TVDB/TMDB identity to a `/data/Media` Sonarr/Radarr item.
   Pair it with `make audit-hardlinks` to validate the storage layer.
+- Torrent Haven uses Prowlarr's native `torrenthaven-api` definition. Its API
+  token belongs only in `prowlarr-private-indexers.json` on the NAS; enforce
+  4320 minutes for releases and packs. Its rules prohibit DHT/PEX and extra
+  tracker URLs. A real Torrent Haven torrent was verified `private=true` with
+  only `torrenthaven.org` announced, so keep qBittorrent's public-friendly
+  global discovery settings unchanged and validate those per torrent.
+- Torrent Haven's Madagascar test was imported as a hardlink and is seeding
+  with its 4320-minute limit, but its filename claimed 1080p while MediaInfo
+  detected 960x540 (`WEBDL-480p`) and English audio only. Treat MediaInfo and
+  *arr's resulting quality/languages as authoritative over release titles.
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
 - Seerr keeps `jellyfin:8096` for internal Docker traffic and dynamically
