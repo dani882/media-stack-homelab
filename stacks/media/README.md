@@ -16,6 +16,7 @@ It is deployed to the UGREEN NAS through Docker Compose.
 | Seerr | Media requests | Docker Compose |
 | qBittorrent | Torrent client | Docker Compose |
 | Jellyfin | Media server | Docker Compose |
+| Dispatcharr | IPTV playlist, channel, and EPG management | Docker Compose |
 | FlareSolverr | Cloudflare-compatible proxy support | Docker Compose |
 | Recyclarr | TRaSH Guides synchronization | Docker Compose |
 | Profilarr | Optional quality-profile/custom-format pilot | Docker Compose profile |
@@ -327,6 +328,117 @@ port, then manages a browser-facing mDNS URL such as
 `http://dh4300plus-9186.local:8899`. `Play on Jellyfin` links therefore avoid
 both Docker-only hostnames and hard-coded IP addresses. `make audit-seerr`
 verifies the discovered external URL as well as the media libraries.
+
+## Dominican Republic IPTV through Dispatcharr
+
+Dispatcharr is part of the default stack and stores its persistent state in
+`${CONFIG_DIR}/dispatcharr`. Its web interface is published on port `9191` by
+default; `DISPATCHARR_PORT` can override the host port.
+
+The deploy configures the complete integration automatically:
+
+- creates the first Dispatcharr administrator when needed and stores its
+  generated credentials in
+  `/volume1/docker/media-stack/secrets/dispatcharr-admin.txt`
+- builds the internal `dominican-iptv` source and FFprobe monitor, combining
+  IPTV-org, every IPTV Cat candidate, and the repository's official-source
+  catalog
+- creates the refreshable `Republica Dominicana (combinada)` M3U account
+- groups duplicate names as ordered fallback streams instead of discarding them
+- probes video and audio every six hours and classifies streams as stable,
+  intermittent, silent, geoblocked, testing, or dead
+- keeps transient failures, but removes a continuously dead source from the
+  generated playlist after seven days
+- creates the `Dominicana - Estables` and `Dominicana - Todos` channel profiles;
+  stable channels use numbers starting at 1, experimental channels at 501, and
+  geoblocked channels at 901
+- creates an AAC compatibility profile and assigns it only when FFprobe detects
+  an audio codec that benefits from conversion while copying the video
+- imports the Dominican `EPGShare01` XMLTV feed every 24 hours with explicit
+  aliases for the principal national channels
+- configures Jellyfin's M3U tuner as
+  `http://dispatcharr:9191/output/m3u`
+- configures Jellyfin's XMLTV provider as
+  `http://dispatcharr:9191/output/epg`
+- starts Jellyfin's authenticated `Refresh Guide` task using the existing,
+  local-only Jellyfin integration key already stored by Seerr, then waits for
+  it to complete so channel additions appear immediately
+
+The interfaces remain available from the LAN at:
+
+```text
+http://<NAS address>:9191
+```
+
+IPTV Cat does not publish a single stable country-playlist URL. The internal
+source service reads its public country pages, resolves an individual IPTV Cat
+link only when that channel is played, and caches the generated list, resolved
+links, and health history under `${CONFIG_DIR}/dominican-iptv`. Resolver entries
+expire after six hours and are refreshed early after repeated failures. If an
+upstream refresh fails, the last successful playlist remains available.
+
+`dominican-iptv-sources.json` is the version-controlled catalog for official
+streams, EPG aliases, required geographic route, and page provenance. An
+official source that requires Dominican egress is not exported until that route
+has been explicitly enabled.
+
+The playlist consumed inside the stack is:
+
+```text
+http://dominican-iptv:8080/playlist.m3u
+```
+
+These are public community streams. A channel can still be temporarily down,
+geoblocked, silent, or incompatible with a particular player; exhaustive and
+guaranteed carriage requires a licensed IPTV provider.
+
+Reapply the integration without a full deployment with:
+
+```bash
+make configure-iptv
+```
+
+Run an immediate full signal and audio audit with:
+
+```bash
+make audit-iptv
+```
+
+The continuous monitor intentionally requires repeated failures before marking
+a never-working source dead. A source that worked previously becomes
+`intermittent` rather than being removed, because temporary broadcaster outages
+are common.
+
+### Optional Dominican Tailscale exit node
+
+The `dominican-exit` Compose profile is prepared but disabled. After the remote
+Raspberry Pi advertises a Tailscale exit node:
+
+1. set `DOMINICAN_TAILSCALE_EXIT_NODE` to its Tailscale IP or stable name;
+2. place a reusable Tailscale auth key only in the NAS `.env` and set
+   `DOMINICAN_TAILSCALE_AUTHKEY`;
+3. set `DOMINICAN_EXIT_NODE_ENABLED=1`;
+4. start with `docker compose --profile dominican-exit up -d`;
+5. run `make audit-iptv` and `make configure-iptv`.
+
+Only the official-stream relay shares the Tailscale network namespace. Jellyfin,
+Dispatcharr, and unrelated NAS traffic keep their normal Canadian route. The
+relay rewrites HLS manifests so playlists and media segments both traverse the
+Dominican exit; it rejects destinations outside the configured broadcaster
+host.
+
+The equivalent manual UI operation is **Jellyfin Dashboard → Scheduled Tasks →
+Live TV → Refresh Guide → Start**. It is now automated by
+`configure-jellyfin-livetv.py`; use `--skip-guide-refresh` only when an
+immediate Jellyfin refresh is intentionally unwanted.
+
+Jellyfin and Dispatcharr share the `media-stack` Docker network, so URLs copied
+for Jellyfin should use `http://dispatcharr:9191` as the host when possible.
+Browser access continues to use the NAS address and published port.
+
+Jellyfin currently presents Live TV as a mostly flat channel list even when
+the M3U contains group metadata. Keep the exported channel profile small and
+use clear channel names and channel-number ranges for practical browsing.
 
 ## Profilarr Pilot
 

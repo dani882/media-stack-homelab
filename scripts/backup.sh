@@ -64,6 +64,8 @@ SERVICES=(
   seerr
   qbittorrent
   jellyfin
+  dispatcharr
+  dominican-iptv
 )
 
 cleanup() {
@@ -111,6 +113,7 @@ cat <<'LIST'
 - Seerr
 - qBittorrent
 - Jellyfin configuration and metadata
+- Dispatcharr channels, playlists, EPG mappings, and settings
 - Recyclarr state/configuration
 - NAS-local media-stack secrets
 LIST
@@ -284,7 +287,9 @@ for service in \
   radarr \
   bazarr \
   jellyseerr \
-  qbittorrent
+  qbittorrent \
+  dispatcharr \
+  dominican-iptv
 do
   copy_config_tree "$service"
 done

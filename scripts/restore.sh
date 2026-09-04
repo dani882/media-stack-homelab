@@ -20,6 +20,9 @@ SERVICES=(
   seerr
   qbittorrent
   jellyfin
+  dispatcharr
+  dominican-iptv
+  dominican-iptv-monitor
 )
 
 usage() {
@@ -471,6 +474,18 @@ swap_tree \
   "${WORK_DIR}/config/qbittorrent" \
   "${CONFIG_DIR}/qbittorrent" \
   "${ROLLBACK_DIR}/config/qbittorrent"
+
+swap_tree \
+  "Dispatcharr" \
+  "${WORK_DIR}/config/dispatcharr" \
+  "${CONFIG_DIR}/dispatcharr" \
+  "${ROLLBACK_DIR}/config/dispatcharr"
+
+swap_tree \
+  "Dominican IPTV state" \
+  "${WORK_DIR}/config/dominican-iptv" \
+  "${CONFIG_DIR}/dominican-iptv" \
+  "${ROLLBACK_DIR}/config/dominican-iptv"
 
 swap_tree \
   "Jellyfin configuration" \

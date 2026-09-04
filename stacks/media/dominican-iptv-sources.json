@@ -1,0 +1,41 @@
+{
+  "channels": [
+    {
+      "enabled": true,
+      "epg_aliases": [
+        "Canal 7 de Antena Latina (República Dominicana)",
+        "Canal 7 de Antena Latina",
+        "Antena Latina"
+      ],
+      "id": "antena7",
+      "name": "Antena 7",
+      "origin": "https://www.antena7.com.do",
+      "referer": "https://www.antena7.com.do/envivo-canal-7/",
+      "requires_dominican_exit": true,
+      "tvg_id": "Antena7.do@SD",
+      "url": "https://d3gie3ig6argu.cloudfront.net/ts:abr.m3u8"
+    }
+  ],
+  "epg_aliases": {
+    "cdn": ["Canal 37 de República Dominicana (CDN)"],
+    "color vision": [
+      "Canal 9 de Color Visión (República Dominicana)",
+      "Canal 9 de Color Visión"
+    ],
+    "digital 15": [
+      "Canal 15 (Digital Quince Telemicro) (República Dominicana)",
+      "Canal 15 (Digital Quince Telemicro)"
+    ],
+    "teleantillas": ["Canal 2 de República Dominicana (Teleantillas)"],
+    "tele antillas": ["Canal 2 de República Dominicana (Teleantillas)"],
+    "telemicro": ["Canal 5 de República Dominicana (Telemicro)"],
+    "telesistema 11": [
+      "Canal Telesistema 11 (República Dominicana)",
+      "Canal Telesistema 11"
+    ],
+    "teleuniverso": [
+      "Canal 29 de TeleUniverso (República Dominicana)",
+      "Canal 29 de TeleUniverso"
+    ]
+  }
+}

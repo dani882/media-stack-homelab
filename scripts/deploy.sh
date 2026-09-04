@@ -31,6 +31,11 @@ MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
+DISPATCHARR_SCRIPT="${ROOT_DIR}/scripts/configure-dispatcharr.py"
+JELLYFIN_LIVETV_SCRIPT="${ROOT_DIR}/scripts/configure-jellyfin-livetv.py"
+DOMINICAN_IPTV_SCRIPT="${ROOT_DIR}/scripts/dominican-iptv.py"
+DOMINICAN_IPTV_DOCKERFILE="${ROOT_DIR}/stacks/media/dominican-iptv.Dockerfile"
+DOMINICAN_IPTV_SOURCES="${ROOT_DIR}/stacks/media/dominican-iptv-sources.json"
 PROFILARR_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr.py"
 PROFILARR_SYNC_SCRIPT="${ROOT_DIR}/scripts/configure-profilarr-sync.py"
 CHECK_MEDIA_LIVE_SCRIPT="${ROOT_DIR}/scripts/check-media-live.py"
@@ -101,6 +106,11 @@ for required_file in \
   "$MEDIA_COMMON_LANGUAGE" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
+  "$DISPATCHARR_SCRIPT" \
+  "$JELLYFIN_LIVETV_SCRIPT" \
+  "$DOMINICAN_IPTV_SCRIPT" \
+  "$DOMINICAN_IPTV_DOCKERFILE" \
+  "$DOMINICAN_IPTV_SOURCES" \
   "$PROFILARR_SCRIPT" \
   "$PROFILARR_SYNC_SCRIPT" \
   "$CHECK_MEDIA_LIVE_SCRIPT" \
@@ -216,6 +226,11 @@ REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USE
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
+REMOTE_DISPATCHARR_TEMP="${REMOTE_STAGING}/configure-dispatcharr-${USER}-$$.py"
+REMOTE_JELLYFIN_LIVETV_TEMP="${REMOTE_STAGING}/configure-jellyfin-livetv-${USER}-$$.py"
+REMOTE_DOMINICAN_IPTV_TEMP="${REMOTE_STAGING}/dominican-iptv-${USER}-$$.py"
+REMOTE_DOMINICAN_IPTV_DOCKERFILE_TEMP="${REMOTE_STAGING}/dominican-iptv-${USER}-$$.Dockerfile"
+REMOTE_DOMINICAN_IPTV_SOURCES_TEMP="${REMOTE_STAGING}/dominican-iptv-sources-${USER}-$$.json"
 REMOTE_PROFILARR_TEMP="${REMOTE_STAGING}/configure-profilarr-${USER}-$$.py"
 REMOTE_PROFILARR_SYNC_TEMP="${REMOTE_STAGING}/configure-profilarr-sync-${USER}-$$.py"
 REMOTE_CHECK_MEDIA_LIVE_TEMP="${REMOTE_STAGING}/check-media-live-${USER}-$$.py"
@@ -505,6 +520,28 @@ echo "Uploading Seerr configuration script through SSH..."
   "cat > '${REMOTE_SEERR_TEMP}'" \
   < "$SEERR_SCRIPT"
 
+echo "Uploading IPTV configuration scripts through SSH..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DISPATCHARR_TEMP}'" \
+  < "$DISPATCHARR_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_JELLYFIN_LIVETV_TEMP}'" \
+  < "$JELLYFIN_LIVETV_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DOMINICAN_IPTV_TEMP}'" \
+  < "$DOMINICAN_IPTV_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DOMINICAN_IPTV_DOCKERFILE_TEMP}'" \
+  < "$DOMINICAN_IPTV_DOCKERFILE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DOMINICAN_IPTV_SOURCES_TEMP}'" \
+  < "$DOMINICAN_IPTV_SOURCES"
+
 echo "Uploading Profilarr automation scripts through SSH..."
 
 "${SSH[@]}" "$REMOTE" \
@@ -744,6 +781,26 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/configure-seerr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_DISPATCHARR_TEMP}' \
+    '${NAS_STACK_DIR}/configure-dispatcharr.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_JELLYFIN_LIVETV_TEMP}' \
+    '${NAS_STACK_DIR}/configure-jellyfin-livetv.py'
+
+  sudo install -m 0755 \
+    '${REMOTE_DOMINICAN_IPTV_TEMP}' \
+    '${NAS_STACK_DIR}/dominican-iptv.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_DOMINICAN_IPTV_DOCKERFILE_TEMP}' \
+    '${NAS_STACK_DIR}/dominican-iptv.Dockerfile'
+
+  sudo install -m 0644 \
+    '${REMOTE_DOMINICAN_IPTV_SOURCES_TEMP}' \
+    '${NAS_STACK_DIR}/dominican-iptv-sources.json'
+
+  sudo install -m 0755 \
     '${REMOTE_PROFILARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-profilarr.py'
 
@@ -951,6 +1008,11 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
+    '${REMOTE_DISPATCHARR_TEMP}' \
+    '${REMOTE_JELLYFIN_LIVETV_TEMP}' \
+    '${REMOTE_DOMINICAN_IPTV_TEMP}' \
+    '${REMOTE_DOMINICAN_IPTV_DOCKERFILE_TEMP}' \
+    '${REMOTE_DOMINICAN_IPTV_SOURCES_TEMP}' \
     '${REMOTE_PROFILARR_TEMP}' \
     '${REMOTE_PROFILARR_SYNC_TEMP}' \
     '${REMOTE_CHECK_MEDIA_LIVE_TEMP}' \
@@ -1006,7 +1068,8 @@ echo "Pulling images and applying the stack..."
 "${SSH_TTY[@]}" "$REMOTE" "
   set -e
   cd '${NAS_STACK_DIR}'
-  sudo docker compose pull
+  sudo docker compose pull --ignore-buildable
+  sudo docker compose build dominican-iptv
   sudo docker compose up -d
   sudo docker compose ps
 
@@ -1025,6 +1088,14 @@ echo "Pulling images and applying the stack..."
   echo
   echo "Configuring Seerr..."
   sudo python3 '${NAS_STACK_DIR}/configure-seerr.py'
+
+  echo
+  echo "Configuring Dispatcharr Dominican IPTV..."
+  sudo python3 '${NAS_STACK_DIR}/configure-dispatcharr.py'
+
+  echo
+  echo "Configuring Jellyfin Live TV..."
+  sudo python3 '${NAS_STACK_DIR}/configure-jellyfin-livetv.py'
 
   echo
   echo "Synchronizing Recyclarr with Sonarr..."

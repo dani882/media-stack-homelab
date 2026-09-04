@@ -183,6 +183,124 @@ services:
     networks:
       - media
 
+  dispatcharr:
+    image: ghcr.io/dispatcharr/dispatcharr:${DISPATCHARR_TAG:-latest}
+    container_name: dispatcharr
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      DISPATCHARR_ENV: aio
+      REDIS_HOST: localhost
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      DISPATCHARR_LOG_LEVEL: info
+    volumes:
+      - ${CONFIG_DIR}/dispatcharr:/data
+    ports:
+      - "${DISPATCHARR_PORT:-9191}:9191"
+    networks:
+      - media
+
+  dominican-iptv:
+    build:
+      context: .
+      dockerfile: dominican-iptv.Dockerfile
+    image: homelab/dominican-iptv:local
+    container_name: dominican-iptv
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      PUBLIC_BASE_URL: http://dominican-iptv:8080
+      CACHE_TTL: "21600"
+      RESOLVER_TTL: "21600"
+      HEALTH_MAX_AGE: "86400"
+      DEAD_RETENTION: "604800"
+      EPG_URL: >-
+        ${DOMINICAN_EPG_URL:-https://epgshare01.online/epgshare01/epg_ripper_DO1.xml.gz}
+      DOMINICAN_EXIT_NODE_ENABLED: ${DOMINICAN_EXIT_NODE_ENABLED:-0}
+    command: ["serve"]
+    volumes:
+      - ${CONFIG_DIR}/dominican-iptv:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://localhost:8080/healthz', timeout=5)
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - media
+
+  dominican-iptv-monitor:
+    build:
+      context: .
+      dockerfile: dominican-iptv.Dockerfile
+    image: homelab/dominican-iptv:local
+    container_name: dominican-iptv-monitor
+    restart: unless-stopped
+    depends_on:
+      dominican-iptv:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      PLAYLIST_URL: http://dominican-iptv:8080/playlist.m3u
+      PUBLIC_BASE_URL: http://dominican-iptv:8080
+      PROBE_INTERVAL: ${DOMINICAN_IPTV_PROBE_INTERVAL:-21600}
+      PROBE_TIMEOUT: ${DOMINICAN_IPTV_PROBE_TIMEOUT:-12}
+      PROBE_WORKERS: ${DOMINICAN_IPTV_PROBE_WORKERS:-10}
+      CACHE_TTL: "21600"
+      RESOLVER_TTL: "21600"
+      HEALTH_MAX_AGE: "86400"
+      DEAD_RETENTION: "604800"
+      EPG_URL: >-
+        ${DOMINICAN_EPG_URL:-https://epgshare01.online/epgshare01/epg_ripper_DO1.xml.gz}
+    command: ["monitor"]
+    volumes:
+      - ${CONFIG_DIR}/dominican-iptv:/data
+    networks:
+      - media
+
+  # Optional Dominican egress. It stays dormant until the Raspberry Pi is
+  # registered as a Tailscale exit node and this Compose profile is enabled.
+  dominican-exit:
+    image: tailscale/tailscale:stable
+    container_name: dominican-exit
+    hostname: media-dominican-exit-client
+    restart: unless-stopped
+    profiles: ["dominican-exit"]
+    environment:
+      TS_AUTHKEY: ${DOMINICAN_TAILSCALE_AUTHKEY:-}
+      TS_AUTH_ONCE: "true"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_EXTRA_ARGS: >-
+        --exit-node=${DOMINICAN_TAILSCALE_EXIT_NODE:-}
+        --exit-node-allow-lan-access=true
+    volumes:
+      - ${CONFIG_DIR}/tailscale-dominican-exit:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - media
+
+  dominican-iptv-dr:
+    image: homelab/dominican-iptv:local
+    container_name: dominican-iptv-dr
+    restart: unless-stopped
+    profiles: ["dominican-exit"]
+    depends_on:
+      - dominican-exit
+    network_mode: service:dominican-exit
+    environment:
+      PORT: "8081"
+      REQUEST_TIMEOUT: "30"
+    command: ["relay"]
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
