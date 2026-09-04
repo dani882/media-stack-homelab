@@ -1,6 +1,6 @@
 # Homelab Media Stack — Exhaustive Working Context / Canonical Checkpoint
 
-Last updated: 2026-08-31
+Last updated: 2026-09-04
 
 This document is the canonical handoff/checkpoint for the current homelab media-stack work.
 
@@ -35,6 +35,194 @@ The goal is that ChatGPT, Codex, or another engineer can read this file and unde
 - and what safe next steps look like.
 
 Before making changes, read this entire file.
+
+---
+
+# 0B. Dominican IPTV / Dispatcharr Checkpoint — 2026-09-04
+
+This is the current checkpoint for the Dominican Republic Live TV work
+completed and pushed to `main` in commit:
+
+`e6f04f2 feat(media): improve Dominican IPTV reliability and Jellyfin integration`
+
+Repository and Git state at the end of the session:
+
+- branch: `main`
+- local `HEAD`, `origin/main`, and `origin/HEAD`: `e6f04f2`
+- the working tree was clean immediately after the user's push
+- follow-up documentation/memory edits are intentionally newer than that
+  pushed commit and must be committed separately
+
+## Implemented architecture
+
+The work began after the user observed that the first Jellyfin setup exposed
+only a small subset of Dominican channels and that some returned Jellyfin's
+fatal playback error or lacked audio. The investigation distinguished three
+different conditions: volatile community URLs, codec/audio compatibility, and
+true geographic restrictions. Antena 7's official live page was inspected and
+its official HLS endpoint was recorded in the catalog with its page referer and
+origin metadata, but it remained inaccessible without Dominican egress.
+
+The user logged into Dispatcharr so its live configuration could be inspected.
+Any settings initially explored through the web UI were subsequently expressed
+in Compose, catalog data, or idempotent repository scripts. There must be no
+required UI-only step for normal deployment or recovery.
+
+Dispatcharr is part of the default media Compose stack. Two additional
+repository-built services are present:
+
+- `dominican-iptv`: generates and serves the combined internal M3U playlist
+- `dominican-iptv-monitor`: runs concurrent FFprobe video/audio audits every
+  six hours
+
+The generator combines:
+
+- the IPTV-org Dominican Republic playlist
+- every candidate discovered on the IPTV Cat Dominican Republic pages
+- curated official sources in
+  `stacks/media/dominican-iptv-sources.json`
+
+Duplicate sources are deliberately preserved. `configure-dispatcharr.py`
+normalizes equivalent names into one visible channel and attaches the
+remaining sources as ordered `ChannelStream` fallbacks. It does not discard a
+working alternative simply because another URL has the same channel name.
+
+IPTV Cat wrapper resolutions are cached for six hours. Repeated failures can
+force an earlier resolution refresh. The last successful generated playlist
+continues to be served when an upstream catalog refresh fails.
+
+Health classifications are:
+
+- `stable`: FFprobe found video and an audio stream
+- `silent`: video works but no audio stream was detected
+- `intermittent`: the source worked previously but failed the latest audit
+- `testing`: not enough successful or failed observations yet
+- `geo-blocked`: marked geographic or identified as such by the probe
+- `dead`: a never-working source failed at least three consecutive audits
+
+A temporary failure is not deleted. A dead source remains in health history
+and is omitted from the generated playlist only after seven days of continuous
+dead state. This conservative behavior is intentional because several public
+broadcasters fail briefly and recover later.
+
+## Dispatcharr and Jellyfin configuration
+
+The idempotent Dispatcharr configurator creates or maintains:
+
+- M3U account `Republica Dominicana (combinada)`
+- ordered per-channel fallback streams
+- `Dominicana - Estables` and `Dominicana - Todos` channel profiles
+- channel numbers beginning at 1 (stable), 501 (experimental), and 901
+  (geoblocked)
+- FFmpeg profile `IPTV - Compatibilidad AAC`, assigned only when an audited
+  audio codec needs conversion; video remains stream-copied
+- EPG source `Republica Dominicana (EPGShare01)` using the DO1 XMLTV feed
+- explicit national-channel EPG aliases maintained in the source catalog
+
+The Jellyfin configurator maintains:
+
+- M3U tuner: `http://dispatcharr:9191/output/m3u`
+- XMLTV provider: `http://dispatcharr:9191/output/epg`
+- shared-stream and conservative transcoding options
+- authenticated execution of Jellyfin's `Refresh Guide` scheduled task
+
+The Jellyfin API credential is reused from the existing NAS-local integration
+state; it is not placed in Git.
+
+## Live validation from this session
+
+The full stack deployment completed successfully on the UGREEN NAS. Final live
+checks reported:
+
+These counts are a deployment-time snapshot and will change as public
+broadcasters and IPTV Cat entries appear, recover, or expire.
+
+- `dominican-iptv`: healthy
+- `dominican-iptv-monitor`: running
+- Dispatcharr: running
+- Jellyfin: healthy
+- 676 audited upstream streams
+- 296 stable sources
+- 365 sources still testing
+- 15 geoblocked sources
+- 361 visible canonical channels
+- 205 channels with more than one attached source
+- 326 total alternative/fallback links beyond the primary sources
+- 221 channels in the stable number range
+- 138 channels in the experimental number range
+- 2 channels in the geoblocked number range
+- EPG import status: success
+- 56 EPG channel entries available
+- 8 Dominican national channels explicitly mapped after correcting aliases,
+  including the `Tele Antillas` spaced-name variant
+- Jellyfin guide refresh completed after the final EPG mapping pass
+
+The final repository validation executed `make check`: Compose validation
+passed and all 133 automated tests passed. A Python `ResourceWarning` emitted
+by a test-created HTTP redirect object remains non-fatal; it did not fail the
+suite.
+
+## Files that own this behavior
+
+- `stacks/media/compose.yaml`
+- `stacks/media/dominican-iptv.Dockerfile`
+- `stacks/media/dominican-iptv-sources.json`
+- `scripts/dominican-iptv.py`
+- `scripts/configure-dispatcharr.py`
+- `scripts/configure-jellyfin-livetv.py`
+- `scripts/deploy.sh`
+- `scripts/backup.sh`
+- `scripts/restore.sh`
+- `tests/test_dominican_iptv.py`
+- `tests/test_configure_dispatcharr.py`
+- `tests/test_configure_jellyfin_livetv.py`
+
+Operational commands:
+
+```bash
+make configure-iptv
+make audit-iptv
+```
+
+The persistent `${CONFIG_DIR}/dominican-iptv` directory is included in backup
+and restore. It contains the last successful playlist, resolver cache, and
+health history.
+
+## Intentionally pending: Raspberry Pi in the Dominican Republic
+
+The optional `dominican-exit` Compose profile is implemented but intentionally
+inactive. The user does not yet have the Raspberry Pi. When it is installed at
+the parents' home, configure it as a Tailscale exit node and use Ethernet when
+possible. Then place the exit-node name/IP and reusable auth key only in the
+NAS `.env`, set `DOMINICAN_EXIT_NODE_ENABLED=1`, and start the
+`dominican-exit` profile.
+
+Only `dominican-iptv-dr`, the official HLS relay, shares the Tailscale client
+network namespace. Dispatcharr, Jellyfin, and unrelated NAS traffic must keep
+their normal Canadian route. The relay rewrites master/media manifests,
+segments, and key URLs and rejects hosts outside the configured broadcaster
+host.
+
+Antena 7's official stream is catalogued but is not exported through the
+official relay until Dominican egress is enabled. Public community Antena 7
+sources may remain visible as testing or geoblocked in the complete profile.
+Do not claim that the official Antena 7 source works from Canada before the
+remote exit node has been installed and validated.
+
+## Safe follow-up work
+
+- Install and validate the Raspberry Pi Tailscale exit node when hardware is
+  available.
+- Run `make audit-iptv` and `make configure-iptv` after enabling it.
+- Recheck the official Antena 7 HLS child hosts; add explicit allowed hosts to
+  the catalog only if the real manifest uses additional broadcaster CDNs.
+- Periodically review sources still in `testing`; do not aggressively delete
+  intermittent public broadcasters.
+- Allow at least three audit observations before treating a never-working
+  source as dead; the first live snapshot naturally left many sources in
+  `testing`.
+- A licensed provider remains the only path to guaranteed exhaustive carriage;
+  the current integration intentionally uses public/community sources.
 
 ---
 
@@ -158,7 +346,11 @@ Additional private-indexer note from 2026-08-31:
 
 ---
 
-# 0. Executive summary
+# 0. Historical `v0.28.0` workstream summary
+
+The remainder of this section records the earlier
+`feat/spanish-language-upgrades` branch and is retained for migration history.
+For current state, use sections 0B and 0A above.
 
 Repository:
 
@@ -168,7 +360,7 @@ Current branch:
 
 `feat/spanish-language-upgrades`
 
-There are two major workstreams in progress on this branch:
+There were two major workstreams on this historical branch:
 
 1. Language-preference / media-quality policy:
    - desired preference:

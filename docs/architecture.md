@@ -47,6 +47,9 @@ changes through service web interfaces.
 | Seerr | Media requests |
 | qBittorrent | Download client |
 | Jellyfin | Media playback and library management |
+| Dispatcharr | IPTV channel, fallback-stream, M3U, and XMLTV management |
+| Dominican IPTV source | Public-source aggregation, resolver cache, and health classification |
+| Dominican IPTV monitor | Periodic FFprobe video/audio validation |
 | FlareSolverr | Cloudflare-compatible proxy support |
 | Recyclarr | TRaSH Guides synchronization |
 
@@ -99,6 +102,16 @@ This file currently supports Milnueve and RetroToon World credentials.
 RetroToon uses Generic Torznab and receives a per-torrent 72-hour seeding
 limit through Prowlarr. Credentials and passkeys remain NAS-local.
 
+The generated Dispatcharr administrator credential is stored only at:
+
+```text
+/volume1/docker/media-stack/secrets/dispatcharr-admin.txt
+```
+
+When the optional Dominican exit-node profile is enabled, its Tailscale auth
+key remains in the NAS-local stack `.env`. Neither credential is committed to
+Git.
+
 Only safe example files are version controlled.
 
 ## Configuration Automation
@@ -118,8 +131,29 @@ Managed areas include:
 - release auditing and upgrades
 - completed-download cleanup
 - dangerous-download remediation
+- Dominican IPTV aggregation and health-driven source ordering
+- Dispatcharr channel profiles, numbering, audio compatibility, and EPG mapping
+- Jellyfin Live TV tuner, XMLTV provider, and guide refresh
 
 Configuration scripts are designed to be idempotent whenever practical.
+
+## Dominican Live TV data flow
+
+The repository-built `dominican-iptv` image discovers IPTV-org and IPTV Cat
+sources and merges them with the curated
+`stacks/media/dominican-iptv-sources.json` catalog. Runtime resolver and health
+state is persisted under `${CONFIG_DIR}/dominican-iptv`.
+
+Dispatcharr consumes the internal playlist, groups equivalent names into one
+channel with ordered fallback streams, and exports M3U and XMLTV endpoints to
+Jellyfin. The monitor audits video and audio every six hours. A temporary
+failure remains available as intermittent; a never-working source requires
+repeated failures before becoming dead and remains retained for seven days.
+
+The optional `dominican-exit` Compose profile contains a Tailscale client and
+an HLS relay. Only that relay uses the future Dominican exit node; the rest of
+the NAS continues to use its normal route. The profile remains disabled until
+the Raspberry Pi exit node and NAS-local Tailscale credentials are available.
 
 ## Future Stacks
 

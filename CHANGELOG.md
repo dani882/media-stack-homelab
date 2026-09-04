@@ -6,6 +6,21 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- Dispatcharr-backed Dominican Republic Live TV integration for Jellyfin.
+- A repository-built IPTV source combining IPTV-org, all discovered IPTV Cat
+  candidates, and a version-controlled official-source catalog.
+- Ordered fallback streams for channels that have more than one source.
+- Six-hour FFprobe video/audio audits with stable, intermittent, silent,
+  testing, geoblocked, and dead classifications.
+- Resolver TTL handling, early refresh after repeated failures, and
+  conservative seven-day retirement of continuously dead sources.
+- Dispatcharr channel profiles, deterministic number ranges, an AAC
+  compatibility profile, and EPGShare01 Dominican guide integration.
+- Automated Jellyfin M3U/XMLTV configuration and authenticated guide refresh.
+- Optional Compose profile for a Dominican Tailscale exit node and isolated
+  official-stream HLS relay.
+- Backup and restore coverage for the persistent Dominican IPTV health and
+  resolver state.
 - Optional Profilarr pilot integration for evaluating generic quality-policy
   sync without replacing the existing language and operations workflow.
 - Automated Profilarr admin bootstrap and password recovery.

@@ -25,6 +25,11 @@ speculative version numbers to unfinished work.
 - [x] Migrate qBittorrent to Docker Compose
 - [x] Migrate Jellyfin to Docker Compose
 - [x] Preserve Jellyfin RKMPP hardware acceleration
+- [x] Deploy Dispatcharr and integrate Jellyfin Live TV
+- [x] Aggregate Dominican IPTV sources with ordered channel fallbacks
+- [x] Add periodic stream/audio health classification and dead-source retention
+- [x] Import and map the Dominican EPG
+- [x] Prepare an isolated Tailscale exit-node path for geoblocked channels
 - [x] Automate Prowlarr configuration
 - [x] Automate qBittorrent configuration
 - [x] Automate Sonarr and Radarr configuration

@@ -38,6 +38,7 @@ Current release: `v0.28.0`
 The current media platform includes:
 
 - Jellyfin
+- Dispatcharr
 - qBittorrent
 - Sonarr
 - Radarr
@@ -71,6 +72,16 @@ including:
   hardlinks while qBittorrent continues seeding
 - an optional Profilarr pilot for evaluating partial replacement of Recyclarr
   quality-profile management
+- Dominican Republic Live TV through a repository-built IPTV source,
+  Dispatcharr, and Jellyfin
+- combined IPTV-org, IPTV Cat, and curated official-source discovery with
+  ordered per-channel fallbacks
+- six-hour FFprobe stream and audio monitoring, conservative dead-source
+  retirement, and six-hour resolver caching
+- Dominican EPG import, stable/experimental/geoblocked channel numbering,
+  and targeted AAC audio compatibility
+- an optional Tailscale exit-node profile for routing only geoblocked
+  official streams through a future Raspberry Pi in the Dominican Republic
 
 ## Repository Layout
 
@@ -173,6 +184,10 @@ Private indexer templates currently exist for:
 
 Private indexers are configured only when their credentials are present in
 the NAS-side secret file.
+
+Dispatcharr administrator credentials are generated and stored only in
+`/volume1/docker/media-stack/secrets/dispatcharr-admin.txt`. The optional
+Dominican Tailscale exit-node key remains only in the NAS-side stack `.env`.
 
 ## Documentation
 

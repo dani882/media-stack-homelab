@@ -1,6 +1,6 @@
 # Media Stack Operations
 
-Last updated: 2026-08-31
+Last updated: 2026-09-04
 
 This note is the short operational runbook for the media stack.
 
@@ -19,6 +19,9 @@ Use the following ownership model when changing behavior:
 - repository-managed cleanup logic:
   private-tracker protection, H&R-safe behavior, and dangerous-download
   cleanup
+- repository-managed Dominican Live TV:
+  source aggregation, health classification, fallback ordering, EPG mapping,
+  and Jellyfin configuration
 
 Do not move the language policy, Seerr routing, qBittorrent category policy,
 or private-tracker safeguards into Profilarr.
@@ -67,6 +70,19 @@ Audit recent hardlink-backed imports automatically:
 
 ```bash
 make audit-hardlinks
+```
+
+Run an immediate Dominican IPTV video/audio audit:
+
+```bash
+make audit-iptv
+```
+
+Reapply the current health results, source fallbacks, EPG mappings, and
+Jellyfin Live TV configuration:
+
+```bash
+make configure-iptv
 ```
 
 Synchronize Recyclarr:
@@ -124,6 +140,37 @@ Docker port, then sets a LAN-reachable mDNS URL such as
 `make audit-seerr` verifies the discovered external URL along with library and
 Servarr routing.
 
+## Dominican Republic Live TV
+
+The normal Compose stack runs Dispatcharr, the repository-built
+`dominican-iptv` source, and its FFprobe monitor. Dispatcharr publishes the
+M3U and XMLTV endpoints consumed by Jellyfin; users should not add individual
+upstream URLs directly in Jellyfin.
+
+The monitor runs every six hours. A successful source is stable (or silent if
+no audio stream is detected); a previously successful source that fails is
+intermittent. A never-working source needs three consecutive failures to be
+marked dead and remains in health history for seven days before the generated
+playlist omits it. IPTV Cat resolver entries expire after six hours and may be
+refreshed earlier after repeated failures.
+
+Dispatcharr exposes two managed profiles:
+
+- `Dominicana - Estables` for sources currently proven stable
+- `Dominicana - Todos` for the complete catalog, including experimental and
+  geoblocked channels
+
+Channel numbers start at 1 for stable channels, 501 for experimental channels,
+and 901 for geoblocked channels. Equivalent channel names are represented by
+one visible channel with ordered alternative streams.
+
+The optional `dominican-exit` profile must stay disabled until the remote
+Raspberry Pi advertises a working Tailscale exit node. When it is ready, set
+the NAS-local `DOMINICAN_TAILSCALE_EXIT_NODE` and
+`DOMINICAN_TAILSCALE_AUTHKEY`, enable `DOMINICAN_EXIT_NODE_ENABLED=1`, then
+start the profile and run `make audit-iptv` followed by `make configure-iptv`.
+Do not commit the Tailscale auth key.
+
 ## Recovery
 
 Recover or bootstrap Profilarr admin credentials:
@@ -144,6 +191,7 @@ Reapply Sonarr/Radarr repository-managed settings:
 make configure-servarr
 make configure-seerr
 make configure-qbittorrent
+make configure-iptv
 ```
 
 Recover the full media-stack configuration:

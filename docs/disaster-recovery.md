@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-Last updated: 2026-08-31
+Last updated: 2026-09-04
 
 This document is the short disaster-recovery checklist for the media stack.
 
@@ -13,6 +13,7 @@ This document is the short disaster-recovery checklist for the media stack.
 5. Revalidate Seerr routing
 6. Revalidate hardlinks
 7. Revalidate private-tracker safety constraints
+8. Revalidate Dominican Live TV, stream health state, and guide data
 
 ## Restore
 
@@ -37,6 +38,7 @@ make configure-prowlarr
 make configure-qbittorrent
 make configure-servarr
 make configure-seerr
+make configure-iptv
 make sync-recyclarr
 make sync-profilarr
 ```
@@ -50,6 +52,7 @@ make check-media-live
 make audit-seerr
 make audit-bazarr
 make audit-hardlinks
+make audit-iptv
 ```
 
 For a known real import pair:
@@ -75,3 +78,18 @@ Do not remove `/downloads` or `/media` during disaster recovery.
 
 Treat legacy mount removal as a separate follow-up change after live
 validation is complete.
+
+## Dominican IPTV recovery notes
+
+The backup includes `${CONFIG_DIR}/dominican-iptv`, which contains the last
+successful generated playlist, IPTV Cat resolver cache, and stream-health
+history. Restoring it avoids treating every source as unverified after a NAS
+recovery. It is still safe to rebuild this state with `make audit-iptv` if the
+cache is unavailable.
+
+After restore, `make configure-iptv` recreates the Dispatcharr account,
+fallback relationships, channel profiles, number ranges, audio profile, EPG
+source and mappings, plus the Jellyfin M3U/XMLTV configuration. The optional
+Tailscale state lives under `${CONFIG_DIR}/tailscale-dominican-exit`; its auth
+key remains in the NAS `.env` and must never be placed in a backup intended for
+untrusted storage or committed to Git.

@@ -34,6 +34,6 @@ Current ADRs:
 - [`media-legacy-mount-removal.md`](media-legacy-mount-removal.md) - legacy
   mount retirement checklist
 - [`media-operations.md`](media-operations.md) - short media-stack
-  operations runbook
+  operations runbook, including Dominican IPTV and optional Tailscale egress
 - [`profilarr-assessment.md`](profilarr-assessment.md) - current Profilarr
   pilot evaluation
