@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-"""Remove public torrents after a confirmed Servarr import and 30m seed."""
+"""Remove imported torrents after their public/private retention requirement."""
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 import urllib.parse
 from dataclasses import dataclass
@@ -25,6 +26,16 @@ from common.qbittorrent import (
     QBittorrentError,
     read_credentials,
 )
+
+
+PRIVATE_AUDIT_SPEC = importlib.util.spec_from_file_location(
+    "private_tracker_audit",
+    Path(__file__).resolve().parent / "audit-private-trackers.py",
+)
+assert PRIVATE_AUDIT_SPEC and PRIVATE_AUDIT_SPEC.loader
+PRIVATE_AUDIT = importlib.util.module_from_spec(PRIVATE_AUDIT_SPEC)
+sys.modules[PRIVATE_AUDIT_SPEC.name] = PRIVATE_AUDIT
+PRIVATE_AUDIT_SPEC.loader.exec_module(PRIVATE_AUDIT)
 
 
 MINIMUM_SEEDING_MINUTES = 30.0
@@ -70,9 +81,13 @@ def history_import_hashes(client: ArrClient) -> set[str]:
     }
 
 
-def public_torrent_is_removable(torrent: dict[str, Any]) -> tuple[bool, str]:
-    if torrent.get("private") is not False:
-        return False, "torrent is not explicitly public"
+def torrent_is_removable(
+    torrent: dict[str, Any],
+    hosts: set[str] | None = None,
+) -> tuple[bool, str]:
+    private = torrent.get("private")
+    if private not in (False, True):
+        return False, "torrent privacy is not explicitly reported"
     if float(torrent.get("progress", 0) or 0) < 1:
         return False, "torrent is not complete"
     if int(torrent.get("amount_left", 0) or 0) != 0:
@@ -83,13 +98,30 @@ def public_torrent_is_removable(torrent: dict[str, Any]) -> tuple[bool, str]:
         return False, f"state {torrent.get('state')!r} is not eligible"
 
     seeded_minutes = int(torrent.get("seeding_time", 0) or 0) / 60
-    if seeded_minutes < MINIMUM_SEEDING_MINUTES:
+    if private is False:
+        if seeded_minutes < MINIMUM_SEEDING_MINUTES:
+            return False, (
+                f"seeded only {seeded_minutes:.1f} minutes; requires "
+                f"{MINIMUM_SEEDING_MINUTES:.1f} minutes"
+            )
+        return True, "safe public retention satisfied"
+
+    if not hosts:
+        return False, "private tracker hosts are unavailable"
+    policy = PRIVATE_AUDIT.matching_policy(hosts)
+    if policy is None:
+        return False, "private tracker has no managed retention policy"
+    limit = int(torrent.get("seeding_time_limit", -1) or -1)
+    if limit <= 0:
+        return False, "private torrent has no finite positive seeding time limit"
+    required_minutes = max(limit, policy.minimum_seed_minutes)
+    if seeded_minutes < required_minutes:
         return False, (
             f"seeded only {seeded_minutes:.1f} minutes; requires "
-            f"{MINIMUM_SEEDING_MINUTES:.1f} minutes"
+            f"{required_minutes:.1f} minutes"
         )
 
-    return True, "safe"
+    return True, f"safe private retention satisfied ({policy.name})"
 
 
 def run_cleanup(
@@ -125,7 +157,21 @@ def run_cleanup(
         if torrent_hash not in imported_hashes:
             continue
 
-        safe, reason = public_torrent_is_removable(torrent)
+        hosts: set[str] | None = None
+        if torrent.get("private") is True:
+            try:
+                hosts = PRIVATE_AUDIT.torrent_hosts(
+                    qbittorrent,
+                    str(torrent.get("hash", "")),
+                )
+            except QBittorrentError as error:
+                print(
+                    f"SKIP: {torrent.get('name', '')}\n"
+                    f"  reason: unable to inspect private tracker: {error}"
+                )
+                skipped += 1
+                continue
+        safe, reason = torrent_is_removable(torrent, hosts)
         if not safe:
             print(f"SKIP: {torrent.get('name', '')}\n  reason: {reason}")
             skipped += 1
@@ -156,17 +202,17 @@ def run_cleanup(
             )
 
     print("\n=== Summary ===")
-    print(f"Confirmed public import candidates: {len(candidates)}")
+    print(f"Confirmed imported retention candidates: {len(candidates)}")
     print(f"Skipped imported torrents: {skipped}")
-    print("Dry run: nothing was deleted." if dry_run else f"Public torrents removed: {len(candidates)}")
+    print("Dry run: nothing was deleted." if dry_run else f"Torrents removed: {len(candidates)}")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Remove only explicitly public qBittorrent torrents that have a "
-            "confirmed Sonarr/Radarr import and at least 30 minutes of seed time."
+            "Remove imported qBittorrent torrents only after their public or "
+            "managed-private seeding requirement has been satisfied."
         )
     )
     parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)

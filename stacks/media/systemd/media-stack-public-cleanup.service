@@ -1,5 +1,5 @@
 [Unit]
-Description=Clean imported public media torrents after the retention window
+Description=Clean imported media torrents after their retention requirement
 After=network.target docker.service
 
 [Service]

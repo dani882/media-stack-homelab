@@ -2968,3 +2968,23 @@ private qBittorrent tag plus a unique `seerr-request-<id>` tag and refuses to
 dispatch the same request twice. Keep automatic application disabled until a
 real policy-compliant candidate has completed the exact same path and its Arr
 import/hardlink outcome is verified.
+
+---
+
+# 61. Automated retention after private tracker compliance (2026-09-04)
+
+The 15-minute imported-torrent retention service now covers both public and
+managed private torrents. Public torrents still require a confirmed Arr import
+and 30 minutes of seeding. A private torrent additionally requires all of:
+
+- qBittorrent explicitly reports it as private;
+- its tracker host matches a managed policy;
+- it has a finite positive qBittorrent seed limit;
+- its measured seeding time has reached the greater of that limit and the
+  tracker policy; and
+- Sonarr or Radarr has confirmed its import.
+
+Any unknown, unbounded, incomplete, Force Start, pending, or unimported private
+torrent fails closed and remains in qBittorrent. This turns completed tracker
+obligations into automated cleanup without risking an H&R or premature payload
+deletion.

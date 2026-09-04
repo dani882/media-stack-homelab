@@ -669,11 +669,13 @@ make cleanup-sonarr-downloads
 make cleanup-radarr-downloads
 ```
 
-Imported public torrents have a separate automated retention policy: after a
-confirmed Sonarr or Radarr import and 30 minutes of seeding, they are removed
-from qBittorrent and disk every 15 minutes. The job removes only torrents that
-qBittorrent explicitly reports as public; private, incomplete, Force Start,
-or unconfirmed torrents are skipped. Preview it with:
+Imported torrents have an automated retention policy. Public torrents are
+removed after a confirmed Sonarr/Radarr import and 30 minutes of seeding.
+Known private torrents are removed only after a confirmed import, an explicit
+private flag, a recognized tracker policy, and their full per-torrent seeding
+limit. Unknown/private torrents without a finite limit, incomplete torrents,
+Force Start torrents, and unconfirmed imports are skipped. The job runs every
+15 minutes. Preview it with:
 
 ```bash
 make dry-run-cleanup-public-imported

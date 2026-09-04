@@ -1,5 +1,5 @@
 [Unit]
-Description=Run public media torrent cleanup
+Description=Run imported media torrent retention cleanup
 
 [Timer]
 OnBootSec=10min
