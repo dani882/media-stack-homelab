@@ -1,0 +1,9 @@
+[Unit]
+Description=Evaluate safe private releases for outstanding Seerr movie requests
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+# Deliberately preview-only. A release must first be proven end-to-end with
+# the explicit APPLY=1 Make target before autonomous grabs are enabled.
+ExecStart=/usr/bin/python3 /volume1/docker/media-stack/dispatch-private-seerr.py

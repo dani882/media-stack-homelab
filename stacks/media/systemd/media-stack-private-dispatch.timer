@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically evaluate eligible private Seerr movie candidates
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=30min
+AccuracySec=2min
+
+[Install]
+WantedBy=timers.target

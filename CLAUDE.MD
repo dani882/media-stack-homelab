@@ -117,6 +117,11 @@ Validated live on 2026-08-31:
 - the policy is deployed as `private-release-policy.json` on the NAS and is
   read by `grab-prowlarr-release`; do not duplicate its defaults in scripts or
   silently relax it for a tracker title that merely claims a language/quality.
+- `media-stack-private-dispatch.timer` runs the same strict private-candidate
+  evaluation every 30 minutes in preview mode. It makes no download or Seerr
+  change. `make dispatch-private-seerr` is the on-demand preview; only the
+  explicit `APPLY=1 make dispatch-private-seerr` path can add a candidate to
+  qBittorrent, and it skips a request already tagged as dispatched.
 - do not assume `ugreen-nas` resolves in the browser on macOS; use the IP
   when needed for browser access
 - Seerr keeps `jellyfin:8096` for internal Docker traffic and dynamically

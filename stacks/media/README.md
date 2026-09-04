@@ -187,6 +187,20 @@ uploaded bytes, downloaded bytes, seeding status, and any compliance risk in
 Torrent Haven's web UI because its API integration does not expose a stable
 account-statistics endpoint.
 
+### Scheduled private-request dispatcher
+
+`media-stack-private-dispatch.timer` evaluates outstanding Seerr movie
+requests every 30 minutes. It is deliberately **preview-only**: it requires an
+exact TMDB match, one or more seeders, and the repository's Castilian-or-Latino
+plus 720p private-release policy. Its output is retained in the system journal;
+it neither downloads nor changes a request by itself.
+
+Use `make dispatch-private-seerr` to run the same evaluation on demand. The
+explicit `APPLY=1 make dispatch-private-seerr` path is idempotent: it refuses a
+request that already has a `seerr-request-<id>` qBittorrent tag. Enable
+automatic grabs only after a live candidate has passed that apply path and the
+Arr import/hardlink result has been verified.
+
 For an already completed, non-standard RetroToon TV pack, use the title-matched
 import helper. It previews by default and creates only hardlinks whose English
 episode title has exactly one Sonarr match; ambiguous, multi-episode, and

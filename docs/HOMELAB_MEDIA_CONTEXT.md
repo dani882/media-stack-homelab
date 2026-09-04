@@ -2755,3 +2755,23 @@ Torrent Haven result. The helper rejected it before contacting qBittorrent:
 the Prowlarr result did not prove a Castilian-or-Latino language, despite its
 `1080p` title claim. This is expected: title resolution is only a preliminary
 gate; post-import MediaInfo remains authoritative.
+
+---
+
+# 60. Scheduled private Seerr candidate evaluation (2026-09-03)
+
+`dispatch-private-seerr.py` evaluates outstanding Seerr movie requests across
+Milnueve, RetroToon, and Torrent Haven. It requires exact TMDB identity, at
+least one seeder, and `private-release-policy.json`; tracker priority is only a
+tie-breaker after that policy has accepted the release.
+
+The installed `media-stack-private-dispatch.timer` runs every 30 minutes in
+preview mode. It never adds a torrent or changes a Seerr request. This produces
+scheduled evidence without risking a silent quality/language regression.
+
+`make dispatch-private-seerr` runs that preview on demand. The guarded,
+explicit apply command is `APPLY=1 make dispatch-private-seerr`; it adds a
+private qBittorrent tag plus a unique `seerr-request-<id>` tag and refuses to
+dispatch the same request twice. Keep automatic application disabled until a
+real policy-compliant candidate has completed the exact same path and its Arr
+import/hardlink outcome is verified.
