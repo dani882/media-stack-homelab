@@ -45,13 +45,14 @@ completed and pushed to `main` in commit:
 
 `e6f04f2 feat(media): improve Dominican IPTV reliability and Jellyfin integration`
 
-Repository and Git state at the end of the session:
+Repository and Git state after the IPTV implementation and documentation
+pushes:
 
 - branch: `main`
-- local `HEAD`, `origin/main`, and `origin/HEAD`: `e6f04f2`
-- the working tree was clean immediately after the user's push
-- follow-up documentation/memory edits are intentionally newer than that
-  pushed commit and must be committed separately
+- implementation commit: `e6f04f2`
+- documentation and canonical-memory commit: `916f50e`
+- release containing this work: `v0.29.0` (prepared after the documentation
+  follow-up on 2026-09-04)
 
 ## Implemented architecture
 

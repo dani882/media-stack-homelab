@@ -4,6 +4,8 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+## v0.29.0 - 2026-09-04
+
 ### Added
 
 - Dispatcharr-backed Dominican Republic Live TV integration for Jellyfin.
@@ -26,6 +28,26 @@ All notable changes to this repository are documented here.
 - Automated Profilarr admin bootstrap and password recovery.
 - Technical assessment documenting the safe scope for a partial Profilarr
   rollout.
+- Live media-stack validation, Bazarr/Seerr request-flow checks, recent-import
+  hardlink audits, and recurring observability timers.
+- RetroToon World and TorrentHaven integration with tracker-specific private
+  torrent safeguards and guarded Seerr dispatch.
+- Strict title-matched import support for nonstandard Sonarr season packs.
+- Conservative automatic cleanup for imported public torrents.
+
+### Changed
+
+- Slow or stalled qBittorrent transfers no longer consume active-download
+  queue slots.
+- Seerr discovers Jellyfin's LAN-facing URL dynamically while retaining its
+  internal Docker endpoint for API traffic.
+- Private release selection and seeding policies now fail closed when tracker
+  identity or obligations are ambiguous.
+
+### Fixed
+
+- Avoided duplicate Recyclarr language scoring in Sonarr.
+- Accepted valid container paths in live hardlink checks.
 
 ## v0.28.0 - 2026-08-30
 

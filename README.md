@@ -23,7 +23,7 @@ is treated as a deployment target.
 The media stack is the primary production workload and is fully managed
 with Docker Compose.
 
-Current release: `v0.28.0`
+Current release: `v0.29.0`
 
 | Stack | Status |
 | --- | --- |
