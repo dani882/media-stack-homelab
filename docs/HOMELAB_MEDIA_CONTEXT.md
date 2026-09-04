@@ -2988,3 +2988,17 @@ Any unknown, unbounded, incomplete, Force Start, pending, or unimported private
 torrent fails closed and remains in qBittorrent. This turns completed tracker
 obligations into automated cleanup without risking an H&R or premature payload
 deletion.
+
+The title-matched Sonarr helper is a special safe case: it creates library
+hardlinks directly and uses a rescan, so it lacks a normal qBittorrent
+download-id import-history record. The retention job recognizes this only when
+it can verify a real inode match between the private download and a file under
+the media library.
+
+Validation: the completed RetroToon `Las Supernenas (1992)` package contained
+Spanish-Latin and English tracks in its normally named seasons. Forty-nine
+unambiguous episodes were already present as verified hardlinks in Sonarr's
+library; twenty-seven irregular/localized files remained intentionally outside
+the automated mapping. After 4,321 minutes of seeding, the scheduled retention
+job verified that evidence and removed the completed qBittorrent payload while
+leaving the library hardlinks intact.

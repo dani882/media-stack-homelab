@@ -675,7 +675,9 @@ Known private torrents are removed only after a confirmed import, an explicit
 private flag, a recognized tracker policy, and their full per-torrent seeding
 limit. Unknown/private torrents without a finite limit, incomplete torrents,
 Force Start torrents, and unconfirmed imports are skipped. The job runs every
-15 minutes. Preview it with:
+15 minutes. The guarded title-matched import workflow is also recognized by a
+verified download-to-library hardlink, because Sonarr's rescan does not create
+a normal qBittorrent download-history record. Preview it with:
 
 ```bash
 make dry-run-cleanup-public-imported

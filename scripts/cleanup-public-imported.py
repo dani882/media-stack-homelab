@@ -14,6 +14,7 @@ from typing import Any
 
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
+DEFAULT_DATA_ROOT = Path("/volume1/Family")
 DEPLOYED_SCRIPT_DIR = DEFAULT_STACK_DIR / "scripts"
 LOCAL_MEDIA_SCRIPT_DIR = Path(__file__).resolve().parent / "media"
 for script_dir in (LOCAL_MEDIA_SCRIPT_DIR, DEPLOYED_SCRIPT_DIR):
@@ -124,6 +125,52 @@ def torrent_is_removable(
     return True, f"safe private retention satisfied ({policy.name})"
 
 
+def private_torrent_has_library_hardlink(
+    torrent: dict[str, Any],
+    data_root: Path,
+) -> tuple[bool, str]:
+    """Prove a title-matched private import without trusting Arr history.
+
+    The guarded title matcher creates hardlinks directly and then asks Sonarr
+    to rescan. That workflow has no qBittorrent download-id history record.
+    A source-to-library hardlink is therefore the durable, non-destructive
+    import proof for that narrow case.
+    """
+    content_path = Path(str(torrent.get("content_path", "")))
+    try:
+        source = data_root / content_path.relative_to("/data")
+    except ValueError:
+        return False, f"content path {content_path} is outside /data"
+    if not source.is_dir():
+        return False, f"source directory is unavailable: {source}"
+
+    source_inodes: set[int] = set()
+    for path in source.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        if stat.st_nlink >= 2:
+            source_inodes.add(stat.st_ino)
+    if not source_inodes:
+        return False, "private source has no hardlinked files"
+
+    library = data_root / "Media"
+    if not library.is_dir():
+        return False, f"library directory is unavailable: {library}"
+    for path in library.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_ino in source_inodes:
+                return True, f"verified library hardlink: {path}"
+        except OSError:
+            continue
+    return False, "private source hardlinks do not appear in the media library"
+
+
 def run_cleanup(
     stack_dir: Path,
     dry_run: bool,
@@ -154,7 +201,15 @@ def run_cleanup(
     skipped = 0
     for torrent in torrents:
         torrent_hash = str(torrent.get("hash", "")).upper()
-        if torrent_hash not in imported_hashes:
+        imported = torrent_hash in imported_hashes
+        if not imported and torrent.get("private") is True:
+            imported, import_reason = private_torrent_has_library_hardlink(
+                torrent,
+                DEFAULT_DATA_ROOT,
+            )
+            if imported:
+                print(f"IMPORTED VIA HARDLINK: {torrent.get('name', '')}\n  {import_reason}")
+        if not imported:
             continue
 
         hosts: set[str] | None = None

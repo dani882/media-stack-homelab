@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -86,6 +87,42 @@ class PublicCleanupTest(unittest.TestCase):
         safe, reason = MODULE.torrent_is_removable(torrent, {"unknown.example"})
         self.assertFalse(safe)
         self.assertIn("no managed retention policy", reason)
+
+    def test_detects_private_title_matched_library_hardlink(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "Downloads" / "complete" / "tv" / "release"
+            library = root / "Media" / "TV Shows" / "Example"
+            source.mkdir(parents=True)
+            library.mkdir(parents=True)
+            source_file = source / "episode.mkv"
+            source_file.write_bytes(b"content")
+            library_file = library / "Example - S01E01.mkv"
+            library_file.hardlink_to(source_file)
+
+            safe, reason = MODULE.private_torrent_has_library_hardlink(
+                {"content_path": "/data/Downloads/complete/tv/release"},
+                root,
+            )
+
+        self.assertTrue(safe)
+        self.assertIn("verified library hardlink", reason)
+
+    def test_rejects_private_source_without_library_hardlink(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "Downloads" / "complete" / "tv" / "release"
+            source.mkdir(parents=True)
+            (root / "Media").mkdir()
+            (source / "episode.mkv").write_bytes(b"content")
+
+            safe, reason = MODULE.private_torrent_has_library_hardlink(
+                {"content_path": "/data/Downloads/complete/tv/release"},
+                root,
+            )
+
+        self.assertFalse(safe)
+        self.assertIn("no hardlinked files", reason)
 
 
 if __name__ == "__main__":

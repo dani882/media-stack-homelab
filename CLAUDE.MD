@@ -79,6 +79,10 @@ Validated live on 2026-08-31:
   and 30 minutes of seed time. Known private torrents may be removed only
   after a confirmed import and their managed finite seeding limit; unknown,
   unbounded, pending, or ambiguously classified private torrents fail closed
+- guarded title-matched imports prove their private-library import via a
+  download-to-library hardlink when Sonarr has no normal qBittorrent history;
+  the retention job may then remove the completed private payload only after
+  its tracker seeding requirement is satisfied
 - qBittorrent keeps a three-download limit, but stalled/slow torrents stop
   consuming a slot after 60 seconds; do not use Force Start as queue control
 - RetroToon is a private Generic Torznab indexer with a 72-hour seed-time
