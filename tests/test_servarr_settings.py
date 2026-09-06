@@ -94,3 +94,26 @@ class ConfigureRootFoldersTests(unittest.TestCase):
         self.assertFalse(
             any(method == "DELETE" for method, _, _ in client.calls)
         )
+
+
+class ConfigureCollectionRootsTests(unittest.TestCase):
+    def test_repoints_only_legacy_collection_paths(self) -> None:
+        class CollectionClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, object | None]] = []
+                self.collections = [
+                    {"id": 1, "title": "Toy Story", "rootFolderPath": "/media/Movies"},
+                    {"id": 2, "title": "Current", "rootFolderPath": "/data/Media/Movies"},
+                ]
+
+            def request(self, method: str, path: str, payload: object | None = None) -> object:
+                self.calls.append((method, path, payload))
+                return self.collections if method == "GET" else payload
+
+        client = CollectionClient()
+        SETTINGS.configure_radarr_collection_root_folders(client, dry_run=False)
+        self.assertIn(
+            ("PUT", "/api/v3/collection/1", {"id": 1, "title": "Toy Story", "rootFolderPath": "/data/Media/Movies"}),
+            client.calls,
+        )
+        self.assertFalse(any(path.endswith("/2") for _, path, _ in client.calls))

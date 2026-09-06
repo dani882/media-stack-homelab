@@ -16,6 +16,7 @@ from typing import Any
 
 
 PROFILE_NAME = "Latino 1080p"
+ARCHIVE_PROFILE_NAME = "Archivo Español"
 
 SCORES = {
     "[Latino] Spanish Latino": 7000,
@@ -140,6 +141,7 @@ def configure_profile_scores(
     client: ApiClient,
     ids_by_name: dict[str, int],
     dry_run: bool,
+    profile_name: str = PROFILE_NAME,
 ) -> None:
     profiles = client.request("GET", "/api/v3/qualityprofile")
 
@@ -147,14 +149,14 @@ def configure_profile_scores(
         (
             item
             for item in profiles
-            if item["name"] == PROFILE_NAME
+            if item["name"] == profile_name
         ),
         None,
     )
 
     if profile is None:
         raise ServarrError(
-            f"Quality profile not found: {PROFILE_NAME}"
+            f"Quality profile not found: {profile_name}"
         )
 
     items_by_format = {
@@ -194,11 +196,11 @@ def configure_profile_scores(
             print(f"SCORE OK: {name}={score}")
 
     if not changed:
-        print(f"Profile already correct: {PROFILE_NAME}")
+        print(f"Profile already correct: {profile_name}")
         return
 
     if dry_run:
-        print(f"WOULD UPDATE PROFILE: {PROFILE_NAME}")
+        print(f"WOULD UPDATE PROFILE: {profile_name}")
         return
 
     client.request(
@@ -206,7 +208,64 @@ def configure_profile_scores(
         f"/api/v3/qualityprofile/{profile['id']}",
         profile,
     )
-    print(f"UPDATED PROFILE: {PROFILE_NAME}")
+    print(f"UPDATED PROFILE: {profile_name}")
+
+
+def configure_archive_profile(
+    client: ApiClient,
+    ids_by_name: dict[str, int],
+    dry_run: bool,
+) -> None:
+    """Create a Spanish-only legacy-quality lane without weakening defaults."""
+    profiles = client.request("GET", "/api/v3/qualityprofile")
+    base = next((item for item in profiles if item["name"] == PROFILE_NAME), None)
+    archive = next(
+        (item for item in profiles if item["name"] == ARCHIVE_PROFILE_NAME),
+        None,
+    )
+
+    if base is None:
+        raise ServarrError(f"Quality profile not found: {PROFILE_NAME}")
+
+    if archive is None:
+        archive = json.loads(json.dumps(base))
+        archive.pop("id", None)
+        archive["name"] = ARCHIVE_PROFILE_NAME
+        archive["minFormatScore"] = 5000
+        archive["cutoffFormatScore"] = 7000
+        for item in archive.get("items", []):
+            if item.get("name") in {"WEB 480p", "WEB 720p", "WEB 1080p"}:
+                item["allowed"] = True
+
+        if dry_run:
+            print(f"WOULD CREATE PROFILE: {ARCHIVE_PROFILE_NAME}")
+            return
+
+        archive = client.request("POST", "/api/v3/qualityprofile", archive)
+        print(f"CREATED PROFILE: {ARCHIVE_PROFILE_NAME}")
+    else:
+        changed = False
+        for key, value in (("minFormatScore", 5000), ("cutoffFormatScore", 7000)):
+            if archive.get(key) != value:
+                archive[key] = value
+                changed = True
+        for item in archive.get("items", []):
+            if item.get("name") in {"WEB 480p", "WEB 720p", "WEB 1080p"} and not item.get("allowed"):
+                item["allowed"] = True
+                changed = True
+        if changed:
+            if dry_run:
+                print(f"WOULD UPDATE PROFILE: {ARCHIVE_PROFILE_NAME}")
+            else:
+                archive = client.request(
+                    "PUT", f"/api/v3/qualityprofile/{archive['id']}", archive
+                )
+                print(f"UPDATED PROFILE: {ARCHIVE_PROFILE_NAME}")
+
+    # The high minimum score makes English ineligible.  Re-use the same
+    # trusted custom formats as the normal profile, while accepting SD/720p
+    # Spanish releases for titles that otherwise have no viable source.
+    configure_profile_scores(client, ids_by_name, dry_run, ARCHIVE_PROFILE_NAME)
 
 
 def configure_app(app: AppConfig, dry_run: bool) -> None:
@@ -229,6 +288,8 @@ def configure_app(app: AppConfig, dry_run: bool) -> None:
         ids_by_name,
         dry_run,
     )
+    if app.name == "Radarr":
+        configure_archive_profile(client, ids_by_name, dry_run)
 
 
 def main() -> int:

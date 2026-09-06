@@ -30,6 +30,12 @@ The following work is already complete and validated:
 - Servarr root folders are reconciled to the `/data/Media` declarations, so
   Seerr must not offer legacy `/media/...` destinations after configuration
 - Seerr automation for Sonarr, Radarr Movies, and Radarr Kids Movies
+- `Archivo Español` is a Radarr-only exception profile: 480p–1080p is allowed
+  only when the existing Spanish/Castilian custom-format score reaches 5000;
+  its hourly dispatcher requires an exact TMDB match and never lowers the
+  global Prowlarr seeder minimum.
+- Radarr collection metadata is migrated from legacy `/media/...` roots to
+  canonical `/data/Media/...` roots without moving or deleting library files.
 - Milnueve, RetroToon, and Torrent Haven private-tracker protections and
   cleanup safeguards
 

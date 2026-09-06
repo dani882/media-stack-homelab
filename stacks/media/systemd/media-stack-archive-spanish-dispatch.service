@@ -1,0 +1,7 @@
+[Unit]
+Description=Dispatch exact Spanish archive releases for marked Radarr movies
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /volume1/docker/media-stack/dispatch-archive-spanish.py

@@ -202,6 +202,21 @@ request that already has a `seerr-request-<id>` qBittorrent tag. Enable
 automatic grabs only after a live candidate has passed that apply path and the
 Arr import/hardlink result has been verified.
 
+### Archivo Español lane
+
+Radarr also has an `Archivo Español` profile for exceptional movies whose
+Spanish or Castilian release is only available at legacy quality. It permits
+480p, 720p, and 1080p, but requires a custom-format score of at least `5000`:
+English-only releases remain ineligible. The independent
+`media-stack-archive-spanish-dispatch.timer` runs hourly and only adds a public
+release when Prowlarr provides an exact TMDB match, at least one seeder, a
+Spanish/Castilian claim, and a 480p-or-higher title. It discovers the enabled
+public movie indexers at run time and never changes their global seed minimum.
+
+Assign `Archivo Español` only to a specific exceptional movie in Radarr (or in
+Seerr's quality-profile override). Run `make dispatch-archive-spanish` to
+evaluate it on demand.
+
 For an already completed, non-standard RetroToon TV pack, use the title-matched
 import helper. It previews by default and creates only hardlinks whose English
 episode title has exactly one Sonarr match; ambiguous, multi-episode, and
@@ -307,6 +322,9 @@ Servarr root folders are declarative. The managed configuration removes root
 folder entries not present in `servarr/*/root-folders.json` after Servarr has
 migrated all library records. This keeps obsolete `/media/...` destinations
 out of Seerr while retaining the Docker compatibility mounts themselves.
+Radarr collection metadata is reconciled from the former `/media/Movies` and
+`/media/Kids Movies` values to the canonical `/data/Media/...` roots as well;
+this changes collection metadata only and never moves media files.
 
 Run the managed configuration with `make configure-seerr`.
 

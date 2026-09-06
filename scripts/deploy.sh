@@ -20,6 +20,7 @@ RADARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-radarr-downloa
 PUBLIC_IMPORTED_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-public-imported.py"
 PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
+ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
 MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
@@ -58,6 +59,8 @@ PUBLIC_CLEANUP_SERVICE="${STACK_DIR}/systemd/media-stack-public-cleanup.service"
 PUBLIC_CLEANUP_TIMER="${STACK_DIR}/systemd/media-stack-public-cleanup.timer"
 PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.service"
 PRIVATE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-private-dispatch.timer"
+ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
+ARCHIVE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -98,6 +101,7 @@ for required_file in \
   "$PUBLIC_IMPORTED_CLEANUP_SCRIPT" \
   "$PRIVATE_GRAB_SCRIPT" \
   "$PRIVATE_DISPATCH_SCRIPT" \
+  "$ARCHIVE_DISPATCH_SCRIPT" \
   "$MEDIA_COMMON_INIT" \
   "$MEDIA_COMMON_ARR" \
   "$MEDIA_COMMON_QBITTORRENT" \
@@ -133,6 +137,8 @@ for required_file in \
   "$PUBLIC_CLEANUP_TIMER" \
   "$PRIVATE_DISPATCH_SERVICE" \
   "$PRIVATE_DISPATCH_TIMER" \
+  "$ARCHIVE_DISPATCH_SERVICE" \
+  "$ARCHIVE_DISPATCH_TIMER" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -216,6 +222,7 @@ REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-radarr-downloads-
 REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-public-imported-${USER}-$$.py"
 REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
+REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
@@ -253,6 +260,8 @@ REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup
 REMOTE_PUBLIC_CLEANUP_TIMER_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.timer"
 REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.service"
 REMOTE_PRIVATE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.timer"
+REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
+REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -485,6 +494,7 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_GRAB_TEMP}'" < "$PRIVATE_GRAB_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
 
 echo "Uploading shared media modules..."
 
@@ -656,6 +666,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   "cat > '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}'" \
   < "$PRIVATE_DISPATCH_TIMER"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}'" \
+  < "$ARCHIVE_DISPATCH_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}'" \
+  < "$ARCHIVE_DISPATCH_TIMER"
+
 echo "Uploading qBittorrent configuration files..."
 
 # Variables are intentionally expanded locally.
@@ -744,6 +762,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/cleanup-public-imported.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_GRAB_TEMP}' '${NAS_STACK_DIR}/grab-prowlarr-release.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
+  sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/scripts/common'
@@ -888,13 +907,22 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
     /etc/systemd/system/media-stack-private-dispatch.timer
 
+  sudo install -m 0644 \
+    '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-archive-spanish-dispatch.service
+
+  sudo install -m 0644 \
+    '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-archive-spanish-dispatch.timer
+
   sudo systemctl daemon-reload
   sudo systemctl enable --now \
     media-stack-watchdog.timer \
     media-stack-healthcheck.timer \
     media-stack-hardlink-audit.timer \
     media-stack-public-cleanup.timer \
-    media-stack-private-dispatch.timer
+    media-stack-private-dispatch.timer \
+    media-stack-archive-spanish-dispatch.timer
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
@@ -1035,6 +1063,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
+    '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
+    '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \
@@ -1055,7 +1085,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_QBITTORRENT_PREFERENCES_TEMP}' \
     '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}' \
     '${REMOTE_PRIVATE_GRAB_TEMP}' \
-    '${REMOTE_PRIVATE_DISPATCH_TEMP}'
+    '${REMOTE_PRIVATE_DISPATCH_TEMP}' \
+    '${REMOTE_ARCHIVE_DISPATCH_TEMP}'
 
   cd '${NAS_STACK_DIR}'
   sudo docker compose config >/dev/null

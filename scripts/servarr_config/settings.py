@@ -21,6 +21,15 @@ SENSITIVE_FIELDS = {
 }
 
 
+# A prior compose layout exposed these compatibility mounts.  Collections
+# retained the old path even after the actual movie root folders moved.
+# This is metadata-only: no movie or filesystem path is moved or deleted.
+RADARR_COLLECTION_ROOT_MIGRATIONS = {
+    "/media/Movies": "/data/Media/Movies",
+    "/media/Kids Movies": "/data/Media/Kids Movies",
+}
+
+
 from servarr_config.common import (
     ApiClient,
     AppConfig,
@@ -248,6 +257,36 @@ def configure_root_folders(
         )
 
 
+def configure_radarr_collection_root_folders(
+    client: ApiClient,
+    dry_run: bool,
+) -> None:
+    """Repoint stale Radarr collection metadata to canonical roots only."""
+    collections = client.request("GET", "/api/v3/collection")
+    for collection in collections:
+        previous = collection.get("rootFolderPath")
+        replacement = RADARR_COLLECTION_ROOT_MIGRATIONS.get(previous)
+        if replacement is None:
+            continue
+
+        identifier = collection["id"]
+        title = collection.get("title", identifier)
+        if dry_run:
+            print(
+                f"WOULD UPDATE COLLECTION ROOT: ID={identifier} "
+                f"title={title} {previous} -> {replacement}"
+            )
+            continue
+
+        payload = dict(collection)
+        payload["rootFolderPath"] = replacement
+        client.request("PUT", f"/api/v3/collection/{identifier}", payload)
+        print(
+            f"UPDATED COLLECTION ROOT: ID={identifier} "
+            f"title={title} {previous} -> {replacement}"
+        )
+
+
 def configure_singleton(
     client: ApiClient,
     desired_file: Path,
@@ -303,6 +342,9 @@ def configure_app(
         app.data_path,
         dry_run,
     )
+
+    if app.name == "Radarr":
+        configure_radarr_collection_root_folders(client, dry_run)
 
     configure_singleton(
         client,
