@@ -7,7 +7,6 @@ compatibility mount while qBittorrent still has a torrent using an old path,
 or while a Servarr root folder has not moved to /data.
 """
 
-from __future__ import annotations
 
 import argparse
 import subprocess

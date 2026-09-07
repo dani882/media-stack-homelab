@@ -3048,3 +3048,7 @@ Seerr browser links use a dynamically discovered LAN hostname rather than a
 hard-coded IP. Jellyfin, Radarr, and Sonarr links therefore remain valid when
 the NAS address changes; users may need to sign in separately when the browser
 origin changes.
+
+Repository automation is Python 3.10+ only. The codebase uses modern Python 3
+type syntax and no longer imports `from __future__ import annotations`; the
+Makefile checks the minimum Python version before tests run.

@@ -2,7 +2,6 @@
 
 """Audit private-tracker seeding obligations without exposing announce URLs."""
 
-from __future__ import annotations
 
 import argparse
 import sys

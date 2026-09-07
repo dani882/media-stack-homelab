@@ -2,7 +2,6 @@
 
 """Remove imported torrents after their public/private retention requirement."""
 
-from __future__ import annotations
 
 import argparse
 import importlib.util

@@ -87,6 +87,13 @@ including:
 - an optional Tailscale exit-node profile for routing only geoblocked
   official streams through a future Raspberry Pi in the Dominican Republic
 
+## Python Runtime
+
+Repository automation is native Python 3.10+ and is run as `python3`. It uses
+modern built-in generic annotations and union types; no Python 2 compatibility
+mode or `__future__` annotation import is required. `make check` verifies the
+minimum interpreter version before running the test suite.
+
 ## Repository Layout
 
 ```text

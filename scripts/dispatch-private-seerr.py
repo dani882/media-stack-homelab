@@ -5,7 +5,6 @@ This is deliberately narrow: it handles only movies, only requests that are
 not available, and only a single exact TMDB-matched private candidate which
 passes the repository private-release policy.  It never removes public grabs.
 """
-from __future__ import annotations
 
 import argparse
 import importlib.util

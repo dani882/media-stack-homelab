@@ -6,7 +6,6 @@ archive candidate must be an exact Prowlarr TMDB match, have at least one
 seeder, claim 480p or higher, and be Latino or Castilian.  It never uses an
 English fallback and does not alter Prowlarr's global five-seeder setting.
 """
-from __future__ import annotations
 
 import argparse
 import importlib.util

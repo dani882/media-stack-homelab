@@ -8,7 +8,6 @@ than relying on a title string, and confirms that the matching Arr item uses a
 the qBittorrent-to-library storage layer.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

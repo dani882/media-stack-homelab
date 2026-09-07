@@ -8,7 +8,6 @@ not replace normal Sonarr/Radarr selection; it adds a guarded escape hatch for
 private indexers with incomplete Torznab metadata.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

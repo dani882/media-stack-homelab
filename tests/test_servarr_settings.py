@@ -1,6 +1,5 @@
 """Unit tests for declarative Servarr root-folder reconciliation."""
 
-from __future__ import annotations
 
 import importlib
 import json

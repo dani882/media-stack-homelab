@@ -2,7 +2,6 @@
 
 """Send one Telegram message for each newly completed qBittorrent download."""
 
-from __future__ import annotations
 
 import argparse
 import json

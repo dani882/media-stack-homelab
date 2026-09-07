@@ -7,7 +7,6 @@ alternate numbering, multi-episode releases, or localized-only titles are
 reported and left untouched for manual review.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

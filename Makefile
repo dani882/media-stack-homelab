@@ -1,4 +1,9 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+
+PYTHON ?= python3
+
+check-python:
+	@$(PYTHON) -c 'import sys; assert sys.version_info >= (3, 10), "Python 3.10+ is required"'
 
 validate:
 	@./scripts/validate.sh
@@ -14,9 +19,9 @@ bootstrap:
 	@./scripts/bootstrap.sh
 
 test:
-	@python3 -m unittest discover -s tests -p 'test_*.py'
+	@$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
 
-check: shellcheck lint validate test
+check: check-python shellcheck lint validate test
 
 deploy:
 	@./scripts/deploy.sh
