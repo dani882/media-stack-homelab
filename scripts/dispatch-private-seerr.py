@@ -30,9 +30,10 @@ SPEC.loader.exec_module(GRAB)
 # Lower priority is preferred once the language/quality policy has accepted a
 # result. This intentionally does not override the policy itself.
 PRIVATE_INDEXERS = {
-    7: ("milnueve", 5760, 7),
-    8: ("retrotoon", 4320, 8),
-    9: ("torrenthaven", 4320, 9),
+    # Each limit includes the tracker rule plus a 10-hour accounting margin.
+    7: ("milnueve", 6360, 7),
+    8: ("retrotoon", 4920, 8),
+    9: ("torrenthaven", 4920, 9),
 }
 
 

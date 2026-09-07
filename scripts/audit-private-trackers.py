@@ -40,12 +40,14 @@ TRACKER_POLICIES = (
     TrackerPolicy(
         name="Milnueve",
         host_suffixes=("milnueve.cc",),
-        minimum_seed_minutes=5760,
+        # Rule: 96 h. Retention: rule + 10 h tracker-accounting margin.
+        minimum_seed_minutes=6360,
     ),
     TrackerPolicy(
         name="RetroToon World",
         host_suffixes=("retrotoon.world",),
-        minimum_seed_minutes=4320,
+        # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
+        minimum_seed_minutes=4920,
         # RetroToon requires the full 72 hours within ten days of a completed
         # download. This audit only alerts; it never changes torrent state.
         completion_window_minutes=10 * 24 * 60,
@@ -53,7 +55,8 @@ TRACKER_POLICIES = (
     TrackerPolicy(
         name="Torrent Haven",
         host_suffixes=("torrenthaven.org",),
-        minimum_seed_minutes=4320,
+        # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
+        minimum_seed_minutes=4920,
     ),
 )
 
@@ -175,6 +178,8 @@ def audit_torrent(
 
 def run_audit(
     client: QBittorrentClient,
+    *,
+    enforce_limits: bool = False,
 ) -> int:
     torrents = client.get_json("/api/v2/torrents/info")
     private_torrents = [
@@ -193,6 +198,28 @@ def run_audit(
     for torrent in private_torrents:
         hosts = torrent_hosts(client, str(torrent.get("hash", "")))
         policy = matching_policy(hosts)
+        limit = int(torrent.get("seeding_time_limit", -1) or -1)
+        if (
+            enforce_limits
+            and policy is not None
+            and limit < policy.minimum_seed_minutes
+        ):
+            client.post_form(
+                "/api/v2/torrents/setShareLimits",
+                {
+                    "hashes": torrent["hash"],
+                    "ratioLimit": -2,
+                    "seedingTimeLimit": policy.minimum_seed_minutes,
+                    "inactiveSeedingTimeLimit": -2,
+                    "shareLimitAction": "Default",
+                },
+            )
+            print(
+                f"ENFORCED {policy.name} hash={str(torrent['hash'])[:12].upper()}: "
+                f"{limit}m -> {policy.minimum_seed_minutes}m"
+            )
+            torrent = dict(torrent)
+            torrent["seeding_time_limit"] = policy.minimum_seed_minutes
         safe, message = audit_torrent(torrent, hosts)
         print(message)
         if not safe:
@@ -240,6 +267,11 @@ def main() -> int:
         default=DEFAULT_STACK_DIR,
     )
     parser.add_argument(
+        "--enforce-limits",
+        action="store_true",
+        help="Raise managed private torrent limits to the retention policy.",
+    )
+    parser.add_argument(
         "--qbittorrent-url",
         default="http://127.0.0.1:8888",
     )
@@ -254,7 +286,7 @@ def main() -> int:
         password,
     )
     client.login()
-    return run_audit(client)
+    return run_audit(client, enforce_limits=args.enforce_limits)
 
 
 if __name__ == "__main__":

@@ -55,8 +55,8 @@ class PublicCleanupTest(unittest.TestCase):
         torrent = dict(
             self.torrent,
             private=True,
-            seeding_time=4320 * 60,
-            seeding_time_limit=4320,
+            seeding_time=4920 * 60,
+            seeding_time_limit=4920,
         )
         self.assertEqual(
             MODULE.torrent_is_removable(torrent, {"retrotoon.world"}),
@@ -68,21 +68,21 @@ class PublicCleanupTest(unittest.TestCase):
             self.torrent,
             private=True,
             seeding_time=4319 * 60,
-            seeding_time_limit=4320,
+            seeding_time_limit=4920,
         )
         safe, reason = MODULE.torrent_is_removable(
             torrent,
             {"retrotoon.world"},
         )
         self.assertFalse(safe)
-        self.assertIn("requires 4320.0", reason)
+        self.assertIn("requires 4920.0", reason)
 
     def test_rejects_unknown_private_tracker(self) -> None:
         torrent = dict(
             self.torrent,
             private=True,
             seeding_time=10000 * 60,
-            seeding_time_limit=4320,
+            seeding_time_limit=4920,
         )
         safe, reason = MODULE.torrent_is_removable(torrent, {"unknown.example"})
         self.assertFalse(safe)

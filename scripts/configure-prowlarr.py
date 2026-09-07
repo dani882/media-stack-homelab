@@ -26,7 +26,8 @@ PRIVATE_INDEXERS = {
         "priority": 4,
         "minimum_seeders": 1,
         "fields": {
-            "torrentBaseSettings.seedTime": 5760,
+            # 96 h tracker requirement + 10 h accounting margin.
+            "torrentBaseSettings.seedTime": 6360,
             "freeleech": False,
         },
     },
@@ -65,9 +66,10 @@ PRIVATE_INDEXERS = {
         "fields": {
             "baseUrl": "https://www.retrotoon.world/",
             "apiPath": "/torznab.php",
-            # RetroToon requires every completed torrent to seed for 72 h.
-            "torrentBaseSettings.seedTime": 4320,
-            "torrentBaseSettings.packSeedTime": 4320,
+            # RetroToon requires 72 h; retain a 10 h tracker-accounting
+            # margin before a cleanup can ever remove the payload.
+            "torrentBaseSettings.seedTime": 4920,
+            "torrentBaseSettings.packSeedTime": 4920,
         },
     },
     "torrenthaven-api": {
@@ -79,10 +81,10 @@ PRIVATE_INDEXERS = {
         "minimum_seeders": 1,
         "fields": {
             # The tracker permits either 1:1 or 72 hours, but its rules also
-            # request continued seeding. A 72-hour limit is the conservative
-            # and deterministic policy; do not use ratio as an early stop.
-            "torrentBaseSettings.seedTime": 4320,
-            "torrentBaseSettings.packSeedTime": 4320,
+            # request continued seeding. Keep an additional 10 h over the
+            # 72-hour requirement because tracker-side time can lag qBittorrent.
+            "torrentBaseSettings.seedTime": 4920,
+            "torrentBaseSettings.packSeedTime": 4920,
             "freeleech": False,
         },
     },

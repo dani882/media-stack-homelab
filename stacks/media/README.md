@@ -202,6 +202,13 @@ request that already has a `seerr-request-<id>` qBittorrent tag. Enable
 automatic grabs only after a live candidate has passed that apply path and the
 Arr import/hardlink result has been verified.
 
+All private-retention values include a 10-hour accounting margin above each
+tracker's stated rule, because qBittorrent's local timer can run ahead of the
+tracker's credited seeding time. The managed values are 106 hours for
+Milnueve and 82 hours for RetroToon and TorrentHaven. Run
+`make enforce-private-tracker-limits` after a policy change to update existing
+managed torrents as well.
+
 ### Archivo Español lane
 
 Radarr also has an `Archivo Español` profile for exceptional movies whose

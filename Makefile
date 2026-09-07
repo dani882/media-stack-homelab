@@ -1,4 +1,4 @@
-.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy backup dry-run-backup restore dry-run-restore configure-prowlarr dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live audit-bazarr audit-seerr audit-private-trackers enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 validate:
 	@./scripts/validate.sh
@@ -187,6 +187,14 @@ audit-private-trackers:
 	  < scripts/audit-private-trackers.py; \
 	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "sudo -n python3 '$$tmp_script'; rm -f '$$tmp_script'"
+
+enforce-private-tracker-limits:
+	@tmp_script="/tmp/audit-private-trackers-$$$$.py"; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" \
+	  < scripts/audit-private-trackers.py; \
+	ssh "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script' --enforce-limits; status=\$$?; rm -f '$$tmp_script'; exit \$$status"
 
 audit-legacy-mounts:
 	@tmp_script="/tmp/audit-legacy-mounts-$$$$.py"; \

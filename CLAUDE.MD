@@ -38,6 +38,10 @@ The following work is already complete and validated:
   canonical `/data/Media/...` roots without moving or deleting library files.
 - Milnueve, RetroToon, and Torrent Haven private-tracker protections and
   cleanup safeguards
+- Private tracker retention includes a 10-hour tracker-accounting margin:
+  Milnueve 106 hours, RetroToon 82 hours, and TorrentHaven 82 hours. Use
+  `make enforce-private-tracker-limits` to raise already-active managed
+  torrents to those limits after a policy update.
 
 ## Profilarr Pilot Reality
 

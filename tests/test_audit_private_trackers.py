@@ -33,7 +33,7 @@ class PrivateTrackerAuditTest(unittest.TestCase):
             {
                 "hash": "a" * 40,
                 "progress": 1,
-                "seeding_time_limit": 4320,
+                "seeding_time_limit": 4920,
                 "seeding_time": 60,
                 "completion_on": 1_000_000,
             },
@@ -51,7 +51,7 @@ class PrivateTrackerAuditTest(unittest.TestCase):
             {
                 "hash": "e" * 40,
                 "progress": 1,
-                "seeding_time_limit": 4320,
+                "seeding_time_limit": 4920,
                 "seeding_time": 60 * 60,
                 "completion_on": complete_at,
             },
@@ -68,7 +68,7 @@ class PrivateTrackerAuditTest(unittest.TestCase):
             {
                 "hash": "f" * 40,
                 "progress": 1,
-                "seeding_time_limit": 4320,
+                "seeding_time_limit": 4920,
                 "seeding_time": 60,
                 "completion_on": -1,
             },
@@ -125,7 +125,7 @@ class PrivateTrackerAuditTest(unittest.TestCase):
             {
                 "hash": "h" * 40,
                 "progress": 1,
-                "seeding_time_limit": 4320,
+                "seeding_time_limit": 4920,
                 "seeding_time": 60,
             },
             {"tracker.torrenthaven.org"},

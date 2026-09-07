@@ -141,7 +141,7 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         )
         self.assertEqual(
             result[0]["fields"]["torrentBaseSettings.seedTime"],
-            4320,
+            4920,
         )
 
     def test_generic_torznab_identity_uses_instance_name(self) -> None:
