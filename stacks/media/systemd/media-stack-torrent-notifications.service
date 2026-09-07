@@ -1,0 +1,7 @@
+[Unit]
+Description=Notify Telegram when qBittorrent downloads complete
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /volume1/docker/media-stack/notify-torrent-completions.py

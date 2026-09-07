@@ -1,0 +1,10 @@
+[Unit]
+Description=Check completed qBittorrent downloads for Telegram notifications
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

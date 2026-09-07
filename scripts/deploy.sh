@@ -18,6 +18,7 @@ RADARR_LATINO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/media/audit-radarr-latino.py"
 RADARR_LATINO_UPGRADE_SCRIPT="${ROOT_DIR}/scripts/media/upgrade-radarr-latino.py"
 RADARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-radarr-downloads.py"
 PUBLIC_IMPORTED_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-public-imported.py"
+TORRENT_NOTIFICATION_SCRIPT="${ROOT_DIR}/scripts/notify-torrent-completions.py"
 PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
@@ -57,6 +58,8 @@ HARDLINK_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-hardlink-audit.service"
 HARDLINK_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-hardlink-audit.timer"
 PUBLIC_CLEANUP_SERVICE="${STACK_DIR}/systemd/media-stack-public-cleanup.service"
 PUBLIC_CLEANUP_TIMER="${STACK_DIR}/systemd/media-stack-public-cleanup.timer"
+TORRENT_NOTIFICATION_SERVICE="${STACK_DIR}/systemd/media-stack-torrent-notifications.service"
+TORRENT_NOTIFICATION_TIMER="${STACK_DIR}/systemd/media-stack-torrent-notifications.timer"
 PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.service"
 PRIVATE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-private-dispatch.timer"
 ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
@@ -99,6 +102,7 @@ for required_file in \
   "$RADARR_LATINO_UPGRADE_SCRIPT" \
   "$RADARR_DOWNLOAD_CLEANUP_SCRIPT" \
   "$PUBLIC_IMPORTED_CLEANUP_SCRIPT" \
+  "$TORRENT_NOTIFICATION_SCRIPT" \
   "$PRIVATE_GRAB_SCRIPT" \
   "$PRIVATE_DISPATCH_SCRIPT" \
   "$ARCHIVE_DISPATCH_SCRIPT" \
@@ -135,6 +139,8 @@ for required_file in \
   "$HARDLINK_AUDIT_TIMER" \
   "$PUBLIC_CLEANUP_SERVICE" \
   "$PUBLIC_CLEANUP_TIMER" \
+  "$TORRENT_NOTIFICATION_SERVICE" \
+  "$TORRENT_NOTIFICATION_TIMER" \
   "$PRIVATE_DISPATCH_SERVICE" \
   "$PRIVATE_DISPATCH_TIMER" \
   "$ARCHIVE_DISPATCH_SERVICE" \
@@ -220,6 +226,7 @@ REMOTE_RADARR_LATINO_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-latino-${USER}-$
 REMOTE_RADARR_LATINO_UPGRADE_TEMP="${REMOTE_STAGING}/upgrade-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-radarr-downloads-${USER}-$$.py"
 REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-public-imported-${USER}-$$.py"
+REMOTE_TORRENT_NOTIFICATION_TEMP="${REMOTE_STAGING}/notify-torrent-completions-${USER}-$$.py"
 REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
@@ -258,6 +265,8 @@ REMOTE_HARDLINK_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit
 REMOTE_HARDLINK_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.timer"
 REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.service"
 REMOTE_PUBLIC_CLEANUP_TIMER_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.timer"
+REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.service"
+REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.timer"
 REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.service"
 REMOTE_PRIVATE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.timer"
 REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
@@ -492,6 +501,10 @@ echo "Uploading imported public torrent cleanup script through SSH..."
   "cat > '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}'" \
   < "$PUBLIC_IMPORTED_CLEANUP_SCRIPT"
 
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_TORRENT_NOTIFICATION_TEMP}'" \
+  < "$TORRENT_NOTIFICATION_SCRIPT"
+
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_GRAB_TEMP}'" < "$PRIVATE_GRAB_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
@@ -659,6 +672,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$PUBLIC_CLEANUP_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}'" \
+  < "$TORRENT_NOTIFICATION_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}'" \
+  < "$TORRENT_NOTIFICATION_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}'" \
   < "$PRIVATE_DISPATCH_SERVICE"
 
@@ -760,6 +781,9 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 \
     '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
     '${NAS_STACK_DIR}/cleanup-public-imported.py'
+  sudo install -m 0755 \
+    '${REMOTE_TORRENT_NOTIFICATION_TEMP}' \
+    '${NAS_STACK_DIR}/notify-torrent-completions.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_GRAB_TEMP}' '${NAS_STACK_DIR}/grab-prowlarr-release.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
@@ -900,6 +924,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-public-cleanup.timer
 
   sudo install -m 0644 \
+    '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-torrent-notifications.service
+
+  sudo install -m 0644 \
+    '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-torrent-notifications.timer
+
+  sudo install -m 0644 \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-private-dispatch.service
 
@@ -921,6 +953,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-healthcheck.timer \
     media-stack-hardlink-audit.timer \
     media-stack-public-cleanup.timer \
+    media-stack-torrent-notifications.timer \
     media-stack-private-dispatch.timer \
     media-stack-archive-spanish-dispatch.timer
 
@@ -1028,6 +1061,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RADARR_LATINO_UPGRADE_TEMP}' \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
     '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
+    '${REMOTE_TORRENT_NOTIFICATION_TEMP}' \
     '${REMOTE_MEDIA_COMMON_INIT_TEMP}' \
     '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
     '${REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP}' \
@@ -1061,6 +1095,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
     '${REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP}' \
     '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}' \
+    '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}' \
+    '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
