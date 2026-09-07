@@ -4,6 +4,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -123,6 +124,42 @@ class PublicCleanupTest(unittest.TestCase):
 
         self.assertFalse(safe)
         self.assertIn("no hardlinked files", reason)
+
+    def test_accepts_spanish_or_english_audio(self) -> None:
+        self.assertTrue(
+            MODULE.is_supported_audio(
+                {"languages": [{"name": "Spanish (Latino)"}]}
+            )
+        )
+        self.assertTrue(
+            MODULE.is_supported_audio(
+                {"mediaInfo": {"audioLanguages": "eng"}}
+            )
+        )
+
+    def test_rejects_confirmed_unsupported_audio(self) -> None:
+        self.assertFalse(
+            MODULE.is_supported_audio(
+                {
+                    "languages": [{"name": "Hindi"}],
+                    "mediaInfo": {"audioLanguages": "hin"},
+                }
+            )
+        )
+
+    def test_skips_audio_not_yet_analyzed(self) -> None:
+        self.assertIsNone(MODULE.is_supported_audio({}))
+
+    def test_waits_for_mediainfo_grace_period(self) -> None:
+        now = datetime.now(UTC)
+        movie_file = {"dateAdded": (now - timedelta(minutes=14)).isoformat()}
+        self.assertFalse(
+            MODULE.file_is_ready_for_audio_validation(movie_file, now, 15)
+        )
+        movie_file["dateAdded"] = (now - timedelta(minutes=15)).isoformat()
+        self.assertTrue(
+            MODULE.file_is_ready_for_audio_validation(movie_file, now, 15)
+        )
 
 
 if __name__ == "__main__":

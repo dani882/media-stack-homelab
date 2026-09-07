@@ -9,6 +9,7 @@ import importlib.util
 import sys
 import urllib.parse
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,7 @@ PRIVATE_AUDIT_SPEC.loader.exec_module(PRIVATE_AUDIT)
 
 
 MINIMUM_SEEDING_MINUTES = 30.0
+MINIMUM_AUDIO_VALIDATION_AGE_MINUTES = 15.0
 MAX_DELETE_DEFAULT = 10
 SAFE_TORRENT_STATES = {
     "stoppedUP",
@@ -59,6 +61,112 @@ class ArrSource:
     name: str
     base_url: str
     config_file: Path
+
+
+def is_supported_audio(movie_file: dict[str, Any]) -> bool | None:
+    """Return whether Radarr has confirmed a usable audio track.
+
+    ``None`` means Radarr has not yet completed MediaInfo analysis, which is
+    deliberately not treated as a rejection.  Spanish includes Latino and
+    Castilian; English remains the third-priority fallback.
+    """
+    languages = movie_file.get("languages")
+    media_info = movie_file.get("mediaInfo") or {}
+    audio_languages = str(media_info.get("audioLanguages") or "").strip()
+
+    if not languages and not audio_languages:
+        return None
+
+    names = {
+        str(item.get("name") or "").casefold()
+        for item in languages or []
+    }
+    if any("spanish" in name or "castilian" in name or name == "english" for name in names):
+        return True
+
+    codes = {
+        code.strip().casefold()
+        for code in audio_languages.replace("/", ",").split(",")
+        if code.strip()
+    }
+    if codes & {"spa", "es", "esl", "eng", "en"}:
+        return True
+
+    return False
+
+
+def file_is_ready_for_audio_validation(
+    movie_file: dict[str, Any],
+    now: datetime,
+    minimum_age_minutes: float,
+) -> bool:
+    raw_date = str(movie_file.get("dateAdded") or "")
+    if not raw_date:
+        return False
+    try:
+        added = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if added.tzinfo is None:
+        added = added.replace(tzinfo=UTC)
+    return now - added >= timedelta(minutes=minimum_age_minutes)
+
+
+def remove_unsupported_radarr_audio(
+    client: ArrClient,
+    dry_run: bool,
+    max_delete: int,
+    minimum_age_minutes: float,
+) -> int:
+    """Remove only library hardlinks that Radarr verified have bad audio.
+
+    Deleting a Radarr movie file removes its library entry, not qBittorrent's
+    completed payload.  This keeps private torrents available for their full
+    seeding requirement while returning the monitored movie to "missing".
+    The regular RSS cycle can then find a better release without falsely
+    marking a successfully downloaded private torrent as failed.
+    """
+    movies = client.get("/movie")
+    now = datetime.now(UTC)
+    candidates: list[dict[str, Any]] = []
+
+    for movie in movies:
+        if not movie.get("hasFile") or not movie.get("monitored"):
+            continue
+        movie_id = movie.get("id")
+        if not isinstance(movie_id, int):
+            continue
+        files = client.get(f"/moviefile?movieId={movie_id}")
+        for movie_file in files:
+            if not file_is_ready_for_audio_validation(
+                movie_file, now, minimum_age_minutes
+            ):
+                continue
+            if is_supported_audio(movie_file) is not False:
+                continue
+            candidates.append({"movie": movie, "file": movie_file})
+
+    if len(candidates) > max_delete:
+        raise PublicCleanupError(
+            f"Refusing to remove {len(candidates)} unsupported-audio files "
+            f"in one run; increase --max-delete after reviewing a dry run."
+        )
+
+    for candidate in candidates:
+        movie = candidate["movie"]
+        movie_file = candidate["file"]
+        audio = (movie_file.get("mediaInfo") or {}).get("audioLanguages")
+        prefix = "WOULD REMOVE" if dry_run else "REMOVING"
+        print(
+            f"{prefix} UNSUPPORTED AUDIO: {movie.get('title', '')}\n"
+            f"  file: {movie_file.get('relativePath', '')}\n"
+            f"  audio: {audio or 'unclassified'}"
+        )
+        if not dry_run:
+            client.delete(f"/moviefile/{movie_file['id']}")
+
+    print(f"Unsupported-audio library files: {len(candidates)}")
+    return len(candidates)
 
 
 def history_import_hashes(client: ArrClient) -> set[str]:
@@ -175,6 +283,7 @@ def run_cleanup(
     stack_dir: Path,
     dry_run: bool,
     max_delete: int,
+    minimum_audio_age_minutes: float = MINIMUM_AUDIO_VALIDATION_AGE_MINUTES,
 ) -> int:
     sources = (
         ArrSource("Sonarr", "http://127.0.0.1:8989", stack_dir / "config/sonarr/config.xml"),
@@ -189,6 +298,17 @@ def run_cleanup(
                     ArrClient(source.base_url, read_api_key(source.config_file))
                 )
             )
+
+        radarr = ArrClient(
+            "http://127.0.0.1:7878",
+            read_api_key(stack_dir / "config/radarr/config.xml"),
+        )
+        remove_unsupported_radarr_audio(
+            radarr,
+            dry_run,
+            max_delete,
+            minimum_audio_age_minutes,
+        )
 
         username, password = read_credentials(stack_dir / "secrets/qbittorrent.json")
         qbittorrent = QBittorrentClient("http://127.0.0.1:8888", username, password)
@@ -273,8 +393,19 @@ def main() -> int:
     parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-delete", type=int, default=MAX_DELETE_DEFAULT)
+    parser.add_argument(
+        "--minimum-audio-age-minutes",
+        type=float,
+        default=MINIMUM_AUDIO_VALIDATION_AGE_MINUTES,
+        help="Wait for MediaInfo before rejecting unsupported audio.",
+    )
     args = parser.parse_args()
-    return run_cleanup(args.stack_dir, args.dry_run, args.max_delete)
+    return run_cleanup(
+        args.stack_dir,
+        args.dry_run,
+        args.max_delete,
+        args.minimum_audio_age_minutes,
+    )
 
 
 if __name__ == "__main__":
