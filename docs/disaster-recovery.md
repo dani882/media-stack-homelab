@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-Last updated: 2026-09-04
+Last updated: 2026-09-07
 
 This document is the short disaster-recovery checklist for the media stack.
 
@@ -13,7 +13,8 @@ This document is the short disaster-recovery checklist for the media stack.
 5. Revalidate Seerr routing
 6. Revalidate hardlinks
 7. Revalidate private-tracker safety constraints
-8. Revalidate Dominican Live TV, stream health state, and guide data
+8. Revalidate torrent-completion notifications without exposing credentials
+9. Revalidate Dominican Live TV, stream health state, and guide data
 
 ## Restore
 
@@ -71,6 +72,20 @@ Before any destructive cleanup:
 - confirm private torrents still report finite positive seeding limits
 - confirm no private torrent has unmet seeding obligations
 - do not re-enable Force Start automatically
+- restore the NAS-local Telegram notification secret only from trusted backup
+  material; never substitute a token from Git or documentation
+
+## Telegram completion notifications
+
+The notification timer needs the NAS-local, permission-restricted file:
+
+```text
+/volume1/docker/media-stack/secrets/telegram-notifications.json
+```
+
+After a restore, confirm `media-stack-torrent-notifications.timer` is enabled
+and active. Do not record its bot token or chat ID in a ticket, shell command,
+or repository file.
 
 ## Compatibility Mounts
 

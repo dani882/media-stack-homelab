@@ -53,7 +53,8 @@ including:
 
 - Prowlarr indexer configuration
 - optional private Prowlarr indexers with NAS-only credentials
-- Milnueve private tracker integration with 96-hour seeding protection
+- private-tracker integrations with an official-minimum-plus-10-hour seeding
+  margin (Milnueve: 106 hours; RetroToon and TorrentHaven: 82 hours)
 - qBittorrent categories and preferences
 - Sonarr and Radarr download clients and root folders
 - Seerr request-management integration with Sonarr and Radarr
@@ -64,6 +65,9 @@ including:
 - audio-description release rejection
 - release auditing and upgrade automation
 - Sonarr and Radarr download cleanup
+- post-import movie audio validation that rejects confirmed unsupported audio
+  while keeping the download state safe for tracker seeding
+- Telegram notifications when a new torrent completes
 - immediate cleanup and blocklisting of dangerous downloads
 - automated media configuration backups with retention and checksums
 - validated media configuration restore with safety backup and rollback
@@ -184,6 +188,16 @@ Private indexer templates currently exist for:
 
 Private indexers are configured only when their credentials are present in
 the NAS-side secret file.
+
+Telegram completion-notification credentials are stored only on the NAS:
+
+```text
+/volume1/docker/media-stack/secrets/telegram-notifications.json
+```
+
+It contains the bot token and destination chat ID, is permission-restricted,
+and is never committed or included in documentation/backups for untrusted
+storage.
 
 Dispatcharr administrator credentials are generated and stored only in
 `/volume1/docker/media-stack/secrets/dispatcharr-admin.txt`. The optional

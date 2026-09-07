@@ -1,6 +1,6 @@
 # Media Stack Operations
 
-Last updated: 2026-09-04
+Last updated: 2026-09-07
 
 This note is the short operational runbook for the media stack.
 
@@ -18,7 +18,10 @@ Use the following ownership model when changing behavior:
   `Latino > Castellano > English/original`
 - repository-managed cleanup logic:
   private-tracker protection, H&R-safe behavior, and dangerous-download
-  cleanup
+  cleanup, plus post-import movie audio validation
+- repository-managed completion notifications:
+  qBittorrent transition detection and Telegram delivery using NAS-local
+  credentials
 - repository-managed Dominican Live TV:
   source aggregation, health classification, fallback ordering, EPG mapping,
   and Jellyfin configuration
@@ -61,8 +64,9 @@ make audit-private-trackers
 This is also part of the 30-minute media-stack health audit. It reports the
 short torrent hash, tracker name, configured seeding requirement, and time
 remaining. It fails safely for an unrecognized private tracker, a missing
-finite seed limit, or a limit below Milnueve's 96-hour / RetroToon's 72-hour
-policy. For RetroToon, it also alerts when the remaining seed time cannot fit
+finite seed limit, or a limit below the managed safety margin: Milnueve 106
+hours, RetroToon 82 hours, or TorrentHaven 82 hours. For RetroToon, it also
+alerts when the remaining seed time cannot fit
 within the tracker's ten-day completion window. It never pauses, removes, or
 otherwise changes torrents.
 
@@ -206,9 +210,10 @@ Cleanup is intentionally conservative.
 
 - private torrents are not removed unless the torrent reports a finite,
   positive seeding time limit and that limit has been satisfied
-- Milnueve currently requires 96 hours; RetroToon requires 72 hours. Both
-  limits are propagated per torrent through Prowlarr and are honored by the
-  cleanup guard
+- every managed private tracker uses its published minimum plus ten hours:
+  Milnueve 106 hours (`6360` minutes), RetroToon 82 hours (`4920` minutes),
+  and TorrentHaven 82 hours (`4920` minutes). These per-torrent limits are
+  propagated through Prowlarr and honored by the cleanup guard
 - Force Start torrents are never removed automatically
 - destructive cleanup now refuses large batches unless the operator
   explicitly raises `--max-delete`
@@ -219,11 +224,31 @@ Cleanup is intentionally conservative.
 
 Always preview cleanup before a destructive run.
 
+### Post-import movie audio validation
+
+The same 15-minute imported-torrent job waits at least 15 minutes after a
+Radarr import, then checks the actual media tracks. Spanish (Latino,
+Castilian, or generic Spanish) and English are accepted; a movie whose audio
+is confirmed to be outside that set is removed from the Radarr library only.
+The torrent is deliberately left untouched, so public cleanup timing and
+private-tracker seeding obligations remain safe. Radarr keeps the movie
+monitored and missing so later RSS/search activity can import a valid release.
+
+Preview or run the validator through the existing imported-cleanup targets:
+
+```bash
+make dry-run-cleanup-public-imported
+make cleanup-public-imported
+```
+
 ## Private Indexers
 
-RetroToon World is an optional private Generic Torznab indexer. It is
-configured from the NAS-local Prowlarr secret file alongside Milnueve; its
-passkey must never be committed, copied into documentation, or printed.
+Milnueve, RetroToon World, and TorrentHaven are the managed private trackers.
+Their credentials are configured from the NAS-local Prowlarr secret file;
+passkeys and API tokens must never be committed, copied into documentation, or
+printed. Every future private tracker must be added with its documented
+minimum plus ten hours in Prowlarr, qBittorrent, and the private-tracker audit
+before automatic cleanup can recognize it.
 
 RetroToon searches are intentionally limited operationally to animation
 requests handled by Sonarr/Radarr. Its custom categories are normalized by
@@ -237,14 +262,29 @@ passkey URL manually:
 
 ```bash
 QUERY='Exact search title' TITLE='Exact release title' INDEXER_ID=8 \
-TVDB_ID='expected-tvdb-id' SEED_TIME_MINUTES=4320 \
+TVDB_ID='expected-tvdb-id' SEED_TIME_MINUTES=4920 \
 TAGS='retrotoon-manual,seerr-request-<id>' make grab-prowlarr-release
 ```
 
 The helper requires one exact match from the nominated indexer, checks the
 TVDB ID and minimum seeder count, translates Prowlarr's loopback download URL
 only for the Docker network, assigns the normal `tv` category, and applies the
-72-hour per-torrent seed limit. It does not expose or persist tracker URLs.
+82-hour managed per-torrent seed limit. It does not expose or persist tracker
+URLs.
+
+## Completion Notifications
+
+`media-stack-torrent-notifications.timer` polls qBittorrent every two minutes
+and sends Telegram only when a torrent transitions to complete. Its first run
+records a baseline, so it does not announce the historical torrent list. The
+NAS-local configuration is:
+
+```text
+/volume1/docker/media-stack/secrets/telegram-notifications.json
+```
+
+It stores the bot token and chat ID with restricted permissions. Never put
+either value in Git, shell history, screenshots, tickets, or this runbook.
 
 If you want to separate workflows:
 

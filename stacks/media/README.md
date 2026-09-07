@@ -120,20 +120,22 @@ Managed Milnueve policy includes:
 
 - Prowlarr priority `4`
 - minimum seeders `1`
-- 96-hour (`5760` minute) per-torrent seeding requirement
+- 106-hour (`6360` minute) per-torrent seeding requirement: its documented
+  96-hour minimum plus a 10-hour safety margin
 - automatic propagation through Prowlarr to Sonarr and Radarr
 - qBittorrent per-torrent seeding limits
 - cleanup protection that honors tracker-provided seeding limits
 
-Both private trackers are additionally covered by the periodic
+All three private trackers are additionally covered by the periodic
 private-tracker audit. It checks qBittorrent's reported tracker host and
 seeding-time limit without logging announce URLs or passkeys, and treats any
 unknown private tracker as an alert until it has an explicit policy.
 
 RetroToon World is supported as an optional Generic Torznab indexer. Its
 passkey is an API credential and must remain NAS-local. Its managed policy
-uses priority `8`, at least one seeder, and a 72-hour (`4320` minute)
-per-torrent seed time. RetroToon also requires that the 72 hours be reached
+uses priority `8`, at least one seeder, and an 82-hour (`4920` minute)
+per-torrent seed time: its 72-hour minimum plus 10 hours. RetroToon also
+requires that the 72 hours be reached
 within ten days of a completed download; the periodic private-tracker audit
 alerts when the remaining seed time cannot fit in that window. Prowlarr
 discovers RetroToon's Torznab categories and
@@ -144,8 +146,9 @@ is intentionally not targeted by automation.
 Torrent Haven uses Prowlarr's native `torrenthaven-api` definition. Its API
 token is generated in Torrent Haven's **My Settings → API Key** page and must
 be kept only in the NAS-local private-indexer secret. The managed policy uses
-priority `9`, at least one seeder, and a conservative 72-hour (`4320` minute)
-seed time for both torrents and packs. Although its rules also accept a 1:1
+priority `9`, at least one seeder, and a conservative 82-hour (`4920` minute)
+seed time for both torrents and packs: its 72-hour minimum plus 10 hours.
+Although its rules also accept a 1:1
 ratio, the stack does not use ratio as an early-stop condition. Torrent Haven
 private torrents are covered by the same private-tracker audit. Its rules also
 prohibit DHT, PEX, and additional tracker URLs; qBittorrent currently leaves
@@ -717,6 +720,13 @@ a normal qBittorrent download-history record. Preview it with:
 make dry-run-cleanup-public-imported
 ```
 
+For Radarr movie imports, the same job also validates actual audio tracks after
+a 15-minute grace period. Spanish (Latino, Castilian, or generic) and English
+are accepted. A confirmed unsupported-audio movie has only its Radarr library
+file removed; its qBittorrent torrent remains untouched so public timing and
+private seeding obligations are preserved. The movie stays monitored and
+missing for a later acceptable release.
+
 ## Backup and Restore
 
 The media stack supports automated configuration backups and validated
@@ -917,7 +927,12 @@ This installs:
 - a 30-minute live health audit timer
 - a 12-hour hardlink audit timer
 - a 15-minute public-import cleanup timer, with a 30-minute seed retention
+- a two-minute completed-torrent Telegram notification timer
 - log output at `/volume1/docker/media-stack/logs/media-observability.log`
+
+The notification timer uses only
+`/volume1/docker/media-stack/secrets/telegram-notifications.json`; its bot
+token and chat ID are never tracked in Git.
 
 ## Testing
 

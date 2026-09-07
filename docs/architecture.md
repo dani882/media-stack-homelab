@@ -98,9 +98,18 @@ Private Prowlarr credentials, when configured, are loaded from:
 /volume1/docker/media-stack/secrets/prowlarr-private-indexers.json
 ```
 
-This file currently supports Milnueve and RetroToon World credentials.
-RetroToon uses Generic Torznab and receives a per-torrent 72-hour seeding
-limit through Prowlarr. Credentials and passkeys remain NAS-local.
+This file currently supports Milnueve, RetroToon World, and TorrentHaven
+credentials. Managed tracker limits use each published minimum plus ten hours:
+Milnueve 106 hours, RetroToon 82 hours, and TorrentHaven 82 hours. RetroToon
+uses Generic Torznab; credentials and passkeys remain NAS-local.
+
+Telegram completion notification credentials are stored only at:
+
+```text
+/volume1/docker/media-stack/secrets/telegram-notifications.json
+```
+
+The bot token and destination chat ID are not version controlled.
 
 The generated Dispatcharr administrator credential is stored only at:
 
@@ -130,6 +139,8 @@ Managed areas include:
 - Latino release policies
 - release auditing and upgrades
 - completed-download cleanup
+- post-import movie audio validation
+- two-minute Telegram completed-torrent notifications
 - dangerous-download remediation
 - Dominican IPTV aggregation and health-driven source ordering
 - Dispatcharr channel profiles, numbering, audio compatibility, and EPG mapping

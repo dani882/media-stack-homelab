@@ -1,6 +1,6 @@
 # Homelab Media Stack — Exhaustive Working Context / Canonical Checkpoint
 
-Last updated: 2026-09-04
+Last updated: 2026-09-07
 
 This document is the canonical handoff/checkpoint for the current homelab media-stack work.
 
@@ -3002,3 +3002,49 @@ library; twenty-seven irregular/localized files remained intentionally outside
 the automated mapping. After 4,321 minutes of seeding, the scheduled retention
 job verified that evidence and removed the completed qBittorrent payload while
 leaving the library hardlinks intact.
+
+---
+
+# 62. Current media operations checkpoint (2026-09-07)
+
+This section supersedes the fixed 96/72-hour policy values that appear in
+older historical sections of this handoff document. Managed private trackers
+must now be configured as their documented minimum plus ten hours before they
+are eligible for automatic retention cleanup:
+
+- Milnueve: 106 hours / `6360` minutes (official minimum: 96 hours);
+- RetroToon: 82 hours / `4920` minutes (official minimum: 72 hours, still
+  required to reach 72 hours within the first ten days); and
+- TorrentHaven: 82 hours / `4920` minutes (the tracker also accepts 1:1, but
+  the stack never uses ratio as an early-stop condition).
+
+Unknown private trackers fail closed. Future tracker onboarding requires its
+published rule to be documented and added consistently to Prowlarr,
+qBittorrent per-torrent limits, and the audit policy before automatic cleanup
+can remove anything.
+
+The 15-minute imported-torrent service is both a retention guard and a Radarr
+movie audio validator. After a 15-minute post-import grace period it accepts
+Spanish (Latino/Castilian/generic) or English audio. A movie confirmed to have
+only another language is removed from the Radarr library only; its torrent is
+not stopped or removed, protecting any tracker obligation. The movie stays
+monitored and missing for a later acceptable release. This corrects the case
+where a title with no useful language label imported as Hindi.
+
+Telegram completed-torrent notifications are live through
+`media-stack-torrent-notifications.timer` (two-minute polling). The first
+execution creates a baseline, preventing historical-completion spam. The bot
+token and chat ID live only in the NAS file
+`/volume1/docker/media-stack/secrets/telegram-notifications.json` with
+restricted permissions. Never commit, print, or copy those values into this
+context file.
+
+The EXT.TO definition is present in repository automation as a best-effort
+FlareSolverr-backed public fallback, but its last live Prowlarr connectivity
+test timed out. It was not left enabled in Prowlarr; retry only through normal
+configuration when the upstream becomes reachable.
+
+Seerr browser links use a dynamically discovered LAN hostname rather than a
+hard-coded IP. Jellyfin, Radarr, and Sonarr links therefore remain valid when
+the NAS address changes; users may need to sign in separately when the browser
+origin changes.

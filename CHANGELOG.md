@@ -4,6 +4,22 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+### Added
+
+- Telegram notification service and two-minute timer for newly completed
+  qBittorrent torrents, using a NAS-local bot credential.
+- Post-import Radarr audio validation that removes only a confirmed
+  unsupported-audio library movie file so a later acceptable release can be
+  imported without breaking torrent seeding.
+- EXT.TO public-indexer definition as a best-effort FlareSolverr-backed
+  fallback; it remains absent when its live connectivity test fails.
+
+### Changed
+
+- Managed private trackers use their documented minimum seeding time plus a
+  ten-hour safety margin: Milnueve 106 hours, RetroToon 82 hours, and
+  TorrentHaven 82 hours.
+
 ## v0.29.0 - 2026-09-04
 
 ### Added
