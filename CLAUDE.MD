@@ -42,6 +42,10 @@ The following work is already complete and validated:
   Milnueve 106 hours, RetroToon 82 hours, and TorrentHaven 82 hours. Use
   `make enforce-private-tracker-limits` to raise already-active managed
   torrents to those limits after a policy update.
+- Future private trackers must not be enabled for automation until their
+  official rule and announce host are added to the managed audit as
+  `official minimum + 10h`; unrecognized private torrents fail closed and are
+  never eligible for automatic removal.
 
 ## Profilarr Pilot Reality
 

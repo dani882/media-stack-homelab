@@ -209,6 +209,15 @@ Milnueve and 82 hours for RetroToon and TorrentHaven. Run
 `make enforce-private-tracker-limits` after a policy change to update existing
 managed torrents as well.
 
+### Incorporating a future private tracker
+
+Before enabling a new private indexer for automatic downloads, record its
+published per-torrent rule in both Prowlarr and the private-tracker audit as
+`official requirement + 10 hours`. Add its announce host to the audit policy
+and verify an added torrent receives that finite qBittorrent limit. Until all
+three are present, the audit and cleanup treat it as unrecognized and never
+remove it automatically.
+
 ### Archivo Español lane
 
 Radarr also has an `Archivo Español` profile for exceptional movies whose
