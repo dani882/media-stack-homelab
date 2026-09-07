@@ -247,6 +247,50 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             MODULE.managed_indexer_matches(payload, desired)
         )
 
+    def test_extto_resolves_flaresolverr_tag_by_label(self) -> None:
+        class FakeClient:
+            def __init__(self) -> None:
+                self.requests: list[tuple[str, str, dict]] = []
+
+            def request(
+                self,
+                method: str,
+                path: str,
+                payload: dict | None = None,
+            ) -> dict:
+                self.requests.append((method, path, payload or {}))
+                return {}
+
+            def test_indexer(self, payload: dict) -> None:
+                self.requests.append(("TEST", "/indexer/test", payload))
+
+        desired = next(
+            item for item in MODULE.INDEXERS
+            if item["definition"] == "extratorrent-st"
+        )
+        schema = {
+            "name": "ExtraTorrent.st",
+            "fields": [
+                {"name": "baseUrl"},
+                {"name": "torrentBaseSettings.preferMagnetUrl"},
+                {"name": "torrentBaseSettings.appMinimumSeeders"},
+            ],
+        }
+        client = FakeClient()
+
+        MODULE.configure_indexer(
+            client,
+            {"extratorrent-st": schema},
+            {},
+            desired,
+            dry_run=True,
+            tag_ids={"flaresolverr": 7},
+        )
+
+        method, path, payload = client.requests[-1]
+        self.assertEqual((method, path), ("TEST", "/indexer/test"))
+        self.assertEqual(payload["tags"], [7])
+
     def test_unknown_definition_is_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "private-indexers.json"

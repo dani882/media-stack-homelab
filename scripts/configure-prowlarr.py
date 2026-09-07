@@ -146,6 +146,22 @@ INDEXERS = [
             "torrentBaseSettings.preferMagnetUrl": True,
         },
     },
+    {
+        # EXT.TO is Prowlarr's public ExtraTorrent.st definition. It is kept
+        # last because it can require FlareSolverr and has had intermittent
+        # availability; it is best-effort only and has no private retention.
+        "definition": "extratorrent-st",
+        "priority": 40,
+        "minimum_seeders": 5,
+        "fields": {
+            "baseUrl": "https://ext.to/",
+            "torrentBaseSettings.preferMagnetUrl": True,
+        },
+        # Resolve the proxy by label at runtime rather than depending on a
+        # database-specific tag ID. EXT.TO is one of the definitions that can
+        # need FlareSolverr to pass its anti-bot challenge.
+        "tags": ["flaresolverr"],
+    },
 ]
 
 
@@ -391,6 +407,12 @@ def managed_indexer_matches(
     if int(payload.get("priority") or 0) != desired["priority"]:
         return False
 
+    expected_tags = desired.get("_tag_ids")
+    if expected_tags is not None and sorted(payload.get("tags", [])) != sorted(
+        expected_tags
+    ):
+        return False
+
     fields = field_map(payload)
 
     expected_fields = {
@@ -429,11 +451,32 @@ def configure_indexer(
     existing_by_definition: dict[str, dict[str, Any]],
     desired: dict[str, Any],
     dry_run: bool,
+    tag_ids: dict[str, int] | None = None,
 ) -> None:
     definition = desired["definition"]
     identity = desired_indexer_identity(desired)
     existing = existing_by_definition.get(identity)
     enabled = desired.get("enabled", True)
+    desired = dict(desired)
+
+    requested_tags = desired.get("tags", [])
+    if requested_tags:
+        available_tags = tag_ids or {}
+        unresolved_tags = [
+            tag for tag in requested_tags
+            if normalized_definition(tag) not in available_tags
+        ]
+        if unresolved_tags:
+            print(
+                f"SKIPPED: required Prowlarr tag(s) unavailable for "
+                f"{definition}: {', '.join(unresolved_tags)}"
+            )
+            return
+
+        desired["_tag_ids"] = [
+            available_tags[normalized_definition(tag)]
+            for tag in requested_tags
+        ]
 
     if existing:
         payload = client.request(
@@ -503,6 +546,9 @@ def configure_indexer(
 
     payload["enable"] = True
     payload["priority"] = desired["priority"]
+
+    if "_tag_ids" in desired:
+        payload["tags"] = desired["_tag_ids"]
 
     if int(payload.get("appProfileId") or 0) <= 0:
         payload["appProfileId"] = 1
@@ -638,6 +684,13 @@ def main() -> int:
 
         schemas = client.request("GET", "/indexer/schema")
         existing = client.request("GET", "/indexer")
+        tags = client.request("GET", "/tag")
+
+        tag_ids = {
+            normalized_definition(item.get("label")): int(item["id"])
+            for item in tags
+            if item.get("label") and item.get("id") is not None
+        }
 
         schema_by_definition = {
             normalized_definition(item.get("definitionName")): item
@@ -665,6 +718,7 @@ def main() -> int:
                 existing_by_definition,
                 desired,
                 arguments.dry_run,
+                tag_ids,
             )
 
         print_summary(client)
