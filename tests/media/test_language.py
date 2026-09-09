@@ -6,10 +6,22 @@ from scripts.media.common.language import (
     best_language_upgrade,
     language_rank,
     release_is_safe_language_upgrade,
+    release_is_private,
 )
 
 
 class LanguageUpgradeTest(unittest.TestCase):
+    def test_private_indexer_detection(self) -> None:
+        self.assertTrue(
+            release_is_private({"indexer": "BTArg (Prowlarr)"})
+        )
+        self.assertTrue(
+            release_is_private({"indexer": "Milnueve (API) (Prowlarr)"})
+        )
+        self.assertFalse(
+            release_is_private({"indexer": "LimeTorrents (Prowlarr)"})
+        )
+
     def test_language_ranking(self) -> None:
         english = {
             "languages": [{"name": "English"}],
@@ -56,6 +68,17 @@ class LanguageUpgradeTest(unittest.TestCase):
         self.assertEqual(
             language_rank({"title": "Example.SPA.1080p"}),
             LanguageRank.CASTILIAN,
+        )
+
+    def test_spanish_subtitle_marker_is_not_audio(self) -> None:
+        release = {
+            "title": "Show S02E01 720p Ita Eng Spa SubS",
+            "languages": [{"name": "Spanish"}, {"name": "English"}],
+        }
+
+        self.assertEqual(
+            language_rank(release),
+            LanguageRank.ENGLISH,
         )
 
     def test_explicit_latino_title_beats_spanish_metadata(self) -> None:

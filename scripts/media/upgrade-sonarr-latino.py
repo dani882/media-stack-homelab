@@ -21,6 +21,7 @@ from common.arr import (
 from common.language import (
     best_language_upgrade,
     language_name,
+    release_is_private,
 )
 
 
@@ -151,16 +152,28 @@ def process_series(
             flush=True,
         )
 
-        releases = client.get(
-            "/release?"
-            + urllib.parse.urlencode(
-                {"episodeId": episode_id}
+        try:
+            releases = client.get(
+                "/release?"
+                + urllib.parse.urlencode(
+                    {"episodeId": episode_id}
+                )
             )
-        )
+        except UpgradeError as error:
+            print(
+                f"SKIPPED: {label}: {error}",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
 
         best = best_language_upgrade(
             file_payload,
-            releases,
+            [
+                release
+                for release in releases
+                if release_is_private(release)
+            ],
         )
 
         if best is None:
@@ -211,6 +224,9 @@ def process_series(
         )
         print(
             f"  {release_title}"
+        )
+        print(
+            f"  tracker: {best.get('indexer', '')}"
         )
 
         if dry_run:

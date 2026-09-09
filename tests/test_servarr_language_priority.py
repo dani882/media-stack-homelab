@@ -20,6 +20,22 @@ def quality(quality_id: int, name: str) -> dict:
 
 
 class LanguageFirstQualityGroupTests(unittest.TestCase):
+    def test_language_scores_do_not_override_hard_rejections(self) -> None:
+        latino_total = (
+            CUSTOM_FORMATS.SCORES["LATINO"]
+            + CUSTOM_FORMATS.SCORES["[Language Guard] Spanish audio"]
+        )
+        castellano_total = (
+            CUSTOM_FORMATS.SCORES["CASTELLANO"]
+            + CUSTOM_FORMATS.SCORES["[Language Guard] Spanish audio"]
+        )
+        self.assertLess(latino_total, 10000)
+        self.assertLess(castellano_total, latino_total)
+        self.assertEqual(
+            CUSTOM_FORMATS.SCORES["[Spanish] Castellano"],
+            0,
+        )
+
     def profile(self) -> dict:
         return {
             "cutoff": 7,

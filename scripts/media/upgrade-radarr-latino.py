@@ -21,6 +21,7 @@ from common.arr import (
 from common.language import (
     best_language_upgrade,
     language_name,
+    release_is_private,
 )
 
 
@@ -145,13 +146,25 @@ def main() -> int:
             {"movieId": movie_id}
         )
 
-        releases = client.get(
-            f"/release?{query}"
-        )
+        try:
+            releases = client.get(
+                f"/release?{query}"
+            )
+        except UpgradeError as error:
+            print(
+                f"SKIPPED: {title} ({year}): {error}",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
 
         best = best_language_upgrade(
             movie_file,
-            releases,
+            [
+                release
+                for release in releases
+                if release_is_private(release)
+            ],
         )
 
         if best is None:
@@ -202,6 +215,9 @@ def main() -> int:
         )
         print(
             f"  release: {best.get('title', '')}"
+        )
+        print(
+            f"  tracker: {best.get('indexer', '')}"
         )
 
         if args.dry_run:

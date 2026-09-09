@@ -20,12 +20,12 @@ ARCHIVE_PROFILE_NAME = "Archivo Español"
 SCORES = {
     "LATINO": 7000,
     "CASTELLANO": 5000,
-    "[Language Guard] Spanish audio": 5000,
-    "[Language Guard] Latino audio": 5000,
-    "[Latino] Spanish Latino": 7000,
-    "[Latino] Spanish Latino + English": 7000,
-    "[Spanish] Castellano": 5000,
-    "[Spanish] Castellano + English": 5000,
+    "[Language Guard] Spanish audio": 2500,
+    "[Language Guard] Latino audio": 2500,
+    "[Latino] Spanish Latino": 0,
+    "[Latino] Spanish Latino + English": 0,
+    "[Spanish] Castellano": 0,
+    "[Spanish] Castellano + English": 0,
     "[Latino] French Bonus": 250,
     "[Audio] Audio Description": -10000,
 }
@@ -42,6 +42,7 @@ LANGUAGE_FIRST_QUALITY_ORDER = (
 )
 LANGUAGE_FIRST_QUALITY_NAMES = set(LANGUAGE_FIRST_QUALITY_ORDER)
 LANGUAGE_FIRST_GROUP_NAME = "HD 720p-1080p (Language First)"
+LANGUAGE_CUTOFF_SCORE = 9000
 
 
 from servarr_config.common import (
@@ -181,6 +182,10 @@ def configure_profile_scores(
     }
 
     changed = configure_language_first_quality_group(profile)
+
+    if profile.get("cutoffFormatScore") != LANGUAGE_CUTOFF_SCORE:
+        profile["cutoffFormatScore"] = LANGUAGE_CUTOFF_SCORE
+        changed = True
 
     for name, score in SCORES.items():
         custom_format_id = ids_by_name.get(name)
@@ -336,7 +341,7 @@ def configure_archive_profile(
         archive.pop("id", None)
         archive["name"] = ARCHIVE_PROFILE_NAME
         archive["minFormatScore"] = 5000
-        archive["cutoffFormatScore"] = 7000
+        archive["cutoffFormatScore"] = LANGUAGE_CUTOFF_SCORE
         for item in archive.get("items", []):
             if item.get("name") in {"WEB 480p", "WEB 720p", "WEB 1080p"}:
                 item["allowed"] = True
@@ -349,7 +354,10 @@ def configure_archive_profile(
         print(f"CREATED PROFILE: {ARCHIVE_PROFILE_NAME}")
     else:
         changed = False
-        for key, value in (("minFormatScore", 5000), ("cutoffFormatScore", 7000)):
+        for key, value in (
+            ("minFormatScore", 5000),
+            ("cutoffFormatScore", LANGUAGE_CUTOFF_SCORE),
+        ):
             if archive.get(key) != value:
                 archive[key] = value
                 changed = True

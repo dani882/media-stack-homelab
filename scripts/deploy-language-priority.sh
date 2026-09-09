@@ -25,6 +25,9 @@ FILES=(
   "scripts/servarr_config/custom_formats.py"
   "scripts/servarr_config/settings.py"
   "scripts/media/common/language.py"
+  "scripts/media/common/arr.py"
+  "scripts/media/upgrade-sonarr-latino.py"
+  "scripts/media/upgrade-radarr-latino.py"
   "stacks/media/servarr/custom-formats/sonarr-latino.json"
   "stacks/media/servarr/custom-formats/radarr-latino.json"
   "stacks/media/servarr/sonarr/naming.json"
@@ -43,7 +46,7 @@ done
   set -e
   sudo -n install -d -m 0755 \
     /volume1/docker/media-stack/servarr_config \
-    /volume1/docker/media-stack/scripts/media/common \
+    /volume1/docker/media-stack/scripts/common \
     /volume1/docker/media-stack/servarr/custom-formats \
     /volume1/docker/media-stack/servarr/sonarr \
     /volume1/docker/media-stack/servarr/radarr
@@ -58,7 +61,12 @@ done
     /volume1/docker/media-stack/servarr_config/
   sudo -n install -m 0644 \
     '${REMOTE_STAGING}/scripts/media/common/language.py' \
-    /volume1/docker/media-stack/scripts/media/common/language.py
+    '${REMOTE_STAGING}/scripts/media/common/arr.py' \
+    /volume1/docker/media-stack/scripts/common/
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/media/upgrade-sonarr-latino.py' \
+    '${REMOTE_STAGING}/scripts/media/upgrade-radarr-latino.py' \
+    /volume1/docker/media-stack/scripts/
   sudo -n install -m 0644 \
     '${REMOTE_STAGING}/stacks/media/servarr/custom-formats/sonarr-latino.json' \
     /volume1/docker/media-stack/servarr/custom-formats/sonarr-latino.json

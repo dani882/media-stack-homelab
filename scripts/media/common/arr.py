@@ -69,33 +69,53 @@ class ArrClient:
             method=method,
         )
 
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=60,
-            ) as response:
-                body = response.read()
+        attempts = 2 if method == "GET" else 1
 
-                if not body:
-                    return None
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(
+                    request,
+                    timeout=60,
+                ) as response:
+                    body = response.read()
 
-                return json.loads(body)
+                    if not body:
+                        return None
 
-        except urllib.error.HTTPError as error:
-            body = error.read().decode(
-                "utf-8",
-                errors="replace",
-            )
+                    return json.loads(body)
 
-            raise ArrError(
-                f"{method} {path} failed with HTTP "
-                f"{error.code}: {body}"
-            ) from error
+            except TimeoutError as error:
+                if attempt + 1 < attempts:
+                    continue
 
-        except urllib.error.URLError as error:
-            raise ArrError(
-                f"{method} {path} failed: {error.reason}"
-            ) from error
+                raise ArrError(
+                    f"{method} {path} timed out after "
+                    f"{attempts} attempts"
+                ) from error
+
+            except urllib.error.HTTPError as error:
+                body = error.read().decode(
+                    "utf-8",
+                    errors="replace",
+                )
+
+                raise ArrError(
+                    f"{method} {path} failed with HTTP "
+                    f"{error.code}: {body}"
+                ) from error
+
+            except urllib.error.URLError as error:
+                if (
+                    isinstance(error.reason, TimeoutError)
+                    and attempt + 1 < attempts
+                ):
+                    continue
+
+                raise ArrError(
+                    f"{method} {path} failed: {error.reason}"
+                ) from error
+
+        raise ArrError(f"{method} {path} failed unexpectedly")
 
     def get(self, path: str) -> Any:
         return self.request("GET", path)

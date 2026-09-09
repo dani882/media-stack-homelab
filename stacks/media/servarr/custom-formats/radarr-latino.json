@@ -41,7 +41,7 @@
             "order": 0,
             "name": "value",
             "label": "Regular Expression",
-            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "value": "^(?!.*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)[ ._-]*(?:SUBS?|SUBTITLES?)\\b)(?!.*\\b(?:SUBS?|SUBTITLES?)[ ._-]*(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b).*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
             "type": "textbox",
             "advanced": false,
             "privacy": "normal",
@@ -99,6 +99,26 @@
             "label": "Except Language",
             "value": false,
             "type": "checkbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "Exclude subtitle-only Spanish marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/radarr/settings#custom-formats-2",
+        "negate": true,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)[ ._-]*(?:SUBS?|SUBTITLES?)\\b|\\b(?:SUBS?|SUBTITLES?)[ ._-]*(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "type": "textbox",
             "advanced": false,
             "privacy": "normal",
             "isFloat": false
@@ -283,7 +303,7 @@
             "name": "value",
             "label": "Regular Expression",
             "helpText": "Custom Format RegEx is Case Insensitive",
-            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "value": "^(?!.*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)[ ._-]*(?:SUBS?|SUBTITLES?)\\b)(?!.*\\b(?:SUBS?|SUBTITLES?)[ ._-]*(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b).*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
             "type": "textbox",
             "advanced": false,
             "privacy": "normal",
@@ -352,7 +372,7 @@
             "name": "value",
             "label": "Regular Expression",
             "helpText": "Custom Format RegEx is Case Insensitive",
-            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "value": "^(?!.*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)[ ._-]*(?:SUBS?|SUBTITLES?)\\b)(?!.*\\b(?:SUBS?|SUBTITLES?)[ ._-]*(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b).*\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
             "type": "textbox",
             "advanced": false,
             "privacy": "normal",

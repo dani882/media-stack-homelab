@@ -64,9 +64,36 @@ ENGLISH_TITLE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+SPANISH_SUBTITLE_ONLY_PATTERN = re.compile(
+    TOKEN_START
+    + r"(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)"
+    + r"[ ._-]*(?:SUBS?|SUBTITLES?)"
+    + TOKEN_END
+    + r"|"
+    + TOKEN_START
+    + r"(?:SUBS?|SUBTITLES?)[ ._-]*"
+    + r"(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)"
+    + TOKEN_END,
+    re.IGNORECASE,
+)
+
 OVERRIDABLE_REJECTION_PREFIXES = (
     "Existing file on disk is of equal or higher preference",
 )
+
+PRIVATE_INDEXER_MARKERS = (
+    "lat-team",
+    "btarg",
+    "milnueve",
+    "retrotoon",
+    "torrenthaven",
+    "dreadvault",
+)
+
+
+def release_is_private(payload: dict[str, Any]) -> bool:
+    indexer = str(payload.get("indexer", "")).casefold()
+    return any(marker in indexer for marker in PRIVATE_INDEXER_MARKERS)
 
 
 def custom_format_names(
@@ -123,6 +150,10 @@ def language_rank(
     if LATINO_TITLE_PATTERN.search(title):
         return LanguageRank.LATINO
 
+    subtitle_only_spanish = bool(
+        SPANISH_SUBTITLE_ONLY_PATTERN.search(title)
+    )
+
     languages = {
         item.get("name", "")
         for item in payload.get(
@@ -134,7 +165,7 @@ def language_rank(
     if "Spanish (Latino)" in languages:
         return LanguageRank.LATINO
 
-    if (
+    if not subtitle_only_spanish and (
         "Spanish" in languages
         or "Spanish (Spain)" in languages
         or "Castilian" in languages
@@ -144,7 +175,10 @@ def language_rank(
     if "English" in languages:
         return LanguageRank.ENGLISH
 
-    if CASTILIAN_TITLE_PATTERN.search(title):
+    if (
+        not subtitle_only_spanish
+        and CASTILIAN_TITLE_PATTERN.search(title)
+    ):
         return LanguageRank.CASTILIAN
 
     if ENGLISH_TITLE_PATTERN.search(title):
