@@ -7,6 +7,7 @@ STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
+PROWLARR_DREADVAULT_DEFINITION="${STACK_DIR}/prowlarr/definitions/dreadvault-api.yml"
 QBITTORRENT_SCRIPT="${ROOT_DIR}/scripts/configure-qbittorrent.py"
 RADARR_MAINTENANCE_SCRIPT="${ROOT_DIR}/scripts/configure-radarr.py"
 RADARR_POLICY_SCRIPT="${ROOT_DIR}/scripts/configure-radarr-policy.py"
@@ -92,6 +93,7 @@ fi
 
 for required_file in \
   "$QBITTORRENT_SCRIPT" \
+  "$PROWLARR_DREADVAULT_DEFINITION" \
   "$RADARR_MAINTENANCE_SCRIPT" \
   "$RADARR_POLICY_SCRIPT" \
   "$RADARR_AUDIT_SCRIPT" \
@@ -215,6 +217,7 @@ SSH_TTY=(
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_TEMP="${REMOTE_STAGING}/media-stack-compose-${USER}-$$.yaml"
 REMOTE_PROWLARR_TEMP="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
+REMOTE_PROWLARR_DREADVAULT_TEMP="${REMOTE_STAGING}/dreadvault-api-${USER}-$$.yml"
 REMOTE_QBITTORRENT_TEMP="${REMOTE_STAGING}/configure-qbittorrent-${USER}-$$.py"
 REMOTE_RADARR_MAINTENANCE_TEMP="${REMOTE_STAGING}/configure-radarr-${USER}-$$.py"
 REMOTE_RADARR_POLICY_TEMP="${REMOTE_STAGING}/configure-radarr-policy-${USER}-$$.py"
@@ -312,6 +315,14 @@ echo "Uploading Prowlarr configuration script through SSH..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_PROWLARR_TEMP}'" \
   < "$PROWLARR_SCRIPT"
+
+echo "Uploading DreadVault Prowlarr definition through SSH..."
+
+# Variables are intentionally expanded locally.
+# shellcheck disable=SC2029
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PROWLARR_DREADVAULT_TEMP}'" \
+  < "$PROWLARR_DREADVAULT_DEFINITION"
 
 echo "Uploading qBittorrent configuration script through SSH..."
 
@@ -735,6 +746,13 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PROWLARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-prowlarr.py'
 
+  sudo install -d -m 0755 \
+    '${NAS_STACK_DIR}/config/prowlarr/Definitions/Custom'
+
+  sudo install -m 0644 \
+    '${REMOTE_PROWLARR_DREADVAULT_TEMP}' \
+    '${NAS_STACK_DIR}/config/prowlarr/Definitions/Custom/dreadvault-api.yml'
+
   sudo install -m 0755 \
     '${REMOTE_QBITTORRENT_TEMP}' \
     '${NAS_STACK_DIR}/configure-qbittorrent.py'
@@ -1050,6 +1068,7 @@ echo "Installing and validating Compose file on the NAS..."
   rm -f \
     '${REMOTE_TEMP}' \
     '${REMOTE_PROWLARR_TEMP}' \
+    '${REMOTE_PROWLARR_DREADVAULT_TEMP}' \
     '${REMOTE_QBITTORRENT_TEMP}' \
     '${REMOTE_RADARR_MAINTENANCE_TEMP}' \
     '${REMOTE_RADARR_POLICY_TEMP}' \
@@ -1138,6 +1157,7 @@ echo "Pulling images and applying the stack..."
   sudo docker compose pull --ignore-buildable
   sudo docker compose build dominican-iptv
   sudo docker compose up -d
+  sudo docker compose restart prowlarr
   sudo docker compose ps
 
   echo

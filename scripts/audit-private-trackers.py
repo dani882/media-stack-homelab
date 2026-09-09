@@ -31,7 +31,8 @@ from common.qbittorrent import (
 class TrackerPolicy:
     name: str
     host_suffixes: tuple[str, ...]
-    minimum_seed_minutes: int
+    minimum_seed_minutes: int | None = None
+    minimum_ratio: float | None = None
     completion_window_minutes: int | None = None
 
 
@@ -56,6 +57,20 @@ TRACKER_POLICIES = (
         host_suffixes=("torrenthaven.org",),
         # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
         minimum_seed_minutes=4920,
+    ),
+    TrackerPolicy(
+        name="DreadVault",
+        host_suffixes=("dreadvault.org",),
+        # Rule: 120 h. Retention: rule + 10 h tracker-accounting margin.
+        minimum_seed_minutes=7800,
+    ),
+    TrackerPolicy(
+        name="BTArg",
+        host_suffixes=("btarg.org", "btarg.com.ar"),
+        # BTArg publishes no fixed seed-time threshold. Its FAQ describes
+        # seeding to 1:1 as the expected sharing behavior, while the global
+        # account ratio must remain at or above 0.5.
+        minimum_ratio=1.0,
     ),
 )
 
@@ -120,6 +135,36 @@ def audit_torrent(
     seeded_minutes = int(torrent.get("seeding_time", 0) or 0) / 60
     complete = float(torrent.get("progress", 0) or 0) >= 1
     prefix = f"{policy.name} hash={torrent_hash}"
+
+    if policy.minimum_ratio is not None:
+        ratio_limit = float(torrent.get("ratio_limit", -1) or -1)
+        ratio = float(torrent.get("ratio", 0) or 0)
+        if ratio_limit <= 0:
+            return False, (
+                f"AT RISK {prefix}: no finite qBittorrent ratio limit"
+            )
+        if ratio_limit < policy.minimum_ratio:
+            return False, (
+                f"AT RISK {prefix}: qBittorrent ratio limit={ratio_limit:.2f} "
+                f"is below policy={policy.minimum_ratio:.2f}"
+            )
+        required_ratio = max(ratio_limit, policy.minimum_ratio)
+        if not complete:
+            return True, (
+                f"DOWNLOADING {prefix}: required ratio={required_ratio:.2f}"
+            )
+        if ratio < required_ratio:
+            return True, (
+                f"PENDING {prefix}: ratio={ratio:.2f} "
+                f"required={required_ratio:.2f}"
+            )
+        return True, (
+            f"SATISFIED {prefix}: ratio={ratio:.2f} "
+            f"required={required_ratio:.2f}"
+        )
+
+    if policy.minimum_seed_minutes is None:
+        return False, f"AT RISK {prefix}: tracker policy has no retention rule"
 
     if limit <= 0:
         return False, (
@@ -198,9 +243,11 @@ def run_audit(
         hosts = torrent_hosts(client, str(torrent.get("hash", "")))
         policy = matching_policy(hosts)
         limit = int(torrent.get("seeding_time_limit", -1) or -1)
+        ratio_limit = float(torrent.get("ratio_limit", -1) or -1)
         if (
             enforce_limits
             and policy is not None
+            and policy.minimum_seed_minutes is not None
             and limit < policy.minimum_seed_minutes
         ):
             client.post_form(
@@ -219,6 +266,28 @@ def run_audit(
             )
             torrent = dict(torrent)
             torrent["seeding_time_limit"] = policy.minimum_seed_minutes
+        if (
+            enforce_limits
+            and policy is not None
+            and policy.minimum_ratio is not None
+            and ratio_limit < policy.minimum_ratio
+        ):
+            client.post_form(
+                "/api/v2/torrents/setShareLimits",
+                {
+                    "hashes": torrent["hash"],
+                    "ratioLimit": policy.minimum_ratio,
+                    "seedingTimeLimit": -1,
+                    "inactiveSeedingTimeLimit": -1,
+                    "shareLimitAction": "Default",
+                },
+            )
+            print(
+                f"ENFORCED {policy.name} hash={str(torrent['hash'])[:12].upper()}: "
+                f"ratio {ratio_limit:.2f} -> {policy.minimum_ratio:.2f}"
+            )
+            torrent = dict(torrent)
+            torrent["ratio_limit"] = policy.minimum_ratio
         safe, message = audit_torrent(torrent, hosts)
         print(message)
         if not safe:

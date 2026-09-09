@@ -12,11 +12,13 @@ class LanguageRank(IntEnum):
 
 
 LATINO_FORMAT_PREFIXES = (
+    "LATINO",
     "[Latino] Spanish Latino",
     "[Latino] Spanish Latino + English",
 )
 
 CASTILIAN_FORMAT_PREFIXES = (
+    "CASTELLANO",
     "[Spanish] Castellano",
     "[Spanish] Castellano + English",
 )

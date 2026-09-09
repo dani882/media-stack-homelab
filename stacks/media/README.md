@@ -105,9 +105,9 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
-Milnueve, RetroToon World, and Torrent Haven are production private trackers integrated with
-the stack. Their credentials remain NAS-local and are loaded from the private
-indexer secret file.
+Milnueve, BTArg, RetroToon World, Torrent Haven, and DreadVault are production
+private trackers integrated with the stack. Their credentials remain
+NAS-local and are loaded from the private indexer secret file.
 
 All managed private-indexer priorities are numerically ahead of every public
 indexer (lower is preferred by Sonarr/Radarr). This prioritizes a private
@@ -115,6 +115,13 @@ release when otherwise acceptable results tie, while the existing
 `Latino > Castellano > English/original` quality and language policy remains
 the primary selection guardrail. A regression test prevents public indexers
 from being moved ahead of private ones accidentally.
+
+Public indexers use the `Public Manual Fallback` application profile: RSS and
+automatic search are disabled, while interactive search remains available.
+Private indexers retain the standard automatic profile. This separation is
+required for a strict private-first policy because Radarr and Sonarr compare
+quality and custom-format scores before using numerical indexer priority as a
+tiebreaker; priority numbers alone cannot guarantee a private result.
 
 Managed Milnueve policy includes:
 
@@ -126,10 +133,33 @@ Managed Milnueve policy includes:
 - qBittorrent per-torrent seeding limits
 - cleanup protection that honors tracker-provided seeding limits
 
-All three private trackers are additionally covered by the periodic
+All production private trackers are additionally covered by the periodic
 private-tracker audit. It checks qBittorrent's reported tracker host and
-seeding-time limit without logging announce URLs or passkeys, and treats any
+retention limit without logging announce URLs or passkeys, and treats any
 unknown private tracker as an alert until it has an explicit policy.
+
+BTArg uses Prowlarr's native `btarg` definition with credentials stored only
+in the NAS-local private-indexer secret. Its managed policy uses priority `2`,
+at least one seeder, and a 1.0 per-torrent ratio target. BTArg publishes no
+fixed seeding-time threshold; its FAQ describes seeding to 1:1 as the expected
+sharing behavior and requires the account ratio to remain at or above 0.5.
+Cleanup therefore keeps every BTArg payload until qBittorrent reports at least
+1.0 for that torrent. If no peer downloads from it, the payload remains
+protected indefinitely. The audit recognizes both the current
+`announce.btarg.org` host and the historical `btarg.com.ar` host. BTArg also
+limits users to six simultaneous downloads and eight simultaneous uploads;
+these account-level limits must be respected when scheduling grabs.
+
+Priority `1` is reserved for Lat-Team when credentials become available, and
+BTArg is the second tracker preference among releases that have already passed
+the language and quality policy. Tracker priority never allows an English-only
+release to outrank an acceptable Latino or Castellano release; the language
+order remains `Latino > Castellano > English/original`.
+
+Install or refresh only this integration with `make configure-btarg`. This
+scoped operation updates the BTArg retention policy, configures and tests the
+native Prowlarr indexer, and runs the private-tracker audit without restarting
+the media stack.
 
 RetroToon World is supported as an optional Generic Torznab indexer. Its
 passkey is an API credential and must remain NAS-local. Its managed policy
@@ -156,6 +186,18 @@ discovery enabled globally for public torrents, so do not change those global
 settings. A real Torrent Haven torrent has been verified `private=true` with
 only `torrenthaven.org` announced, which is the per-torrent behavior required
 by the tracker.
+
+DreadVault uses the UNIT3D `dreadvault-api` definition and an API token from
+**My Settings -> API Key**. Its managed policy uses priority `9`, at least one
+seeder, and a 130-hour (`7800` minute) seed time for both torrents and packs:
+the mandatory 120 hours after completion plus a 10-hour accounting margin.
+Freeleech downloads retain the same seed-time obligation. The periodic audit
+recognizes `dreadvault.org` announce hosts, and automated cleanup cannot remove
+their payloads before the managed retention period is complete.
+
+Install or refresh only this integration with `make configure-dreadvault`.
+This scoped operation installs the custom definition, restarts only Prowlarr,
+configures DreadVault, and runs the private-retention audit.
 
 If a known private release is missing from Sonarr/Radarr because its metadata
 does not resolve through the normal TVDB/TMDB search, retain the Seerr request
@@ -205,21 +247,23 @@ request that already has a `seerr-request-<id>` qBittorrent tag. Enable
 automatic grabs only after a live candidate has passed that apply path and the
 Arr import/hardlink result has been verified.
 
-All private-retention values include a 10-hour accounting margin above each
-tracker's stated rule, because qBittorrent's local timer can run ahead of the
-tracker's credited seeding time. The managed values are 106 hours for
-Milnueve and 82 hours for RetroToon and TorrentHaven. Run
+Time-based private-retention values include a 10-hour accounting margin above
+each tracker's stated rule, because qBittorrent's local timer can run ahead of
+the tracker's credited seeding time. The managed values are 106 hours for
+Milnueve, 82 hours for RetroToon and Torrent Haven, and 130 hours for
+DreadVault. BTArg instead uses a 1.0 ratio target. Run
 `make enforce-private-tracker-limits` after a policy change to update existing
 managed torrents as well.
 
 ### Incorporating a future private tracker
 
 Before enabling a new private indexer for automatic downloads, record its
-published per-torrent rule in both Prowlarr and the private-tracker audit as
-`official requirement + 10 hours`. Add its announce host to the audit policy
-and verify an added torrent receives that finite qBittorrent limit. Until all
-three are present, the audit and cleanup treat it as unrecognized and never
-remove it automatically.
+published per-torrent rule in both Prowlarr and the private-tracker audit. For
+a time-based rule, use `official requirement + 10 hours`; for a ratio-based
+rule, use at least the tracker's published ratio. Add its announce host to the
+audit policy and verify a real torrent receives the expected qBittorrent
+limit. Until all three are present, the audit and cleanup treat it as
+unrecognized and never remove it automatically.
 
 ### Archivo Español lane
 
@@ -256,6 +300,7 @@ Supported templates currently include:
 - Milnueve API
 - RetroToon World (Generic Torznab)
 - Torrent Haven (native API)
+- DreadVault (UNIT3D API)
 - Lat-Team
 - ChileBT
 - BTArg
@@ -927,7 +972,8 @@ This installs:
 - a 30-minute live health audit timer
 - a 12-hour hardlink audit timer
 - a 15-minute public-import cleanup timer, with a 30-minute seed retention
-- a two-minute completed-torrent Telegram notification timer
+- a two-minute completed-torrent Telegram notification timer, including the
+  Sonarr/Radarr poster when metadata is available
 - log output at `/volume1/docker/media-stack/logs/media-observability.log`
 
 The notification timer uses only

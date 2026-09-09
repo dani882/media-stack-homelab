@@ -18,6 +18,10 @@ PROFILE_NAME = "Latino 1080p"
 ARCHIVE_PROFILE_NAME = "Archivo Español"
 
 SCORES = {
+    "LATINO": 7000,
+    "CASTELLANO": 5000,
+    "[Language Guard] Spanish audio": 5000,
+    "[Language Guard] Latino audio": 5000,
     "[Latino] Spanish Latino": 7000,
     "[Latino] Spanish Latino + English": 7000,
     "[Spanish] Castellano": 5000,
@@ -25,6 +29,19 @@ SCORES = {
     "[Latino] French Bonus": 250,
     "[Audio] Audio Description": -10000,
 }
+
+LANGUAGE_FIRST_QUALITY_ORDER = (
+    "HDTV-720p",
+    "WEBRip-720p",
+    "WEBDL-720p",
+    "Bluray-720p",
+    "HDTV-1080p",
+    "WEBRip-1080p",
+    "WEBDL-1080p",
+    "Bluray-1080p",
+)
+LANGUAGE_FIRST_QUALITY_NAMES = set(LANGUAGE_FIRST_QUALITY_ORDER)
+LANGUAGE_FIRST_GROUP_NAME = "HD 720p-1080p (Language First)"
 
 
 from servarr_config.common import (
@@ -163,7 +180,7 @@ def configure_profile_scores(
         for item in profile.get("formatItems", [])
     }
 
-    changed = False
+    changed = configure_language_first_quality_group(profile)
 
     for name, score in SCORES.items():
         custom_format_id = ids_by_name.get(name)
@@ -208,6 +225,94 @@ def configure_profile_scores(
         profile,
     )
     print(f"UPDATED PROFILE: {profile_name}")
+
+
+def configure_language_first_quality_group(
+    profile: dict[str, Any],
+) -> bool:
+    """Group accepted HD qualities so custom-language scores compare first."""
+    items = profile.get("items", [])
+    members_by_name: dict[str, dict[str, Any]] = {}
+    remaining_items: list[dict[str, Any]] = []
+    target_group: dict[str, Any] | None = None
+    insertion_index = len(items)
+
+    for item in items:
+        quality = item.get("quality") or {}
+        quality_name = quality.get("name")
+        if quality_name in LANGUAGE_FIRST_QUALITY_NAMES:
+            members_by_name[quality_name] = {
+                "quality": quality,
+                "items": [],
+                "allowed": True,
+            }
+            continue
+
+        child_items = item.get("items") or []
+        if not child_items:
+            remaining_items.append(item)
+            continue
+
+        kept_children = []
+        moved_children = []
+        for child in child_items:
+            child_quality = child.get("quality") or {}
+            child_name = child_quality.get("name")
+            if child_name in LANGUAGE_FIRST_QUALITY_NAMES:
+                members_by_name[child_name] = {
+                    "quality": child_quality,
+                    "items": [],
+                    "allowed": True,
+                }
+                moved_children.append(child_name)
+            else:
+                kept_children.append(child)
+
+        if not moved_children:
+            remaining_items.append(item)
+            continue
+
+        if "WEBDL-1080p" in moved_children:
+            target_group = item
+            insertion_index = len(remaining_items)
+
+        if kept_children:
+            retained_group = dict(item)
+            retained_group["items"] = kept_children
+            remaining_items.append(retained_group)
+
+    if not members_by_name:
+        return False
+
+    ordered_members = [
+        members_by_name[name]
+        for name in LANGUAGE_FIRST_QUALITY_ORDER
+        if name in members_by_name
+    ]
+
+    group = {
+        "id": (target_group or {}).get("id", 1002),
+        "name": LANGUAGE_FIRST_GROUP_NAME,
+        "allowed": True,
+        "items": ordered_members,
+    }
+    remaining_items.insert(
+        min(insertion_index, len(remaining_items)),
+        group,
+    )
+
+    moved_quality_ids = {
+        member["quality"].get("id")
+        for member in ordered_members
+    }
+    if profile.get("cutoff") in moved_quality_ids:
+        profile["cutoff"] = group["id"]
+
+    if remaining_items == items:
+        return False
+
+    profile["items"] = remaining_items
+    return True
 
 
 def configure_archive_profile(

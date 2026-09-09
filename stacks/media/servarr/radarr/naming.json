@@ -2,6 +2,6 @@
   "renameMovies": true,
   "replaceIllegalCharacters": true,
   "colonReplacementFormat": "smart",
-  "standardMovieFormat": "{Movie Title} ({Release Year}) {Quality Full}",
+  "standardMovieFormat": "{Movie Title} ({Release Year}) [{Custom Formats}] {Quality Full}",
   "movieFolderFormat": "{Movie Title} ({Release Year})"
 }

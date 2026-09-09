@@ -88,6 +88,52 @@ class PublicCleanupTest(unittest.TestCase):
         self.assertFalse(safe)
         self.assertIn("no managed retention policy", reason)
 
+    def test_dreadvault_requires_130_hour_retention(self) -> None:
+        torrent = dict(
+            self.torrent,
+            private=True,
+            seeding_time=7799 * 60,
+            seeding_time_limit=7800,
+        )
+        safe, reason = MODULE.torrent_is_removable(
+            torrent,
+            {"announce.dreadvault.org"},
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("requires 7800.0", reason)
+
+    def test_btarg_requires_one_to_one_ratio_before_cleanup(self) -> None:
+        torrent = dict(
+            self.torrent,
+            private=True,
+            ratio=0.99,
+            ratio_limit=1.0,
+        )
+        safe, reason = MODULE.torrent_is_removable(
+            torrent,
+            {"announce.btarg.org"},
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("requires 1.00", reason)
+
+    def test_btarg_allows_cleanup_after_one_to_one_ratio(self) -> None:
+        torrent = dict(
+            self.torrent,
+            private=True,
+            ratio=1.0,
+            ratio_limit=1.0,
+        )
+
+        self.assertEqual(
+            MODULE.torrent_is_removable(
+                torrent,
+                {"announce.btarg.org"},
+            ),
+            (True, "safe private retention satisfied (BTArg)"),
+        )
+
     def test_detects_private_title_matched_library_hardlink(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

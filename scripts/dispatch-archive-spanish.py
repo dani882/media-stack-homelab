@@ -31,7 +31,12 @@ SPEC.loader.exec_module(GRAB)
 
 
 ARCHIVE_PROFILE_NAME = "Archivo Español"
-PRIVATE_INDEXER_NAMES = {"milnueve", "retrotoon", "torrenthaven"}
+PRIVATE_INDEXER_NAMES = {
+    "dreadvault",
+    "milnueve",
+    "retrotoon",
+    "torrenthaven",
+}
 # EZTV is TV-only and rejects movie-search queries with HTTP 400.
 MOVIE_INDEXER_EXCLUSIONS = {"eztv"}
 

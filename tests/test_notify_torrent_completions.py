@@ -50,6 +50,34 @@ class TorrentNotificationTest(unittest.TestCase):
         self.assertIn("privado", text)
         self.assertIn("1.0 GiB", text)
 
+    def test_extracts_records_from_paged_response(self) -> None:
+        records = [{"downloadId": "ABC"}]
+        self.assertEqual(MODULE.records_from_response({"records": records}), records)
+
+    def test_selects_local_poster_url(self) -> None:
+        media = {
+            "images": [
+                {"coverType": "fanart", "url": "/fanart.jpg"},
+                {
+                    "coverType": "poster",
+                    "url": "/MediaCover/1/poster.jpg",
+                    "remoteUrl": "https://example.com/poster.jpg",
+                },
+            ]
+        }
+        self.assertEqual(
+            MODULE.poster_url(media, "http://127.0.0.1:8989"),
+            "http://127.0.0.1:8989/MediaCover/1/poster.jpg",
+        )
+
+    def test_returns_none_when_media_has_no_poster(self) -> None:
+        self.assertIsNone(
+            MODULE.poster_url(
+                {"images": [{"coverType": "banner", "url": "/banner.jpg"}]},
+                "http://127.0.0.1:8989",
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

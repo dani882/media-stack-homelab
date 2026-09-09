@@ -219,6 +219,19 @@ def torrent_is_removable(
     policy = PRIVATE_AUDIT.matching_policy(hosts)
     if policy is None:
         return False, "private tracker has no managed retention policy"
+    if policy.minimum_ratio is not None:
+        ratio_limit = float(torrent.get("ratio_limit", -1) or -1)
+        ratio = float(torrent.get("ratio", 0) or 0)
+        if ratio_limit <= 0:
+            return False, "private torrent has no finite positive ratio limit"
+        required_ratio = max(ratio_limit, policy.minimum_ratio)
+        if ratio < required_ratio:
+            return False, (
+                f"ratio is only {ratio:.2f}; requires {required_ratio:.2f}"
+            )
+        return True, f"safe private retention satisfied ({policy.name})"
+    if policy.minimum_seed_minutes is None:
+        return False, "private tracker has no usable retention rule"
     limit = int(torrent.get("seeding_time_limit", -1) or -1)
     if limit <= 0:
         return False, "private torrent has no finite positive seeding time limit"

@@ -29,6 +29,36 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
 
         self.assertLess(max(private_priorities), min(public_priorities))
 
+    def test_latino_tracker_order_starts_with_lat_team_then_btarg(self) -> None:
+        self.assertEqual(
+            MODULE.PRIVATE_INDEXERS["lat-team-api"]["priority"],
+            1,
+        )
+        self.assertEqual(MODULE.PRIVATE_INDEXERS["btarg"]["priority"], 2)
+        other_priorities = [
+            config["priority"]
+            for name, config in MODULE.PRIVATE_INDEXERS.items()
+            if name not in {"btarg", "lat-team-api"}
+        ]
+        self.assertLess(2, min(other_priorities))
+
+    def test_public_indexers_are_manual_fallback_only(self) -> None:
+        self.assertTrue(
+            all(
+                indexer.get("app_profile")
+                == MODULE.PUBLIC_FALLBACK_PROFILE
+                for indexer in MODULE.INDEXERS
+            )
+        )
+        profile = next(
+            item
+            for item in MODULE.APP_PROFILES
+            if item["name"] == MODULE.PUBLIC_FALLBACK_PROFILE
+        )
+        self.assertFalse(profile["enableRss"])
+        self.assertFalse(profile["enableAutomaticSearch"])
+        self.assertTrue(profile["enableInteractiveSearch"])
+
     def test_missing_secret_returns_empty(self) -> None:
         result = MODULE.load_private_indexers(
             Path("/tmp/does-not-exist-prowlarr-secret.json")
@@ -68,7 +98,7 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         )
         self.assertEqual(
             result[0]["priority"],
-            5,
+            1,
         )
         self.assertEqual(
             result[0]["minimum_seeders"],
@@ -109,6 +139,11 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             result[0]["fields"]["password"],
             "test-password",
         )
+        self.assertEqual(result[0]["minimum_seeders"], 1)
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.seedRatio"],
+            1.0,
+        )
 
     def test_loads_retrotoon_with_protected_seed_time(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -142,6 +177,30 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         self.assertEqual(
             result[0]["fields"]["torrentBaseSettings.seedTime"],
             4920,
+        )
+
+    def test_loads_dreadvault_with_protected_seed_time(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "private-indexers.json"
+            path.write_text(
+                json.dumps(
+                    {"dreadvault-api": {"apikey": "test-only"}}
+                )
+            )
+
+            result = MODULE.load_private_indexers(path)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["definition"], "dreadvault-api")
+        self.assertEqual(result[0]["minimum_seeders"], 1)
+        self.assertEqual(result[0]["fields"]["apikey"], "test-only")
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.seedTime"],
+            7800,
+        )
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.packSeedTime"],
+            7800,
         )
 
     def test_generic_torznab_identity_uses_instance_name(self) -> None:
@@ -247,6 +306,29 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             MODULE.managed_indexer_matches(payload, desired)
         )
 
+    def test_masked_lowercase_api_key_does_not_cause_drift(self) -> None:
+        desired = {
+            "enabled": True,
+            "priority": 9,
+            "minimum_seeders": 1,
+            "fields": {"apikey": "test-only"},
+        }
+        payload = {
+            "enable": True,
+            "priority": 9,
+            "fields": [
+                {
+                    "name": "torrentBaseSettings.appMinimumSeeders",
+                    "value": 1,
+                },
+                {"name": "apikey", "value": "********"},
+            ],
+        }
+
+        self.assertTrue(
+            MODULE.managed_indexer_matches(payload, desired)
+        )
+
     def test_extto_resolves_flaresolverr_tag_by_label(self) -> None:
         class FakeClient:
             def __init__(self) -> None:
@@ -285,6 +367,9 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             desired,
             dry_run=True,
             tag_ids={"flaresolverr": 7},
+            app_profile_ids={
+                MODULE.PUBLIC_FALLBACK_PROFILE: 2,
+            },
         )
 
         method, path, payload = client.requests[-1]

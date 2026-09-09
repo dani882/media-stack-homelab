@@ -33,7 +33,8 @@ PRIVATE_INDEXERS = {
     "lat-team-api": {
         "definition": "lat-team-api",
         "enabled": True,
-        "priority": 5,
+        # Reserved as the primary Latino source when credentials are added.
+        "priority": 1,
         "minimum_seeders": 5,
         "fields": {},
     },
@@ -47,9 +48,16 @@ PRIVATE_INDEXERS = {
     "btarg": {
         "definition": "btarg",
         "enabled": True,
-        "priority": 7,
-        "minimum_seeders": 5,
-        "fields": {},
+        # Second Latino source after Lat-Team. Language/quality acceptance runs before
+        # this tracker tiebreaker, preserving Latino > Castellano > original.
+        "priority": 2,
+        "minimum_seeders": 1,
+        "fields": {
+            # BTArg does not publish a fixed seed-time requirement. Its FAQ
+            # describes 1:1 as the expected per-torrent sharing target while
+            # the account must remain above the 0.5 global minimum.
+            "torrentBaseSettings.seedRatio": 1.0,
+        },
     },
     "retrotoon-torznab": {
         # RetroToon supplies a Torznab endpoint rather than a native
@@ -87,7 +95,34 @@ PRIVATE_INDEXERS = {
             "freeleech": False,
         },
     },
+    "dreadvault-api": {
+        # DreadVault ships a UNIT3D API definition. The API token is read
+        # exclusively from the NAS-local private-indexer secret.
+        "definition": "dreadvault-api",
+        "enabled": True,
+        "priority": 9,
+        "minimum_seeders": 1,
+        "fields": {
+            # Every completed download requires 120 h of seedtime. Retain a
+            # 10 h accounting margin because tracker-side time can lag qBit.
+            "torrentBaseSettings.seedTime": 7800,
+            "torrentBaseSettings.packSeedTime": 7800,
+            "freeleech": False,
+        },
+    },
 }
+
+PUBLIC_FALLBACK_PROFILE = "Public Manual Fallback"
+
+APP_PROFILES = (
+    {
+        "name": PUBLIC_FALLBACK_PROFILE,
+        "enableRss": False,
+        "enableAutomaticSearch": False,
+        "enableInteractiveSearch": True,
+        "minimumSeeders": 5,
+    },
+)
 
 
 INDEXERS = [
@@ -95,6 +130,7 @@ INDEXERS = [
         "definition": "1337x",
         "enabled": True,
         "priority": 10,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "baseUrl": "https://1337x.st/",
@@ -108,6 +144,7 @@ INDEXERS = [
     {
         "definition": "Knaben",
         "priority": 15,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "torrentBaseSettings.preferMagnetUrl": True,
@@ -116,6 +153,7 @@ INDEXERS = [
     {
         "definition": "limetorrents",
         "priority": 20,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "torrentBaseSettings.preferMagnetUrl": True,
@@ -124,6 +162,7 @@ INDEXERS = [
     {
         "definition": "torrentdownloads",
         "priority": 25,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "torrentBaseSettings.preferMagnetUrl": True,
@@ -132,6 +171,7 @@ INDEXERS = [
     {
         "definition": "thepiratebay",
         "priority": 30,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "torrentBaseSettings.preferMagnetUrl": True,
@@ -140,6 +180,7 @@ INDEXERS = [
     {
         "definition": "eztv",
         "priority": 35,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "torrentBaseSettings.preferMagnetUrl": True,
@@ -151,6 +192,7 @@ INDEXERS = [
         # availability; it is best-effort only and has no private retention.
         "definition": "extratorrent-st",
         "priority": 40,
+        "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
         "fields": {
             "baseUrl": "https://ext.to/",
@@ -166,6 +208,55 @@ INDEXERS = [
 
 class ProwlarrError(RuntimeError):
     pass
+
+
+def configure_app_profiles(
+    client: "ProwlarrClient",
+    dry_run: bool,
+) -> dict[str, int]:
+    existing = client.request("GET", "/appprofile")
+    by_name = {str(item.get("name")): item for item in existing}
+    profile_ids = {
+        str(item.get("name")): int(item["id"])
+        for item in existing
+        if item.get("name") and item.get("id") is not None
+    }
+
+    for desired in APP_PROFILES:
+        name = str(desired["name"])
+        current = by_name.get(name)
+
+        if current is None:
+            if dry_run:
+                print(f"WOULD CREATE APP PROFILE: {name}")
+                continue
+            result = client.request("POST", "/appprofile", desired)
+            profile_ids[name] = int(result["id"])
+            print(f"CREATED APP PROFILE: ID={result['id']} name={name}")
+            continue
+
+        matches = all(
+            current.get(key) == value
+            for key, value in desired.items()
+        )
+        if matches:
+            print(f"APP PROFILE OK: ID={current['id']} name={name}")
+            continue
+
+        if dry_run:
+            print(f"WOULD UPDATE APP PROFILE: ID={current['id']} name={name}")
+            continue
+
+        payload = {**current, **desired}
+        result = client.request(
+            "PUT",
+            f"/appprofile/{current['id']}",
+            payload,
+        )
+        profile_ids[name] = int(result["id"])
+        print(f"UPDATED APP PROFILE: ID={result['id']} name={name}")
+
+    return profile_ids
 
 
 def load_private_indexers(
@@ -406,6 +497,14 @@ def managed_indexer_matches(
     if int(payload.get("priority") or 0) != desired["priority"]:
         return False
 
+    expected_app_profile = desired.get("_app_profile_id")
+    if (
+        expected_app_profile is not None
+        and int(payload.get("appProfileId") or 0)
+        != expected_app_profile
+    ):
+        return False
+
     expected_tags = desired.get("_tag_ids")
     if expected_tags is not None and sorted(payload.get("tags", [])) != sorted(
         expected_tags
@@ -433,7 +532,7 @@ def managed_indexer_matches(
         # already validated during creation/update, so a masked response means
         # the credential is retained rather than drifted.
         if (
-            name == "apiKey"
+            name.casefold() == "apikey"
             and actual_value in {"********", "(removed)"}
         ):
             continue
@@ -451,12 +550,24 @@ def configure_indexer(
     desired: dict[str, Any],
     dry_run: bool,
     tag_ids: dict[str, int] | None = None,
+    app_profile_ids: dict[str, int] | None = None,
 ) -> None:
     definition = desired["definition"]
     identity = desired_indexer_identity(desired)
     existing = existing_by_definition.get(identity)
     enabled = desired.get("enabled", True)
     desired = dict(desired)
+
+    app_profile_name = desired.get("app_profile")
+    if app_profile_name:
+        profile_id = (app_profile_ids or {}).get(app_profile_name)
+        if profile_id is None:
+            print(
+                f"SKIPPED: required app profile unavailable for "
+                f"{definition}: {app_profile_name}"
+            )
+            return
+        desired["_app_profile_id"] = profile_id
 
     requested_tags = desired.get("tags", [])
     if requested_tags:
@@ -549,7 +660,9 @@ def configure_indexer(
     if "_tag_ids" in desired:
         payload["tags"] = desired["_tag_ids"]
 
-    if int(payload.get("appProfileId") or 0) <= 0:
+    if "_app_profile_id" in desired:
+        payload["appProfileId"] = desired["_app_profile_id"]
+    elif int(payload.get("appProfileId") or 0) <= 0:
         payload["appProfileId"] = 1
 
     apply_field_settings(
@@ -663,6 +776,15 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--only-indexer",
+        action="append",
+        default=[],
+        help=(
+            "Configure only the named managed definition. "
+            "May be supplied more than once."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -710,6 +832,28 @@ def main() -> int:
             *private_indexers,
         ]
 
+        if arguments.only_indexer:
+            selected = {
+                normalized_definition(item)
+                for item in arguments.only_indexer
+            }
+            desired_indexers = [
+                desired
+                for desired in desired_indexers
+                if normalized_definition(desired["definition"])
+                in selected
+            ]
+
+        requires_app_profiles = any(
+            desired.get("app_profile")
+            for desired in desired_indexers
+        )
+        app_profile_ids = (
+            configure_app_profiles(client, arguments.dry_run)
+            if requires_app_profiles
+            else {}
+        )
+
         for desired in desired_indexers:
             configure_indexer(
                 client,
@@ -718,6 +862,7 @@ def main() -> int:
                 desired,
                 arguments.dry_run,
                 tag_ids,
+                app_profile_ids,
             )
 
         print_summary(client)

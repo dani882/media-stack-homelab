@@ -53,8 +53,8 @@ including:
 
 - Prowlarr indexer configuration
 - optional private Prowlarr indexers with NAS-only credentials
-- private-tracker integrations with an official-minimum-plus-10-hour seeding
-  margin (Milnueve: 106 hours; RetroToon and TorrentHaven: 82 hours)
+- private-tracker integrations with guarded retention policies (time-based
+  trackers use the official minimum plus a 10-hour margin; BTArg uses 1:1)
 - qBittorrent categories and preferences
 - Sonarr and Radarr download clients and root folders
 - Seerr request-management integration with Sonarr and Radarr
@@ -62,6 +62,9 @@ including:
 - optional Profilarr pilot synchronization
 - Spanish-language upgrade policy:
   `Latino > Castellano > English/original`
+  Language markers are preserved in managed filenames, and accepted HD
+  qualities share a language-first group so a higher source quality cannot
+  replace Spanish audio with English.
 - audio-description release rejection
 - release auditing and upgrade automation
 - Sonarr and Radarr download cleanup

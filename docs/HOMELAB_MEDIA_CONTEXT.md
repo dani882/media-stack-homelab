@@ -1,6 +1,6 @@
 # Homelab Media Stack — Exhaustive Working Context / Canonical Checkpoint
 
-Last updated: 2026-09-07
+Last updated: 2026-09-08
 
 This document is the canonical handoff/checkpoint for the current homelab media-stack work.
 
@@ -35,6 +35,78 @@ The goal is that ChatGPT, Codex, or another engineer can read this file and unde
 - and what safe next steps look like.
 
 Before making changes, read this entire file.
+
+---
+
+# 0C. Private-first, language safety, and Telegram posters — 2026-09-08
+
+This checkpoint records the current follow-on work on `main` after the
+Telegram completion notifier was introduced.
+
+## Private tracker and Prowlarr policy
+
+- BTArg is integrated through Prowlarr's native definition. It is the second
+  preferred private source after the reserved Lat-Team priority, requires at
+  least one seeder, and uses a per-torrent ratio target of 1.0. Because BTArg
+  does not publish a fixed seed-time minimum, cleanup retains its payloads
+  until qBittorrent reports the required ratio; a torrent that cannot upload
+  remains protected.
+- DreadVault is integrated through the repository-owned UNIT3D definition at
+  `stacks/media/prowlarr/definitions/dreadvault-api.yml`. Its API token remains
+  in the NAS-only private-indexer secret. Its managed retention is 7,800
+  minutes: the published 120-hour requirement plus the normal 10-hour
+  accounting margin.
+- The private-tracker audit and imported-download cleanup understand both
+  time-based and ratio-based retention policies. Unknown private trackers, or
+  managed torrents without a usable finite policy, remain protected.
+- Public indexers use the `Public Manual Fallback` Prowlarr application
+  profile: interactive searches remain available, while RSS and automatic
+  searches are disabled. Private sources retain automatic operation. This is
+  necessary because indexer priority is only a tiebreaker after release
+  quality and custom-format scoring.
+- Scoped deployment helpers are available through `make configure-btarg` and
+  `make configure-dreadvault`, avoiding an unrelated full-stack deployment.
+
+## Spanish-language safety
+
+- Managed Sonarr and Radarr filenames preserve recognized Latino, Castellano,
+  dual-audio, and original-language markers so later decisions do not lose the
+  evidence contained in the release name.
+- Accepted HD qualities share a language-first quality group. A nominally
+  higher source quality must not replace acceptable Spanish audio with an
+  English-only release.
+- The managed custom formats include safeguards for the intended order:
+  `Latino > Castellano > English/original`.
+- The scoped `make configure-language-priority` helper deploys and applies
+  only this policy.
+
+## Telegram completion notifications
+
+- `scripts/notify-torrent-completions.py` still detects completion using the
+  qBittorrent hash and keeps its two-minute stateful polling behavior.
+- For `tv` and `radarr` categories, it now resolves that same download hash in
+  the Sonarr/Radarr queue or recent history, loads the corresponding series or
+  movie poster through the local authenticated API, and uploads the image to
+  Telegram with the existing completion text as its caption.
+- Metadata lookup and image delivery are best-effort. If no matching media or
+  poster exists, or Telegram rejects the image, the original text notification
+  is sent instead so visual enrichment cannot suppress an alert.
+- No additional external metadata account or repository credential was added.
+  Existing NAS-local Sonarr/Radarr configuration and Telegram secrets are
+  reused.
+- The notifier was installed independently on the NAS. Its normal service run
+  completed successfully, and
+  `media-stack-torrent-notifications.timer` remained enabled and active.
+
+## Validation and repository state
+
+- Targeted Telegram notifier tests pass, including completion detection,
+  message formatting, paged Arr responses, and poster selection.
+- The deployed notifier's SHA-256 matched the repository copy after
+  installation.
+- Repository-wide `make check` passed: Compose validation succeeded and all
+  163 automated tests passed. The existing non-fatal Python `ResourceWarning`
+  from a test-created HTTP redirect remains present.
 
 ---
 

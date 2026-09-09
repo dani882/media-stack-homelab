@@ -34,6 +34,16 @@ class LanguageUpgradeTest(unittest.TestCase):
             LanguageRank.LATINO,
         )
 
+    def test_persistent_filename_markers(self) -> None:
+        self.assertEqual(
+            language_rank({"relativePath": "Show S01E01 [LATINO] 1080p.mkv"}),
+            LanguageRank.LATINO,
+        )
+        self.assertEqual(
+            language_rank({"relativePath": "Show S01E01 [CASTELLANO] 1080p.mkv"}),
+            LanguageRank.CASTILIAN,
+        )
+
     def test_title_markers_are_token_aware(self) -> None:
         self.assertEqual(
             language_rank({"title": "Example.SPACEMAN.1080p"}),

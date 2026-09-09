@@ -1,5 +1,149 @@
 [
   {
+    "name": "LATINO",
+    "includeCustomFormatWhenRenaming": true,
+    "specifications": [
+      {
+        "name": "Persistent Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?|YERISAN710|USERHEVC|URBIN4HD|DAV1NCI|DUAL[ ._-]*(?:AUD[Ii]O[ ._-]*)?(?:SPA[ ._-]*ENG|ENG[ ._-]*SPA|ESP[ ._-]*ENG|ENG[ ._-]*ESP))\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CASTELLANO",
+    "includeCustomFormatWhenRenaming": true,
+    "specifications": [
+      {
+        "name": "Persistent Castellano marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "value": "\\b(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      },
+      {
+        "name": "Exclude Latino marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": true,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "value": "\\b(?:LATINO|LATAM|ES[ ._-]?419|SPA[ ._-]?LAT|ESP[ ._-]?LAT|SPANISH[ ._-]?LAT(?:INO)?|AUDIO[ ._-]?LAT(?:INO)?|YERISAN710|USERHEVC|URBIN4HD|DAV1NCI|DUAL[ ._-]*(?:AUD[Ii]O[ ._-]*)?(?:SPA[ ._-]*ENG|ENG[ ._-]*SPA|ESP[ ._-]*ENG|ENG[ ._-]*ESP))\\b",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "[Language Guard] Spanish audio",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Spanish audio metadata",
+        "implementation": "LanguageSpecification",
+        "implementationName": "Language",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Language",
+            "value": 3,
+            "type": "select",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          },
+          {
+            "order": 1,
+            "name": "exceptLanguage",
+            "label": "Except Language",
+            "value": false,
+            "type": "checkbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "[Language Guard] Latino audio",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Latino audio metadata",
+        "implementation": "LanguageSpecification",
+        "implementationName": "Language",
+        "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Language",
+            "value": 34,
+            "type": "select",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          },
+          {
+            "order": 1,
+            "name": "exceptLanguage",
+            "label": "Except Language",
+            "value": false,
+            "type": "checkbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
+  },
+  {
     "name": "[Latino] Spanish Latino",
     "includeCustomFormatWhenRenaming": false,
     "specifications": [

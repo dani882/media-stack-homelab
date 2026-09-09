@@ -5,10 +5,13 @@
 
 import argparse
 import json
+import mimetypes
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,16 +26,26 @@ from common.qbittorrent import (
     QBittorrentError,
     read_credentials,
 )
+from common.arr import ArrClient, ArrError, read_api_key
 
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 DEFAULT_SECRET_FILE = DEFAULT_STACK_DIR / "secrets/telegram-notifications.json"
 DEFAULT_STATE_FILE = DEFAULT_STACK_DIR / "state/torrent-notifications.json"
 MAX_NOTIFICATIONS_PER_RUN = 5
+ARR_HISTORY_PAGE_SIZE = 250
 
 
 class NotificationError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class ArrSource:
+    name: str
+    base_url: str
+    config_file: Path
+    media_kind: str
 
 
 def read_notification_secret(secret_file: Path) -> tuple[str, int]:
@@ -146,6 +159,182 @@ def send_telegram(token: str, chat_id: int, text: str) -> None:
         raise NotificationError("Telegram rejected the notification.")
 
 
+def records_from_response(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict) and isinstance(payload.get("records"), list):
+        return [
+            item for item in payload["records"]
+            if isinstance(item, dict)
+        ]
+    return []
+
+
+def matching_arr_record(
+    client: ArrClient,
+    torrent_hash: str,
+) -> dict[str, Any] | None:
+    queue = client.get(
+        "/queue/details?"
+        + urllib.parse.urlencode(
+            {
+                "includeUnknownSeriesItems": "true",
+                "includeUnknownMovieItems": "true",
+            }
+        )
+    )
+    for record in records_from_response(queue):
+        if str(record.get("downloadId") or "").upper() == torrent_hash:
+            return record
+
+    history = client.get(
+        "/history?"
+        + urllib.parse.urlencode(
+            {
+                "page": 1,
+                "pageSize": ARR_HISTORY_PAGE_SIZE,
+                "sortDirection": "descending",
+                "downloadId": torrent_hash,
+            }
+        )
+    )
+    for record in records_from_response(history):
+        if str(record.get("downloadId") or "").upper() == torrent_hash:
+            return record
+    return None
+
+
+def media_from_record(
+    client: ArrClient,
+    record: dict[str, Any],
+    media_kind: str,
+) -> dict[str, Any] | None:
+    embedded = record.get(media_kind)
+    if isinstance(embedded, dict) and embedded.get("images"):
+        return embedded
+
+    media_id = record.get(f"{media_kind}Id")
+    if not isinstance(media_id, int):
+        return None
+    media = client.get(f"/{media_kind}/{media_id}")
+    return media if isinstance(media, dict) else None
+
+
+def poster_url(media: dict[str, Any], base_url: str) -> str | None:
+    images = media.get("images")
+    if not isinstance(images, list):
+        return None
+    poster = next(
+        (
+            image for image in images
+            if isinstance(image, dict) and image.get("coverType") == "poster"
+        ),
+        None,
+    )
+    if poster is None:
+        return None
+    url = str(poster.get("url") or poster.get("remoteUrl") or "").strip()
+    if not url:
+        return None
+    return urllib.parse.urljoin(f"{base_url.rstrip('/')}/", url)
+
+
+def download_poster(
+    url: str,
+    api_key: str,
+) -> tuple[bytes, str]:
+    request = urllib.request.Request(
+        url,
+        headers={"X-Api-Key": api_key, "User-Agent": "homelab-notifier/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            photo = response.read()
+            content_type = response.headers.get_content_type()
+    except (urllib.error.URLError, OSError) as error:
+        raise NotificationError("Unable to download media poster.") from error
+    if not photo:
+        raise NotificationError("Media poster was empty.")
+    return photo, content_type
+
+
+def find_poster(
+    stack_dir: Path,
+    torrent: dict[str, Any],
+) -> tuple[bytes, str] | None:
+    category = str(torrent.get("category") or "").casefold()
+    sources = {
+        "tv": ArrSource(
+            "Sonarr",
+            "http://127.0.0.1:8989",
+            stack_dir / "config/sonarr/config.xml",
+            "series",
+        ),
+        "radarr": ArrSource(
+            "Radarr",
+            "http://127.0.0.1:7878",
+            stack_dir / "config/radarr/config.xml",
+            "movie",
+        ),
+    }
+    source = sources.get(category)
+    if source is None:
+        return None
+
+    api_key = read_api_key(source.config_file)
+    client = ArrClient(source.base_url, api_key)
+    torrent_hash = str(torrent.get("hash") or "").upper()
+    record = matching_arr_record(client, torrent_hash)
+    if record is None:
+        return None
+    media = media_from_record(client, record, source.media_kind)
+    if media is None:
+        return None
+    url = poster_url(media, source.base_url)
+    if url is None:
+        return None
+    return download_poster(url, api_key)
+
+
+def send_telegram_photo(
+    token: str,
+    chat_id: int,
+    caption: str,
+    photo: bytes,
+    content_type: str,
+) -> None:
+    boundary = f"----homelab-{uuid.uuid4().hex}"
+    extension = mimetypes.guess_extension(content_type) or ".jpg"
+    parts = [
+        (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="chat_id"\r\n\r\n'
+            f"{chat_id}\r\n"
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="caption"\r\n\r\n'
+            f"{caption}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="photo"; filename="poster{extension}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode("utf-8"),
+        photo,
+        f"\r\n--{boundary}--\r\n".encode("ascii"),
+    ]
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendPhoto",
+        data=b"".join(parts),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read())
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as error:
+        raise NotificationError("Unable to send Telegram photo.") from error
+    if not payload.get("ok"):
+        raise NotificationError("Telegram rejected the photo notification.")
+
+
 def run(
     stack_dir: Path,
     secret_file: Path,
@@ -188,7 +377,25 @@ def run(
         if dry_run:
             print(f"WOULD SEND:\n{text}")
         else:
-            send_telegram(token, chat_id, text)
+            poster = None
+            try:
+                poster = find_poster(stack_dir, torrent)
+            except (ArrError, NotificationError) as error:
+                print(
+                    f"Poster unavailable for {torrent.get('name', '')}: {error}",
+                    file=sys.stderr,
+                )
+            if poster is None:
+                send_telegram(token, chat_id, text)
+            else:
+                try:
+                    send_telegram_photo(token, chat_id, text, *poster)
+                except NotificationError as error:
+                    print(
+                        f"Photo notification failed; sending text instead: {error}",
+                        file=sys.stderr,
+                    )
+                    send_telegram(token, chat_id, text)
             print(f"Notified completion: {torrent.get('name', '')}")
 
     if not dry_run:

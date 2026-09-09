@@ -133,6 +133,51 @@ class PrivateTrackerAuditTest(unittest.TestCase):
         self.assertTrue(safe)
         self.assertIn("Torrent Haven", message)
 
+    def test_dreadvault_uses_120_hour_policy_plus_margin(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "i" * 40,
+                "progress": 1,
+                "seeding_time_limit": 7800,
+                "seeding_time": 60,
+            },
+            {"tracker.dreadvault.org"},
+        )
+
+        self.assertTrue(safe)
+        self.assertIn("DreadVault", message)
+        self.assertIn("remaining=7799m", message)
+
+    def test_btarg_uses_one_to_one_ratio_policy(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "j" * 40,
+                "progress": 1,
+                "ratio_limit": 1.0,
+                "ratio": 0.25,
+            },
+            {"announce.btarg.org"},
+        )
+
+        self.assertTrue(safe)
+        self.assertIn("BTArg", message)
+        self.assertIn("PENDING", message)
+        self.assertIn("required=1.00", message)
+
+    def test_btarg_missing_ratio_limit_is_at_risk(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "k" * 40,
+                "progress": 1,
+                "ratio_limit": -1,
+                "ratio": 2.0,
+            },
+            {"btarg.com.ar"},
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("no finite", message)
+
 
 if __name__ == "__main__":
     unittest.main()
