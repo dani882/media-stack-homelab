@@ -85,9 +85,9 @@ Telegram completion notifier was introduced.
 - `scripts/notify-torrent-completions.py` still detects completion using the
   qBittorrent hash and keeps its two-minute stateful polling behavior.
 - For `tv` and `radarr` categories, it now resolves that same download hash in
-  the Sonarr/Radarr queue or recent history, loads the corresponding series or
-  movie poster through the local authenticated API, and uploads the image to
-  Telegram with the existing completion text as its caption.
+  the Sonarr/Radarr queue or recent history, reads the corresponding series or
+  movie metadata locally, and uploads its public poster image to Telegram with
+  the existing completion text as its caption.
 - Metadata lookup and image delivery are best-effort. If no matching media or
   poster exists, or Telegram rejects the image, the original text notification
   is sent instead so visual enrichment cannot suppress an alert.
@@ -97,15 +97,20 @@ Telegram completion notifier was introduced.
 - The notifier was installed independently on the NAS. Its normal service run
   completed successfully, and
   `media-stack-torrent-notifications.timer` remained enabled and active.
+- Follow-up validation on 2026-09-09 found that Arr's local `MediaCover` URL
+  returned its HTML application page, causing Telegram to reject it with
+  `IMAGE_PROCESS_FAILED`. The notifier now prefers the metadata `remoteUrl`,
+  verifies that the response is an image, and never sends the Arr API key to
+  an external image host. A live end-to-end Telegram photo test succeeded.
 
 ## Validation and repository state
 
-- Targeted Telegram notifier tests pass, including completion detection,
+- Eight targeted Telegram notifier tests pass, including completion detection,
   message formatting, paged Arr responses, and poster selection.
 - The deployed notifier's SHA-256 matched the repository copy after
   installation.
 - Repository-wide `make check` passed: Compose validation succeeded and all
-  163 automated tests passed. The existing non-fatal Python `ResourceWarning`
+  170 automated tests passed. The existing non-fatal Python `ResourceWarning`
   from a test-created HTTP redirect remains present.
 
 ---

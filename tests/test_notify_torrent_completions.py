@@ -54,7 +54,7 @@ class TorrentNotificationTest(unittest.TestCase):
         records = [{"downloadId": "ABC"}]
         self.assertEqual(MODULE.records_from_response({"records": records}), records)
 
-    def test_selects_local_poster_url(self) -> None:
+    def test_selects_remote_poster_url(self) -> None:
         media = {
             "images": [
                 {"coverType": "fanart", "url": "/fanart.jpg"},
@@ -67,8 +67,24 @@ class TorrentNotificationTest(unittest.TestCase):
         }
         self.assertEqual(
             MODULE.poster_url(media, "http://127.0.0.1:8989"),
-            "http://127.0.0.1:8989/MediaCover/1/poster.jpg",
+            "https://example.com/poster.jpg",
         )
+
+    def test_does_not_send_arr_api_key_to_remote_poster_host(self) -> None:
+        headers = MODULE.poster_request_headers(
+            "https://image.example/poster.jpg",
+            "private-key",
+            "http://127.0.0.1:7878",
+        )
+        self.assertNotIn("X-Api-Key", headers)
+
+    def test_authenticates_local_poster_fallback(self) -> None:
+        headers = MODULE.poster_request_headers(
+            "http://127.0.0.1:7878/MediaCover/1/poster.jpg",
+            "private-key",
+            "http://127.0.0.1:7878",
+        )
+        self.assertEqual(headers["X-Api-Key"], "private-key")
 
     def test_returns_none_when_media_has_no_poster(self) -> None:
         self.assertIsNone(

@@ -233,19 +233,33 @@ def poster_url(media: dict[str, Any], base_url: str) -> str | None:
     )
     if poster is None:
         return None
-    url = str(poster.get("url") or poster.get("remoteUrl") or "").strip()
+    url = str(poster.get("remoteUrl") or poster.get("url") or "").strip()
     if not url:
         return None
     return urllib.parse.urljoin(f"{base_url.rstrip('/')}/", url)
 
 
+def poster_request_headers(
+    url: str,
+    api_key: str,
+    arr_base_url: str,
+) -> dict[str, str]:
+    headers = {"User-Agent": "homelab-notifier/1.0"}
+    target = urllib.parse.urlsplit(url)
+    arr = urllib.parse.urlsplit(arr_base_url)
+    if (target.scheme, target.netloc) == (arr.scheme, arr.netloc):
+        headers["X-Api-Key"] = api_key
+    return headers
+
+
 def download_poster(
     url: str,
     api_key: str,
+    arr_base_url: str,
 ) -> tuple[bytes, str]:
     request = urllib.request.Request(
         url,
-        headers={"X-Api-Key": api_key, "User-Agent": "homelab-notifier/1.0"},
+        headers=poster_request_headers(url, api_key, arr_base_url),
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -255,6 +269,10 @@ def download_poster(
         raise NotificationError("Unable to download media poster.") from error
     if not photo:
         raise NotificationError("Media poster was empty.")
+    if not content_type.startswith("image/"):
+        raise NotificationError(
+            f"Media poster returned unexpected content type {content_type}."
+        )
     return photo, content_type
 
 
@@ -293,7 +311,7 @@ def find_poster(
     url = poster_url(media, source.base_url)
     if url is None:
         return None
-    return download_poster(url, api_key)
+    return download_poster(url, api_key, source.base_url)
 
 
 def send_telegram_photo(
