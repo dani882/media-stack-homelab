@@ -48,7 +48,7 @@ class ArrSource:
     media_kind: str
 
 
-def read_notification_secret(secret_file: Path) -> tuple[str, int]:
+def read_notification_secret(secret_file: Path) -> tuple[str, list[int]]:
     try:
         values = json.loads(secret_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -57,12 +57,24 @@ def read_notification_secret(secret_file: Path) -> tuple[str, int]:
         ) from error
 
     token = str(values.get("botToken") or "").strip()
-    chat_id = values.get("chatId")
-    if not token or not isinstance(chat_id, int):
-        raise NotificationError(
-            "Telegram notification secret requires botToken and numeric chatId."
+    configured_chat_ids = values.get("chatIds")
+    if configured_chat_ids is None:
+        configured_chat_ids = [values.get("chatId")]
+    if not isinstance(configured_chat_ids, list):
+        configured_chat_ids = []
+    chat_ids = list(
+        dict.fromkeys(
+            chat_id
+            for chat_id in configured_chat_ids
+            if type(chat_id) is int
         )
-    return token, chat_id
+    )
+    if not token or not chat_ids:
+        raise NotificationError(
+            "Telegram notification secret requires botToken and at least one "
+            "numeric chatId or chatIds entry."
+        )
+    return token, chat_ids
 
 
 def load_state(state_file: Path) -> dict[str, Any] | None:
@@ -353,6 +365,25 @@ def send_telegram_photo(
         raise NotificationError("Telegram rejected the photo notification.")
 
 
+def send_download_notification(
+    token: str,
+    chat_id: int,
+    text: str,
+    poster: tuple[bytes, str] | None,
+) -> None:
+    if poster is None:
+        send_telegram(token, chat_id, text)
+        return
+    try:
+        send_telegram_photo(token, chat_id, text, *poster)
+    except NotificationError as error:
+        print(
+            f"Photo notification failed; sending text instead: {error}",
+            file=sys.stderr,
+        )
+        send_telegram(token, chat_id, text)
+
+
 def run(
     stack_dir: Path,
     secret_file: Path,
@@ -360,14 +391,15 @@ def run(
     dry_run: bool,
     test: bool,
 ) -> int:
-    token, chat_id = read_notification_secret(secret_file)
+    token, chat_ids = read_notification_secret(secret_file)
     if test:
         message = "✅ Media NAS conectado. Las notificaciones de descargas están activas."
         if dry_run:
-            print(f"WOULD SEND: {message}")
+            print(f"WOULD SEND TO {len(chat_ids)} RECIPIENTS: {message}")
         else:
-            send_telegram(token, chat_id, message)
-            print("Telegram test notification sent.")
+            for chat_id in chat_ids:
+                send_telegram(token, chat_id, message)
+            print(f"Telegram test notification sent to {len(chat_ids)} recipients.")
         return 0
 
     username, password = read_credentials(stack_dir / "secrets/qbittorrent.json")
@@ -390,10 +422,11 @@ def run(
         raise NotificationError(
             f"Refusing to send {len(completed)} notifications in one run."
         )
+    delivery_failures = 0
     for torrent in completed:
         text = notification_text(torrent)
         if dry_run:
-            print(f"WOULD SEND:\n{text}")
+            print(f"WOULD SEND TO {len(chat_ids)} RECIPIENTS:\n{text}")
         else:
             poster = None
             try:
@@ -403,21 +436,29 @@ def run(
                     f"Poster unavailable for {torrent.get('name', '')}: {error}",
                     file=sys.stderr,
                 )
-            if poster is None:
-                send_telegram(token, chat_id, text)
-            else:
+            delivered = 0
+            for recipient_number, chat_id in enumerate(chat_ids, 1):
                 try:
-                    send_telegram_photo(token, chat_id, text, *poster)
+                    send_download_notification(token, chat_id, text, poster)
                 except NotificationError as error:
                     print(
-                        f"Photo notification failed; sending text instead: {error}",
+                        f"Recipient {recipient_number} notification failed: {error}",
                         file=sys.stderr,
                     )
-                    send_telegram(token, chat_id, text)
-            print(f"Notified completion: {torrent.get('name', '')}")
+                    delivery_failures += 1
+                    continue
+                delivered += 1
+            print(
+                f"Notified completion to {delivered}/{len(chat_ids)} recipients: "
+                f"{torrent.get('name', '')}"
+            )
 
     if not dry_run:
         save_state(state_file, current)
+    if delivery_failures:
+        raise NotificationError(
+            f"Failed to notify {delivery_failures} recipient deliveries."
+        )
     return 0
 
 

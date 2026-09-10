@@ -978,7 +978,8 @@ This installs:
 
 The notification timer uses only
 `/volume1/docker/media-stack/secrets/telegram-notifications.json`; its bot
-token and chat ID are never tracked in Git.
+token and destination chat IDs are never tracked in Git. The notifier accepts
+the legacy single `chatId` setting or a `chatIds` list for multiple recipients.
 
 ## Testing
 

@@ -1,6 +1,8 @@
 
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,6 +17,30 @@ SPEC.loader.exec_module(MODULE)
 
 
 class TorrentNotificationTest(unittest.TestCase):
+    def test_reads_legacy_single_recipient_secret(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            secret = Path(directory) / "telegram.json"
+            secret.write_text(
+                json.dumps({"botToken": "token", "chatId": 1001}),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                MODULE.read_notification_secret(secret),
+                ("token", [1001]),
+            )
+
+    def test_reads_multiple_recipient_secret(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            secret = Path(directory) / "telegram.json"
+            secret.write_text(
+                json.dumps({"botToken": "token", "chatIds": [1001, 1002]}),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                MODULE.read_notification_secret(secret),
+                ("token", [1001, 1002]),
+            )
+
     def test_detects_completed_transition(self) -> None:
         torrent = {
             "hash": "abc",

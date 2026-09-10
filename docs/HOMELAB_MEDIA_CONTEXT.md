@@ -102,15 +102,19 @@ Telegram completion notifier was introduced.
   `IMAGE_PROCESS_FAILED`. The notifier now prefers the metadata `remoteUrl`,
   verifies that the response is an image, and never sends the Arr API key to
   an external image host. A live end-to-end Telegram photo test succeeded.
+- On 2026-09-10 the notifier gained multiple-recipient support. The NAS secret
+  may use a `chatIds` list while the legacy single `chatId` remains accepted.
+  Two private recipients are configured on the NAS, and a live test message
+  was delivered successfully to both without exposing either identifier.
 
 ## Validation and repository state
 
-- Eight targeted Telegram notifier tests pass, including completion detection,
+- Ten targeted Telegram notifier tests pass, including completion detection,
   message formatting, paged Arr responses, and poster selection.
 - The deployed notifier's SHA-256 matched the repository copy after
   installation.
 - Repository-wide `make check` passed: Compose validation succeeded and all
-  170 automated tests passed. The existing non-fatal Python `ResourceWarning`
+  172 automated tests passed. The existing non-fatal Python `ResourceWarning`
   from a test-created HTTP redirect remains present.
 
 ---

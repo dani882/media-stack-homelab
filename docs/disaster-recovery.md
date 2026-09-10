@@ -84,8 +84,8 @@ The notification timer needs the NAS-local, permission-restricted file:
 ```
 
 After a restore, confirm `media-stack-torrent-notifications.timer` is enabled
-and active. Do not record its bot token or chat ID in a ticket, shell command,
-or repository file.
+and active. Do not record its bot token or destination chat IDs in a ticket,
+shell command, or repository file.
 
 ## Compatibility Mounts
 

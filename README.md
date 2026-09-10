@@ -205,7 +205,7 @@ Telegram completion-notification credentials are stored only on the NAS:
 /volume1/docker/media-stack/secrets/telegram-notifications.json
 ```
 
-It contains the bot token and destination chat ID, is permission-restricted,
+It contains the bot token and destination chat IDs, is permission-restricted,
 and is never committed or included in documentation/backups for untrusted
 storage.
 
