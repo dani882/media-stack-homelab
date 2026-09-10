@@ -1,6 +1,6 @@
 # Claude Working Notes
 
-Last updated: 2026-09-01
+Last updated: 2026-09-10
 
 Read this file before making homelab media-stack changes from Claude.
 
@@ -85,6 +85,13 @@ Validated live on 2026-08-31:
 - live Sonarr and Radarr preview syncs both completed cleanly after the fix
 
 ## Guardrails
+
+- Telegram completion notifications support multiple private recipients and
+  poster images. A second device on the same Telegram account needs no change.
+  For a different account, have the person start the bot and send
+  `/registrar CODIGO`, then run
+  `make register-telegram-recipient CODE=CODIGO`. Never display or copy the
+  resulting chat ID; the helper updates the NAS-only secret and sends a test.
 
 - do not reset, restore, stash, or discard user changes
 - do not remove compatibility mounts `/downloads` or `/media` yet
@@ -171,4 +178,5 @@ If extending the Profilarr pilot:
 - `make sync-recyclarr`
 - `make sync-profilarr`
 - `make install-media-observability`
+- `make register-telegram-recipient CODE=CODIGO`
 - `make verify-hardlinks DOWNLOAD="..." LIBRARY="..."`

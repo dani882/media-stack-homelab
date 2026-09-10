@@ -106,15 +106,23 @@ Telegram completion notifier was introduced.
   may use a `chatIds` list while the legacy single `chatId` remains accepted.
   Two private recipients are configured on the NAS, and a live test message
   was delivered successfully to both without exposing either identifier.
+- Telegram does not expose chat IDs in its normal interface, and another
+  device signed into an existing account does not need a new one. For a new
+  account, the supported workflow is to start the bot, send
+  `/registrar CODIGO`, and run
+  `make register-telegram-recipient CODE=CODIGO`. The helper accepts only a
+  restricted temporary code, registers exactly one matching unknown private
+  chat, updates the NAS-only secret, and tests all configured recipients
+  without printing any account identifier.
 
 ## Validation and repository state
 
-- Ten targeted Telegram notifier tests pass, including completion detection,
+- Twelve targeted Telegram notifier tests pass, including completion detection,
   message formatting, paged Arr responses, and poster selection.
 - The deployed notifier's SHA-256 matched the repository copy after
   installation.
 - Repository-wide `make check` passed: Compose validation succeeded and all
-  172 automated tests passed. The existing non-fatal Python `ResourceWarning`
+  174 automated tests passed. The existing non-fatal Python `ResourceWarning`
   from a test-created HTTP redirect remains present.
 
 ---

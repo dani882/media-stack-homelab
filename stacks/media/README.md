@@ -980,6 +980,10 @@ The notification timer uses only
 `/volume1/docker/media-stack/secrets/telegram-notifications.json`; its bot
 token and destination chat IDs are never tracked in Git. The notifier accepts
 the legacy single `chatId` setting or a `chatIds` list for multiple recipients.
+Do not look up or copy chat IDs manually. A different Telegram account starts
+the bot, sends `/registrar CODIGO`, and is added with
+`make register-telegram-recipient CODE=CODIGO`. Additional devices signed into
+an already registered Telegram account receive the same chat automatically.
 
 ## Testing
 

@@ -6,6 +6,7 @@
 import argparse
 import json
 import mimetypes
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -34,6 +35,7 @@ DEFAULT_SECRET_FILE = DEFAULT_STACK_DIR / "secrets/telegram-notifications.json"
 DEFAULT_STATE_FILE = DEFAULT_STACK_DIR / "state/torrent-notifications.json"
 MAX_NOTIFICATIONS_PER_RUN = 5
 ARR_HISTORY_PAGE_SIZE = 250
+REGISTRATION_CODE_PATTERN = re.compile(r"[A-Za-z0-9_-]{6,64}")
 
 
 class NotificationError(RuntimeError):
@@ -75,6 +77,89 @@ def read_notification_secret(secret_file: Path) -> tuple[str, list[int]]:
             "numeric chatId or chatIds entry."
         )
     return token, chat_ids
+
+
+def telegram_updates(token: str) -> list[dict[str, Any]]:
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/getUpdates?limit=100&timeout=0",
+        headers={"User-Agent": "homelab-notifier/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read())
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as error:
+        raise NotificationError("Unable to read Telegram updates.") from error
+    if not payload.get("ok") or not isinstance(payload.get("result"), list):
+        raise NotificationError("Telegram rejected the update lookup.")
+    return [
+        update for update in payload["result"]
+        if isinstance(update, dict)
+    ]
+
+
+def registration_candidate(
+    updates: list[dict[str, Any]],
+    existing_chat_ids: list[int],
+    registration_code: str,
+) -> int:
+    expected_text = f"/registrar {registration_code}"
+    existing = set(existing_chat_ids)
+    candidates: set[int] = set()
+    for update in updates:
+        message = update.get("message") or update.get("edited_message") or {}
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        if (
+            chat.get("type") == "private"
+            and type(chat_id) is int
+            and chat_id not in existing
+            and str(message.get("text") or "").strip() == expected_text
+        ):
+            candidates.add(chat_id)
+    if len(candidates) != 1:
+        raise NotificationError(
+            "Expected exactly one new private chat with the registration code; "
+            f"found {len(candidates)}."
+        )
+    return next(iter(candidates))
+
+
+def register_telegram_chat(
+    secret_file: Path,
+    registration_code: str,
+    dry_run: bool,
+) -> int:
+    if REGISTRATION_CODE_PATTERN.fullmatch(registration_code) is None:
+        raise NotificationError(
+            "Registration code must contain 6-64 letters, numbers, underscores, "
+            "or hyphens."
+        )
+    token, chat_ids = read_notification_secret(secret_file)
+    chat_id = registration_candidate(
+        telegram_updates(token),
+        chat_ids,
+        registration_code,
+    )
+    if dry_run:
+        print(f"WOULD REGISTER RECIPIENT {len(chat_ids) + 1}")
+        return len(chat_ids) + 1
+
+    try:
+        values = json.loads(secret_file.read_text(encoding="utf-8"))
+        values["chatIds"] = [*chat_ids, chat_id]
+        temporary = secret_file.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(values, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary.chmod(0o600)
+        temporary.replace(secret_file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise NotificationError(
+            "Unable to update Telegram notification recipients."
+        ) from error
+    print(f"Telegram recipient {len(chat_ids) + 1} registered.")
+    return len(chat_ids) + 1
 
 
 def load_state(state_file: Path) -> dict[str, Any] | None:
@@ -469,7 +554,20 @@ def main() -> int:
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--test", action="store_true")
+    parser.add_argument(
+        "--register-chat",
+        metavar="CODE",
+        help="Register the one private chat that sent /registrar CODE.",
+    )
     args = parser.parse_args()
+    if args.register_chat:
+        register_telegram_chat(
+            args.secret_file,
+            args.register_chat,
+            args.dry_run,
+        )
+        if not args.test:
+            return 0
     return run(args.stack_dir, args.secret_file, args.state_file, args.dry_run, args.test)
 
 

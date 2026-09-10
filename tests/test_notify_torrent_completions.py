@@ -41,6 +41,38 @@ class TorrentNotificationTest(unittest.TestCase):
                 ("token", [1001, 1002]),
             )
 
+    def test_selects_chat_with_exact_registration_code(self) -> None:
+        updates = [
+            {
+                "message": {
+                    "text": "/registrar CASA2026",
+                    "chat": {"id": 1002, "type": "private"},
+                }
+            },
+            {
+                "message": {
+                    "text": "/registrar OTROCODIGO",
+                    "chat": {"id": 1003, "type": "private"},
+                }
+            },
+        ]
+        self.assertEqual(
+            MODULE.registration_candidate(updates, [1001], "CASA2026"),
+            1002,
+        )
+
+    def test_rejects_already_registered_chat(self) -> None:
+        updates = [
+            {
+                "message": {
+                    "text": "/registrar CASA2026",
+                    "chat": {"id": 1001, "type": "private"},
+                }
+            }
+        ]
+        with self.assertRaises(MODULE.NotificationError):
+            MODULE.registration_candidate(updates, [1001], "CASA2026")
+
     def test_detects_completed_transition(self) -> None:
         torrent = {
             "hash": "abc",

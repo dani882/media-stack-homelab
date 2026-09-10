@@ -111,6 +111,14 @@ repository, terminal output, documentation, commits, or chat responses.
 
 ## Operational workflow
 
+- Telegram synchronizes one account across its devices, so a new device on an
+  existing account requires no recipient change. For another person's
+  account, have them start the bot and send `/registrar CODIGO`, then run
+  `make register-telegram-recipient CODE=CODIGO`. This updates the NAS-local
+  `chatIds` list and sends a test without displaying or manually copying any
+  account identifier. Registration codes must use only letters, numbers,
+  underscores, or hyphens and be 6-64 characters long.
+
 - For monitored-library language upgrades, always run the Sonarr and Radarr
   upgrade helpers with `--dry-run` first, inspect every proposed release, then
   run without `--dry-run` only for safe language improvements.

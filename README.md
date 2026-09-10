@@ -209,6 +209,18 @@ It contains the bot token and destination chat IDs, is permission-restricted,
 and is never committed or included in documentation/backups for untrusted
 storage.
 
+Another device using the same Telegram account needs no registration. To add
+a different Telegram account without exposing or manually editing its chat
+ID, have that person start the bot and send `/registrar CODIGO`, then run:
+
+```bash
+make register-telegram-recipient CODE=CODIGO
+```
+
+Use a temporary 6-64 character code containing only letters, numbers,
+underscores, or hyphens. The command registers the exact matching private chat
+and sends a test notification to every configured recipient.
+
 Dispatcharr administrator credentials are generated and stored only in
 `/volume1/docker/media-stack/secrets/dispatcharr-admin.txt`. The optional
 Dominican Tailscale exit-node key remains only in the NAS-side stack `.env`.
