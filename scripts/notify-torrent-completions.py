@@ -209,6 +209,7 @@ def torrent_snapshot(torrent: dict[str, Any]) -> dict[str, Any]:
     return {
         "progress": float(torrent.get("progress", 0) or 0),
         "completion_on": int(torrent.get("completion_on", 0) or 0),
+        "notification_ready": notification_ready(torrent),
     }
 
 
@@ -217,6 +218,17 @@ def is_complete(torrent: dict[str, Any]) -> bool:
         float(torrent.get("progress", 0) or 0) >= 1
         and int(torrent.get("amount_left", 0) or 0) == 0
     )
+
+
+def notification_ready(torrent: dict[str, Any]) -> bool:
+    if not is_complete(torrent):
+        return False
+    tags = {
+        tag.strip()
+        for tag in str(torrent.get("tags") or "").split(",")
+        if tag.strip()
+    }
+    return "btarg-series-pack" not in tags or "btarg-import-verified" in tags
 
 
 def newly_completed(
@@ -241,7 +253,7 @@ def pending_notifications(
 ) -> list[tuple[dict[str, Any], list[int]]]:
     pending: list[tuple[dict[str, Any], list[int]]] = []
     for torrent in torrents:
-        if not is_complete(torrent):
+        if not notification_ready(torrent):
             continue
         torrent_hash = str(torrent.get("hash") or "").upper()
         delivered = set(notified.get(torrent_hash, []))
@@ -267,6 +279,20 @@ def human_size(size: int) -> str:
 def notification_text(torrent: dict[str, Any]) -> str:
     private = "privado" if torrent.get("private") is True else "público"
     category = str(torrent.get("category") or "sin categoría")
+    tags = {
+        tag.strip()
+        for tag in str(torrent.get("tags") or "").split(",")
+        if tag.strip()
+    }
+    if "btarg-series-pack" in tags and "btarg-import-verified" in tags:
+        return (
+            "✅ Contenido disponible\n"
+            f"{torrent.get('name', 'Sin título')}\n"
+            f"Categoría: {category}\n"
+            f"Tamaño: {human_size(int(torrent.get('size', 0) or 0))}\n"
+            f"Origen: {private}\n"
+            "La serie ya fue importada y verificada por Sonarr."
+        )
     return (
         "✅ Descarga completada\n"
         f"{torrent.get('name', 'Sin título')}\n"
@@ -566,7 +592,7 @@ def run(
         baseline = {
             torrent_hash: current_recipients
             for torrent_hash, snapshot in current.items()
-            if float(snapshot.get("progress", 0) or 0) >= 1
+            if snapshot.get("notification_ready") is True
         }
         save_state(state_file, current, baseline, current_recipients)
         print(f"Notification baseline saved for {len(current)} torrents.")
@@ -592,7 +618,7 @@ def run(
     new_recipients = set(current_recipients) - known_recipients
     if new_recipients:
         for torrent_hash, snapshot in current.items():
-            if float(snapshot.get("progress", 0) or 0) >= 1:
+            if snapshot.get("notification_ready") is True:
                 notified.setdefault(torrent_hash, []).extend(sorted(new_recipients))
     completed_now = newly_completed(torrents, previous_state["torrents"])
     for torrent in completed_now:

@@ -132,6 +132,15 @@ repository, terminal output, documentation, commits, or chat responses.
   short capability test. Every generated file is probed before import, and a
   hardware failure automatically retries that file with `libx264`; do not
   remove this software fallback.
+- BTArg conversions write deterministic temporary files under
+  `/volume1/Family/Downloads/.transcode/btarg-series`, never in the media
+  library. Before final placement, verify codec, dimensions, duration, audio
+  and subtitle counts, audio-language tags, and decodability at the end.
+- Rescan Sonarr after each completed season so finished seasons become visible
+  while a large pack continues. Progress, ETA, encoder speed, hardware
+  temperature, and fallback count are written without secrets to
+  `state/btarg-series-progress.json` and `.html`. Pause a conversion rather
+  than start hardware encoding at 85 C or higher.
 - `media-stack-language-repair-audit.timer` creates a daily dry-run report for
   monitored Sonarr/Radarr language repairs. It must never grab a candidate by
   itself; apply a reviewed candidate through the existing explicit upgrade
@@ -148,6 +157,10 @@ repository, terminal output, documentation, commits, or chat responses.
   `sonarr-series-N` or `radarr-movie-N` qBittorrent tag is the safe poster
   fallback. Poster troubleshooting must not resend an already delivered
   completion notification.
+- For `btarg-series-pack` torrents, qBittorrent completion is not enough to
+  notify. Wait for `btarg-import-verified`, then send the single completion
+  message with wording that the series is available in Sonarr. Existing
+  recipients that were already notified must not receive a duplicate.
 
 - Telegram synchronizes one account across its devices, so a new device on an
   existing account requires no recipient change. For another person's

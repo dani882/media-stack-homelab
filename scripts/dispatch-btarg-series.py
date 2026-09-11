@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import errno
 import fcntl
+import hashlib
+import html
 import json
 import os
 import re
@@ -17,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -46,11 +49,113 @@ MINIMUM_SEEDERS = 1
 MAX_BTARG_DOWNLOADS = 6
 MINIMUM_FREE_BYTES = 10 * 1024**3
 DISPATCH_SPACE_MULTIPLIER = 2.1
+TRANSCODE_ROOT = DATA_ROOT / "Downloads/.transcode/btarg-series"
+MAX_HARDWARE_TEMPERATURE_C = 85.0
 _RKMPP_AVAILABLE: bool | None = None
+_HARDWARE_FALLBACKS = 0
 
 
 class DispatchError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class ConversionResult:
+    encoder: str
+    elapsed_seconds: float
+    speed: float | None
+
+
+def load_progress_report(stack: Path) -> dict[str, Any]:
+    path = stack / "state/btarg-series-progress.json"
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def format_eta(seconds: int | float | None) -> str:
+    if seconds is None or seconds < 0:
+        return "calculando"
+    minutes = max(0, int(round(float(seconds) / 60)))
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes} min" if hours else f"{minutes} min"
+
+
+def render_progress_html(payload: dict[str, Any]) -> str:
+    title = html.escape(str(payload.get("series") or "Sin actividad"))
+    status = html.escape(str(payload.get("status") or "idle"))
+    completed_files = int(payload.get("completedFiles", 0) or 0)
+    total_files = int(payload.get("totalFiles", 0) or 0)
+    completed_episodes = int(payload.get("completedEpisodes", 0) or 0)
+    total_episodes = int(payload.get("totalEpisodes", 0) or 0)
+    percentage = (completed_files / total_files * 100) if total_files else 0.0
+    encoder = html.escape(str(payload.get("encoder") or "-"))
+    current = html.escape(str(payload.get("current") or "-"))
+    temperature = payload.get("temperatureC")
+    temperature_text = "-" if temperature is None else f"{float(temperature):.1f} °C"
+    eta = html.escape(format_eta(payload.get("estimatedSecondsRemaining")))
+    speed = payload.get("speed")
+    speed_text = "-" if speed is None else f"{float(speed):.2f}×"
+    updated = time.strftime(
+        "%Y-%m-%d %H:%M:%S %Z",
+        time.localtime(int(payload.get("updatedAt", time.time()) or time.time())),
+    )
+    error = html.escape(str(payload.get("error") or ""))
+    error_row = f"<p class='error'>{error}</p>" if error else ""
+    return f"""<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Progreso BTArg</title><style>
+body{{font-family:system-ui;background:#101827;color:#eef2ff;max-width:760px;margin:40px auto;padding:0 20px}}
+.card{{background:#1f2937;border-radius:16px;padding:24px}}progress{{width:100%;height:24px}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}}
+.item{{background:#111827;padding:12px;border-radius:10px}}small{{color:#a5b4fc}}.error{{color:#fca5a5}}
+</style></head><body><div class="card"><h1>{title}</h1><p>Estado: {status}</p>
+<progress max="100" value="{percentage:.1f}"></progress><p>{percentage:.1f}% — {completed_files}/{total_files} archivos — {completed_episodes}/{total_episodes} episodios</p>
+<div class="grid"><div class="item"><small>Actual</small><br>{current}</div><div class="item"><small>Codificador</small><br>{encoder}</div>
+<div class="item"><small>Velocidad</small><br>{speed_text}</div><div class="item"><small>Temperatura</small><br>{temperature_text}</div>
+<div class="item"><small>Tiempo restante</small><br>{eta}</div><div class="item"><small>Retornos a software</small><br>{int(payload.get('hardwareFallbacks', 0) or 0)}</div></div>
+{error_row}<p><small>Actualizado: {html.escape(updated)}</small></p></div></body></html>"""
+
+
+def save_progress_report(stack: Path, **updates: Any) -> dict[str, Any]:
+    state_dir = stack / "state"
+    state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    payload = load_progress_report(stack)
+    payload.update(updates)
+    payload["updatedAt"] = int(time.time())
+    json_path = state_dir / "btarg-series-progress.json"
+    html_path = state_dir / "btarg-series-progress.html"
+    json_temporary = json_path.with_suffix(".json.tmp")
+    html_temporary = html_path.with_suffix(".html.tmp")
+    json_temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    html_temporary.write_text(render_progress_html(payload), encoding="utf-8")
+    os.chmod(json_temporary, 0o644)
+    os.chmod(html_temporary, 0o644)
+    json_temporary.replace(json_path)
+    html_temporary.replace(html_path)
+    return payload
+
+
+def read_temperature_c(
+    thermal_root: Path = Path("/sys/class/thermal"),
+) -> float | None:
+    values: list[float] = []
+    for path in thermal_root.glob("thermal_zone*/temp"):
+        try:
+            raw = float(path.read_text(encoding="ascii").strip())
+        except (OSError, ValueError):
+            continue
+        value = raw / 1000 if raw > 200 else raw
+        if 0 < value < 125:
+            values.append(value)
+    return max(values) if values else None
 
 
 def read_xml_api_key(path: Path) -> str:
@@ -329,6 +434,7 @@ def probe_media(path: Path) -> dict[str, Any]:
         "-print_format",
         "json",
         "-show_streams",
+        "-show_format",
         str(path),
     ]
     result = subprocess.run(command, capture_output=True, text=True, timeout=180)
@@ -341,14 +447,45 @@ def probe_media(path: Path) -> dict[str, Any]:
 
 
 def media_codec(probe: dict[str, Any]) -> str:
-    videos = [
-        stream
-        for stream in probe.get("streams", [])
-        if stream.get("codec_type") == "video"
-    ]
+    videos = primary_video_streams(probe)
     if len(videos) != 1:
         raise DispatchError("Expected exactly one video stream")
     return str(videos[0].get("codec_name", "")).casefold()
+
+
+def streams_of_type(probe: dict[str, Any], stream_type: str) -> list[dict[str, Any]]:
+    return [
+        stream
+        for stream in probe.get("streams", [])
+        if isinstance(stream, dict) and stream.get("codec_type") == stream_type
+    ]
+
+
+def primary_video_streams(probe: dict[str, Any]) -> list[dict[str, Any]]:
+    image_codecs = {"apng", "bmp", "gif", "jpeg", "mjpeg", "png", "webp"}
+    return [
+        stream
+        for stream in streams_of_type(probe, "video")
+        if not bool((stream.get("disposition") or {}).get("attached_pic"))
+        and str(stream.get("codec_name") or "").casefold() not in image_codecs
+    ]
+
+
+def media_duration(probe: dict[str, Any]) -> float | None:
+    raw = (probe.get("format") or {}).get("duration")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def audio_languages(probe: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for stream in streams_of_type(probe, "audio"):
+        value = str((stream.get("tags") or {}).get("language", "")).casefold()
+        values.append("und" if value in {"", "unknown"} else value)
+    return values
 
 
 def validate_verified_latino_audio(probe: dict[str, Any]) -> None:
@@ -364,7 +501,7 @@ def validate_verified_latino_audio(probe: dict[str, Any]) -> None:
         for stream in audio
         if str((stream.get("tags") or {}).get("language", "")).strip()
     }
-    spanish = {"es", "esl", "spa", "spanish"}
+    spanish = {"es", "esl", "spa", "spanish", "lat", "latino"}
     if languages & spanish:
         return
     known = languages - {"und", "unknown"}
@@ -471,14 +608,101 @@ def conversion_command(
     ]
 
 
-def validate_converted_file(temporary: Path, source_name: str) -> None:
-    probe = probe_media(temporary)
-    if media_codec(probe) != "h264":
+def validate_conversion_probe(
+    source_probe: dict[str, Any],
+    converted_probe: dict[str, Any],
+    source_name: str,
+) -> None:
+    if media_codec(converted_probe) != "h264":
         raise DispatchError(f"Converted file is not H.264: {source_name}")
-    validate_verified_latino_audio(probe)
+    validate_verified_latino_audio(converted_probe)
+    source_video = primary_video_streams(source_probe)
+    converted_video = primary_video_streams(converted_probe)
+    source_dimensions = (
+        int(source_video[0].get("width", 0) or 0),
+        int(source_video[0].get("height", 0) or 0),
+    )
+    converted_dimensions = (
+        int(converted_video[0].get("width", 0) or 0),
+        int(converted_video[0].get("height", 0) or 0),
+    )
+    if source_dimensions != converted_dimensions:
+        raise DispatchError(f"Converted dimensions changed for {source_name}")
+    for stream_type in ("audio", "subtitle"):
+        if len(streams_of_type(source_probe, stream_type)) != len(
+            streams_of_type(converted_probe, stream_type)
+        ):
+            raise DispatchError(
+                f"Converted {stream_type} stream count changed for {source_name}"
+            )
+    source_languages = audio_languages(source_probe)
+    converted_languages = audio_languages(converted_probe)
+    if source_languages != converted_languages:
+        raise DispatchError(f"Converted audio languages changed for {source_name}")
+    source_duration = media_duration(source_probe)
+    converted_duration = media_duration(converted_probe)
+    if source_duration is None or converted_duration is None:
+        raise DispatchError(f"Unable to verify converted duration for {source_name}")
+    tolerance = max(3.0, source_duration * 0.01)
+    if abs(source_duration - converted_duration) > tolerance:
+        raise DispatchError(f"Converted duration mismatch for {source_name}")
 
 
-def transcode_to_h264(source: Path, destination: Path) -> None:
+def validate_media_tail(path: Path) -> None:
+    command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-sseof",
+        "-10",
+        "-i",
+        str(path),
+        "-map",
+        "0:v:0",
+        "-an",
+        "-f",
+        "null",
+        "-",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=180,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise DispatchError(f"Unable to decode the end of {path.name}") from error
+    if result.returncode != 0:
+        raise DispatchError(f"Converted file tail is not decodable: {path.name}")
+
+
+def validate_converted_file(
+    temporary: Path,
+    source_name: str,
+    source_probe: dict[str, Any],
+) -> None:
+    converted_probe = probe_media(temporary)
+    validate_conversion_probe(source_probe, converted_probe, source_name)
+    validate_media_tail(temporary)
+
+
+def transcode_temporary_path(
+    destination: Path,
+    temporary_root: Path = TRANSCODE_ROOT,
+) -> Path:
+    digest = hashlib.sha256(str(destination).encode("utf-8")).hexdigest()[:20]
+    return temporary_root / f"{digest}.partial.mkv"
+
+
+def transcode_to_h264(
+    source: Path,
+    destination: Path,
+    source_probe: dict[str, Any] | None = None,
+    temporary_root: Path = TRANSCODE_ROOT,
+) -> ConversionResult:
     required = max(int(source.stat().st_size * 1.25), 5 * 1024**3)
     free = shutil.disk_usage(destination.parent).free
     if free < required:
@@ -486,11 +710,25 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
             f"Insufficient free space to convert {source.name}: "
             f"{free // 1024**3} GiB free"
         )
-    temporary = destination.with_name(destination.name + ".partial.mkv")
+    legacy_temporary = destination.with_name(destination.name + ".partial.mkv")
+    legacy_temporary.unlink(missing_ok=True)
+    temporary_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = transcode_temporary_path(destination, temporary_root)
     temporary.unlink(missing_ok=True)
+    source_probe = source_probe or probe_media(source)
     hardware = rkmpp_encoder_available()
+    temperature = read_temperature_c()
+    if (
+        hardware
+        and temperature is not None
+        and temperature >= MAX_HARDWARE_TEMPERATURE_C
+    ):
+        raise DispatchError(
+            f"Hardware temperature is {temperature:.1f} C; conversion paused"
+        )
     if hardware:
         print(f"HARDWARE H.264: {source.name}")
+    started_at = time.monotonic()
     try:
         result = subprocess.run(
             conversion_command(source, temporary, hardware),
@@ -502,14 +740,15 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
     conversion_error: DispatchError | None = None
     if result is not None and result.returncode == 0:
         try:
-            validate_converted_file(temporary, source.name)
+            validate_converted_file(temporary, source.name, source_probe)
         except DispatchError as error:
             conversion_error = error
     else:
         conversion_error = DispatchError(f"H.264 conversion failed for {source.name}")
 
     if conversion_error is not None and hardware:
-        global _RKMPP_AVAILABLE
+        global _HARDWARE_FALLBACKS, _RKMPP_AVAILABLE
+        _HARDWARE_FALLBACKS += 1
         _RKMPP_AVAILABLE = False
         print(f"HARDWARE FALLBACK: {source.name}", file=sys.stderr)
         temporary.unlink(missing_ok=True)
@@ -523,7 +762,7 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
         if result is None or result.returncode != 0:
             temporary.unlink(missing_ok=True)
             raise DispatchError(f"H.264 conversion failed for {source.name}")
-        validate_converted_file(temporary, source.name)
+        validate_converted_file(temporary, source.name, source_probe)
     elif conversion_error is not None:
         temporary.unlink(missing_ok=True)
         raise conversion_error
@@ -531,6 +770,42 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
     os.chown(temporary, source_stat.st_uid, source_stat.st_gid)
     os.chmod(temporary, source_stat.st_mode & 0o777)
     temporary.replace(destination)
+    elapsed = max(0.001, time.monotonic() - started_at)
+    duration = media_duration(source_probe)
+    return ConversionResult(
+        encoder="Rockchip" if hardware and conversion_error is None else "Software",
+        elapsed_seconds=elapsed,
+        speed=(duration / elapsed) if duration is not None else None,
+    )
+
+
+def rescan_series(sonarr_key: str, series_id: int) -> None:
+    command = request_json(
+        SONARR_URL,
+        sonarr_key,
+        "/command",
+        method="POST",
+        payload={"name": "RescanSeries", "seriesId": series_id},
+    )
+    command_id = int((command or {}).get("id", 0) or 0)
+    if not command_id:
+        return
+    for _ in range(60):
+        status = request_json(SONARR_URL, sonarr_key, f"/command/{command_id}")
+        state = str(status.get("status", "")).casefold()
+        if state == "completed":
+            return
+        if state == "failed":
+            raise DispatchError(f"Sonarr rescan failed for series {series_id}")
+        time.sleep(2)
+    raise DispatchError(f"Sonarr rescan timed out for series {series_id}")
+
+
+def mapping_label(mapping: Any) -> str:
+    first = mapping.episode_numbers[0]
+    last = mapping.episode_numbers[-1]
+    episodes = f"E{first:02d}" if first == last else f"E{first:02d}-E{last:02d}"
+    return f"Temporada {mapping.season}, {episodes}"
 
 
 def import_completed_pack(
@@ -540,6 +815,7 @@ def import_completed_pack(
     episodes: list[dict[str, Any]],
     sonarr_key: str,
     apply: bool,
+    stack: Path = STACK,
 ) -> None:
     torrent_hash = str(torrent["hash"])
     if "btarg-import-verified" in tags_for(torrent):
@@ -556,14 +832,46 @@ def import_completed_pack(
     changed = 0
     planned = 0
     expected_destinations: dict[int, Path] = {}
-    needs_rescan = False
+    completed_files = 0
+    completed_episodes = 0
+    total_files = len(mappings)
+    total_episodes = sum(len(mapping.episode_ids) for mapping in mappings)
+    conversion_elapsed: list[float] = []
+    current_encoder = "Pendiente"
+    current_speed: float | None = None
+    active_season: int | None = None
+    season_dirty = False
+    save_progress_report(
+        stack,
+        series=str(series["title"]),
+        status="importando",
+        completedFiles=0,
+        totalFiles=total_files,
+        completedEpisodes=0,
+        totalEpisodes=total_episodes,
+        current="Preparando importación",
+        encoder=current_encoder,
+        speed=None,
+        estimatedSecondsRemaining=None,
+        hardwareFallbacks=_HARDWARE_FALLBACKS,
+        temperatureC=read_temperature_c(),
+        error="",
+    )
     for mapping in mappings:
+        if active_season is not None and mapping.season != active_season:
+            if apply and season_dirty:
+                print(f"SONARR RESCAN: season {active_season} completed")
+                rescan_series(sonarr_key, int(series["id"]))
+            season_dirty = False
+        active_season = mapping.season
         mapped_episodes = [episodes_by_id[item] for item in mapping.episode_ids]
         if any(item.get("hasFile") for item in mapped_episodes):
             print(
                 f"KEEP EXISTING: S{mapping.season:02d}"
                 f"E{mapping.episode_numbers[0]:02d}-E{mapping.episode_numbers[-1]:02d}"
             )
+            completed_files += 1
+            completed_episodes += len(mapping.episode_ids)
             continue
         source = source_root / mapping.path
         if not source.is_file():
@@ -581,9 +889,34 @@ def import_completed_pack(
             expected_destinations[episode_id] = destination
         planned += 1
         if destination.exists():
-            needs_rescan = True
+            completed_files += 1
+            completed_episodes += len(mapping.episode_ids)
+            season_dirty = True
             continue
         print(f"{'IMPORT' if apply else 'WOULD IMPORT'}: {mapping.path} -> {destination.name}")
+        remaining_files = total_files - completed_files
+        average_elapsed = (
+            sum(conversion_elapsed) / len(conversion_elapsed)
+            if conversion_elapsed
+            else None
+        )
+        save_progress_report(
+            stack,
+            status="importando" if apply else "simulación",
+            completedFiles=completed_files,
+            completedEpisodes=completed_episodes,
+            current=mapping_label(mapping),
+            encoder="Rockchip" if rkmpp_encoder_available() else "Software",
+            speed=current_speed,
+            estimatedSecondsRemaining=(
+                average_elapsed * remaining_files
+                if average_elapsed is not None
+                else None
+            ),
+            hardwareFallbacks=_HARDWARE_FALLBACKS,
+            temperatureC=read_temperature_c(),
+            error="",
+        )
         if not apply:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -595,25 +928,44 @@ def import_completed_pack(
                     raise
                 raise DispatchError("Source and library are not on the same filesystem") from error
         else:
-            transcode_to_h264(source, destination)
+            conversion = transcode_to_h264(
+                source,
+                destination,
+                source_probe=probe,
+            )
+            conversion_elapsed.append(conversion.elapsed_seconds)
+            current_encoder = conversion.encoder
+            current_speed = conversion.speed
         changed += 1
-    print(f"PACK IMPORT: planned={planned} changed={changed}")
-    if changed or needs_rescan:
-        command = request_json(
-            SONARR_URL,
-            sonarr_key,
-            "/command",
-            method="POST",
-            payload={"name": "RescanSeries", "seriesId": int(series["id"])},
+        completed_files += 1
+        completed_episodes += len(mapping.episode_ids)
+        season_dirty = True
+        average_elapsed = (
+            sum(conversion_elapsed) / len(conversion_elapsed)
+            if conversion_elapsed
+            else None
         )
-        command_id = int((command or {}).get("id", 0) or 0)
-        for _ in range(30):
-            if not command_id:
-                break
-            status = request_json(SONARR_URL, sonarr_key, f"/command/{command_id}")
-            if str(status.get("status", "")).casefold() in {"completed", "failed"}:
-                break
-            time.sleep(2)
+        save_progress_report(
+            stack,
+            status="importando",
+            completedFiles=completed_files,
+            completedEpisodes=completed_episodes,
+            current=mapping_label(mapping),
+            encoder=current_encoder if codec != "h264" else "Enlace directo",
+            speed=current_speed if codec != "h264" else None,
+            estimatedSecondsRemaining=(
+                average_elapsed * (total_files - completed_files)
+                if average_elapsed is not None
+                else None
+            ),
+            hardwareFallbacks=_HARDWARE_FALLBACKS,
+            temperatureC=read_temperature_c(),
+            error="",
+        )
+    print(f"PACK IMPORT: planned={planned} changed={changed}")
+    if apply and season_dirty and active_season is not None:
+        print(f"SONARR RESCAN: season {active_season} completed")
+        rescan_series(sonarr_key, int(series["id"]))
 
     if apply and expected_destinations:
         refreshed = request_json(
@@ -637,10 +989,26 @@ def import_completed_pack(
                 problems.append(f"episode {episode_id} points to an unexpected file")
         if problems:
             add_torrent_tag(qbit, torrent_hash, "btarg-import-review")
+            save_progress_report(
+                stack,
+                status="requiere revisión",
+                error="Sonarr no confirmó todos los episodios importados",
+            )
             raise DispatchError(
                 "Post-import verification failed: " + "; ".join(problems[:3])
             )
         add_torrent_tag(qbit, torrent_hash, "btarg-import-verified")
+        save_progress_report(
+            stack,
+            status="disponible",
+            completedFiles=total_files,
+            completedEpisodes=total_episodes,
+            current="Importación verificada por Sonarr",
+            estimatedSecondsRemaining=0,
+            hardwareFallbacks=_HARDWARE_FALLBACKS,
+            temperatureC=read_temperature_c(),
+            error="",
+        )
         print(f"PACK VERIFIED: episodes={len(expected_destinations)}")
 
 
@@ -697,13 +1065,41 @@ def main() -> int:
         if matches:
             torrent = matches[0]
             if float(torrent.get("progress", 0) or 0) < 1:
+                save_progress_report(
+                    stack,
+                    series=str(series["title"]),
+                    status="descargando",
+                    completedFiles=0,
+                    totalFiles=0,
+                    completedEpisodes=0,
+                    totalEpisodes=len(requested_episodes),
+                    current=(
+                        f"Descarga {float(torrent.get('progress', 0)) * 100:.1f}%"
+                    ),
+                    encoder="Pendiente",
+                    speed=None,
+                    estimatedSecondsRemaining=(
+                        int(torrent.get("eta", 0) or 0)
+                        if 0 < int(torrent.get("eta", 0) or 0) < 8_640_000
+                        else None
+                    ),
+                    hardwareFallbacks=0,
+                    temperatureC=read_temperature_c(),
+                    error="",
+                )
                 print(
                     f"DOWNLOADING request={request['id']} progress="
                     f"{float(torrent.get('progress', 0)) * 100:.1f}%"
                 )
                 continue
             import_completed_pack(
-                qbit, torrent, series, episodes, sonarr_key, arguments.apply
+                qbit,
+                torrent,
+                series,
+                episodes,
+                sonarr_key,
+                arguments.apply,
+                stack,
             )
             continue
         if all(item.get("hasFile") for item in requested_episodes):
@@ -767,5 +1163,15 @@ if __name__ == "__main__":
                 raise SystemExit(0)
             raise SystemExit(main())
     except (DispatchError, PackValidationError, QBittorrentError, BTArgError) as error:
+        try:
+            save_progress_report(
+                STACK,
+                status="pausado por error",
+                error=str(error),
+                hardwareFallbacks=_HARDWARE_FALLBACKS,
+                temperatureC=read_temperature_c(),
+            )
+        except OSError:
+            pass
         print(f"ERROR: {error}", file=sys.stderr)
         raise SystemExit(1)

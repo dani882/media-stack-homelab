@@ -106,6 +106,45 @@ class TorrentNotificationTest(unittest.TestCase):
         )
         self.assertEqual(pending, [(torrent, [1002])])
 
+    def test_waits_to_notify_btarg_pack_until_import_is_verified(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "amount_left": 0,
+            "tags": "btarg, btarg-series-pack, sonarr-series-35",
+        }
+        self.assertFalse(MODULE.notification_ready(torrent))
+        self.assertEqual(
+            MODULE.pending_notifications([torrent], {}, [1001]),
+            [],
+        )
+
+    def test_notifies_btarg_pack_after_import_is_verified(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "amount_left": 0,
+            "tags": "btarg, btarg-series-pack, btarg-import-verified",
+        }
+        self.assertTrue(MODULE.notification_ready(torrent))
+        self.assertEqual(
+            MODULE.pending_notifications([torrent], {}, [1001]),
+            [(torrent, [1001])],
+        )
+
+    def test_verified_pack_message_means_available_in_sonarr(self) -> None:
+        text = MODULE.notification_text(
+            {
+                "name": "Example Series",
+                "category": "tv",
+                "size": 1024**3,
+                "private": True,
+                "tags": "btarg-series-pack, btarg-import-verified",
+            }
+        )
+        self.assertIn("Contenido disponible", text)
+        self.assertIn("importada y verificada", text)
+
     def test_recipient_fingerprint_does_not_store_chat_id(self) -> None:
         value = MODULE.recipient_fingerprint(123456789)
         self.assertNotIn("123456789", value)
