@@ -46,6 +46,9 @@ MINIMUM_SEEDERS = 1
 MAX_BTARG_DOWNLOADS = 6
 MINIMUM_FREE_BYTES = 10 * 1024**3
 DISPATCH_SPACE_MULTIPLIER = 2.1
+_RKMPP_AVAILABLE: bool | None = None
+
+
 class DispatchError(RuntimeError):
     pass
 
@@ -371,17 +374,79 @@ def validate_verified_latino_audio(probe: dict[str, Any]) -> None:
     # missing/undefined stream-language tags.
 
 
-def transcode_to_h264(source: Path, destination: Path) -> None:
-    required = max(int(source.stat().st_size * 1.25), 5 * 1024**3)
-    free = shutil.disk_usage(destination.parent).free
-    if free < required:
-        raise DispatchError(
-            f"Insufficient free space to convert {source.name}: "
-            f"{free // 1024**3} GiB free"
-        )
-    temporary = destination.with_name(destination.name + ".partial.mkv")
-    temporary.unlink(missing_ok=True)
+def rkmpp_encoder_available() -> bool:
+    global _RKMPP_AVAILABLE
+    if _RKMPP_AVAILABLE is not None:
+        return _RKMPP_AVAILABLE
+    if not Path("/dev/mpp_service").exists() or shutil.which("ffmpeg") is None:
+        _RKMPP_AVAILABLE = False
+        return False
     command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=128x128:rate=24",
+        "-frames:v",
+        "3",
+        "-vf",
+        "format=nv12",
+        "-c:v",
+        "h264_rkmpp",
+        "-rc_mode",
+        "CQP",
+        "-qp_init",
+        "20",
+        "-f",
+        "h264",
+        "-",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        _RKMPP_AVAILABLE = False
+    else:
+        _RKMPP_AVAILABLE = result.returncode == 0
+    return _RKMPP_AVAILABLE
+
+
+def conversion_command(
+    source: Path,
+    temporary: Path,
+    hardware: bool,
+) -> list[str]:
+    video_arguments = (
+        [
+            "-vf",
+            "format=nv12",
+            "-c:v",
+            "h264_rkmpp",
+            "-rc_mode",
+            "CQP",
+            "-qp_init",
+            "20",
+        ]
+        if hardware
+        else [
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-threads",
+            "2",
+        ]
+    )
+    return [
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
@@ -395,14 +460,7 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
         "0:a?",
         "-map",
         "0:s?",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "20",
-        "-threads",
-        "2",
+        *video_arguments,
         "-c:a",
         "copy",
         "-c:s",
@@ -411,15 +469,64 @@ def transcode_to_h264(source: Path, destination: Path) -> None:
         "0",
         str(temporary),
     ]
-    result = subprocess.run(command, timeout=7200)
-    if result.returncode != 0:
-        temporary.unlink(missing_ok=True)
-        raise DispatchError(f"H.264 conversion failed for {source.name}")
+
+
+def validate_converted_file(temporary: Path, source_name: str) -> None:
     probe = probe_media(temporary)
     if media_codec(probe) != "h264":
-        temporary.unlink(missing_ok=True)
-        raise DispatchError(f"Converted file is not H.264: {source.name}")
+        raise DispatchError(f"Converted file is not H.264: {source_name}")
     validate_verified_latino_audio(probe)
+
+
+def transcode_to_h264(source: Path, destination: Path) -> None:
+    required = max(int(source.stat().st_size * 1.25), 5 * 1024**3)
+    free = shutil.disk_usage(destination.parent).free
+    if free < required:
+        raise DispatchError(
+            f"Insufficient free space to convert {source.name}: "
+            f"{free // 1024**3} GiB free"
+        )
+    temporary = destination.with_name(destination.name + ".partial.mkv")
+    temporary.unlink(missing_ok=True)
+    hardware = rkmpp_encoder_available()
+    if hardware:
+        print(f"HARDWARE H.264: {source.name}")
+    try:
+        result = subprocess.run(
+            conversion_command(source, temporary, hardware),
+            timeout=7200,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        result = None
+
+    conversion_error: DispatchError | None = None
+    if result is not None and result.returncode == 0:
+        try:
+            validate_converted_file(temporary, source.name)
+        except DispatchError as error:
+            conversion_error = error
+    else:
+        conversion_error = DispatchError(f"H.264 conversion failed for {source.name}")
+
+    if conversion_error is not None and hardware:
+        global _RKMPP_AVAILABLE
+        _RKMPP_AVAILABLE = False
+        print(f"HARDWARE FALLBACK: {source.name}", file=sys.stderr)
+        temporary.unlink(missing_ok=True)
+        try:
+            result = subprocess.run(
+                conversion_command(source, temporary, False),
+                timeout=7200,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            result = None
+        if result is None or result.returncode != 0:
+            temporary.unlink(missing_ok=True)
+            raise DispatchError(f"H.264 conversion failed for {source.name}")
+        validate_converted_file(temporary, source.name)
+    elif conversion_error is not None:
+        temporary.unlink(missing_ok=True)
+        raise conversion_error
     source_stat = source.stat()
     os.chown(temporary, source_stat.st_uid, source_stat.st_gid)
     os.chmod(temporary, source_stat.st_mode & 0o777)

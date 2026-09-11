@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -166,6 +167,50 @@ class TorrentNotificationTest(unittest.TestCase):
                 "http://127.0.0.1:8989",
             )
         )
+
+    def test_extracts_sonarr_series_id_from_managed_torrent_tag(self) -> None:
+        torrent = {
+            "tags": "btarg, private, sonarr-series-35, seerr-request-53",
+        }
+        self.assertEqual(MODULE.tagged_media_id(torrent, "series"), 35)
+        self.assertIsNone(MODULE.tagged_media_id(torrent, "movie"))
+
+    @mock.patch.object(
+        MODULE,
+        "download_poster",
+        return_value=(b"poster", "image/jpeg"),
+    )
+    @mock.patch.object(MODULE, "read_api_key", return_value="api-key")
+    @mock.patch.object(MODULE, "ArrClient")
+    def test_uses_managed_tag_when_arr_has_no_download_record(
+        self,
+        client_type: mock.Mock,
+        _read_api_key: mock.Mock,
+        _download_poster: mock.Mock,
+    ) -> None:
+        client = client_type.return_value
+        client.get.side_effect = [
+            [],
+            {"records": []},
+            {
+                "images": [
+                    {
+                        "coverType": "poster",
+                        "remoteUrl": "https://example.com/dexter.jpg",
+                    }
+                ]
+            },
+        ]
+        result = MODULE.find_poster(
+            Path("/stack"),
+            {
+                "category": "tv",
+                "hash": "ABC",
+                "tags": "btarg, sonarr-series-35",
+            },
+        )
+        self.assertEqual(result, (b"poster", "image/jpeg"))
+        self.assertEqual(client.get.call_args_list[-1], mock.call("/series/35"))
 
 
 if __name__ == "__main__":

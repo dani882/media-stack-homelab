@@ -128,6 +128,10 @@ repository, terminal output, documentation, commits, or chat responses.
   possible H.264 conversion, run only one conversion worker, and verify the
   resulting Sonarr episode-file association before applying the
   `btarg-import-verified` tag.
+- BTArg HEVC imports prefer the NAS Rockchip `h264_rkmpp` encoder after a
+  short capability test. Every generated file is probed before import, and a
+  hardware failure automatically retries that file with `libx264`; do not
+  remove this software fallback.
 - `media-stack-language-repair-audit.timer` creates a daily dry-run report for
   monitored Sonarr/Radarr language repairs. It must never grab a candidate by
   itself; apply a reviewed candidate through the existing explicit upgrade
@@ -139,6 +143,11 @@ repository, terminal output, documentation, commits, or chat responses.
   stored in NAS-local state so a failed recipient can be retried without
   repeating successful deliveries; do not add routine start/search/import
   messages.
+- Telegram posters normally resolve through Arr download history. Directly
+  dispatched private packs have no Arr download record, so their managed
+  `sonarr-series-N` or `radarr-movie-N` qBittorrent tag is the safe poster
+  fallback. Poster troubleshooting must not resend an already delivered
+  completion notification.
 
 - Telegram synchronizes one account across its devices, so a new device on an
   existing account requires no recipient change. For another person's

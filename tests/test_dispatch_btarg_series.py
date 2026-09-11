@@ -46,6 +46,26 @@ class DispatchBTArgSeriesTest(unittest.TestCase):
         }
         MODULE.validate_verified_latino_audio(probe)
 
+    def test_hardware_conversion_preserves_audio_and_uses_rkmpp(self) -> None:
+        command = MODULE.conversion_command(
+            Path("source.mp4"),
+            Path("destination.partial.mkv"),
+            True,
+        )
+        self.assertIn("h264_rkmpp", command)
+        self.assertIn("format=nv12", command)
+        audio_codec = command.index("-c:a")
+        self.assertEqual(command[audio_codec + 1], "copy")
+
+    def test_software_conversion_remains_available_as_fallback(self) -> None:
+        command = MODULE.conversion_command(
+            Path("source.mp4"),
+            Path("destination.partial.mkv"),
+            False,
+        )
+        self.assertIn("libx264", command)
+        self.assertNotIn("h264_rkmpp", command)
+
 
 if __name__ == "__main__":
     unittest.main()

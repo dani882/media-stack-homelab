@@ -356,6 +356,24 @@ def media_from_record(
     return media if isinstance(media, dict) else None
 
 
+def tagged_media_id(
+    torrent: dict[str, Any],
+    media_kind: str,
+) -> int | None:
+    prefixes = {
+        "series": "sonarr-series-",
+        "movie": "radarr-movie-",
+    }
+    prefix = prefixes.get(media_kind)
+    if prefix is None:
+        return None
+    for tag in str(torrent.get("tags") or "").split(","):
+        match = re.fullmatch(rf"{re.escape(prefix)}([1-9][0-9]*)", tag.strip())
+        if match is not None:
+            return int(match.group(1))
+    return None
+
+
 def poster_url(media: dict[str, Any], base_url: str) -> str | None:
     images = media.get("images")
     if not isinstance(images, list):
@@ -439,9 +457,16 @@ def find_poster(
     client = ArrClient(source.base_url, api_key)
     torrent_hash = str(torrent.get("hash") or "").upper()
     record = matching_arr_record(client, torrent_hash)
-    if record is None:
-        return None
-    media = media_from_record(client, record, source.media_kind)
+    media = (
+        media_from_record(client, record, source.media_kind)
+        if record is not None
+        else None
+    )
+    if media is None:
+        media_id = tagged_media_id(torrent, source.media_kind)
+        if media_id is not None:
+            candidate = client.get(f"/{source.media_kind}/{media_id}")
+            media = candidate if isinstance(candidate, dict) else None
     if media is None:
         return None
     url = poster_url(media, source.base_url)
