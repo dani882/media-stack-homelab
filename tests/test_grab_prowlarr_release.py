@@ -121,3 +121,29 @@ class SelectReleaseTests(unittest.TestCase):
             720,
         )
         self.assertEqual(selected["tvdbId"], 76200)
+
+    def test_private_policy_rejects_dangerous_title_before_grab(self) -> None:
+        with self.assertRaises(MODULE.GrabError):
+            MODULE.select_release(
+                [release(title="Example.Spanish.Latino.1080p.zipx")],
+                "Example.Spanish.Latino.1080p.zipx",
+                8,
+                76200,
+                "tv",
+                1,
+                "castilian",
+                720,
+            )
+
+    def test_private_policy_rejects_camera_source_before_grab(self) -> None:
+        with self.assertRaises(MODULE.GrabError):
+            MODULE.select_release(
+                [release(title="Example.English.1080p.CAM.x264")],
+                "Example.English.1080p.CAM.x264",
+                8,
+                76200,
+                "tv",
+                1,
+                "english",
+                720,
+            )

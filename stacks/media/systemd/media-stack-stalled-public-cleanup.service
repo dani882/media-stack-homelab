@@ -1,0 +1,9 @@
+[Unit]
+Description=Blocklist stale incomplete public media torrents
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/cleanup-stalled-public.py --apply --max-delete 10

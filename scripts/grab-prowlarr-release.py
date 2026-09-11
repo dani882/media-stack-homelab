@@ -30,6 +30,12 @@ for script_dir in (LOCAL_MEDIA_SCRIPT_DIR, DEPLOYED_SCRIPT_DIR):
 
 from common.language import LanguageRank, language_rank
 from common.qbittorrent import QBittorrentClient, QBittorrentError, read_credentials
+from common.release_safety import (
+    dangerous_release_title,
+    dangerous_torrent_paths,
+    english_only_torrent_paths,
+    unacceptable_source_title,
+)
 
 
 class GrabError(RuntimeError):
@@ -58,6 +64,9 @@ def release_meets_private_policy(
     minimum_language: str,
     minimum_title_resolution: int,
 ) -> bool:
+    title = str(release.get("title", ""))
+    if dangerous_release_title(title) or unacceptable_source_title(title):
+        return False
     if language_rank(release) < LANGUAGE_FLOORS[minimum_language]:
         return False
     return title_resolution(release) >= minimum_title_resolution
@@ -206,6 +215,8 @@ def add_to_qbittorrent(
     tags: str,
     seed_time_minutes: int,
     dry_run: bool,
+    ratio_limit: float | None = None,
+    display_name: str | None = None,
 ) -> None:
     title = str(release["title"])
     seeders = int(release.get("seeders", 0) or 0)
@@ -215,9 +226,12 @@ def add_to_qbittorrent(
         f"SELECTED: {title} indexer={release['indexerId']} "
         f"seeders={seeders} size={size} category={category}"
     )
-    print(
-        f"PRIVATE POLICY: seed-time={seed_time_minutes}m tags={tags}"
-    )
+    policy_parts = [f"tags={tags}"]
+    if seed_time_minutes > 0:
+        policy_parts.append(f"seed-time={seed_time_minutes}m")
+    if ratio_limit is not None:
+        policy_parts.append(f"ratio={ratio_limit:.2f}")
+    print("PRIVATE POLICY: " + " ".join(policy_parts))
 
     if dry_run:
         print("DRY RUN: would add the selected torrent to qBittorrent")
@@ -231,16 +245,18 @@ def add_to_qbittorrent(
     if not tag_set:
         raise GrabError("At least one non-empty tag is required.")
 
+    def active_tags(item: dict[str, Any]) -> set[str]:
+        item_tags = {
+            tag.strip()
+            for tag in str(item.get("tags", "")).split(",")
+            if tag.strip()
+        }
+        return set() if "language-mismatch" in item_tags else item_tags
+
     existing = [
         item
         for item in client.get_json("/api/v2/torrents/info")
-        if tag_set.issubset(
-            {
-                tag.strip()
-                for tag in str(item.get("tags", "")).split(",")
-                if tag.strip()
-            }
-        )
+        if tag_set.issubset(active_tags(item))
     ]
     if existing:
         raise GrabError(
@@ -248,15 +264,21 @@ def add_to_qbittorrent(
             "grab."
         )
 
+    add_form = {
+        "urls": download_url_for_qbittorrent(
+            str(release["downloadUrl"])
+        ),
+        "category": category,
+        "tags": tags,
+        "stopped": "true",
+        "paused": "true",
+    }
+    if display_name:
+        add_form["rename"] = display_name
+
     client.post_form(
         "/api/v2/torrents/add",
-        {
-            "urls": download_url_for_qbittorrent(
-                str(release["downloadUrl"])
-            ),
-            "category": category,
-            "tags": tags,
-        },
+        add_form,
     )
 
     for _ in range(15):
@@ -264,29 +286,64 @@ def add_to_qbittorrent(
         matches = [
             item
             for item in torrents
-            if tag_set.issubset(
-                {
-                    tag.strip()
-                    for tag in str(item.get("tags", "")).split(",")
-                    if tag.strip()
-                }
-            )
+            if tag_set.issubset(active_tags(item))
         ]
         if len(matches) == 1:
             torrent = matches[0]
+            torrent_hash = str(torrent["hash"])
+            try:
+                if torrent.get("private") is not True:
+                    raise GrabError(
+                        "Selected private-indexer torrent is not explicitly private."
+                    )
+                files = client.get_json(
+                    "/api/v2/torrents/files?"
+                    + urllib.parse.urlencode({"hash": torrent_hash})
+                )
+                unsafe_paths = dangerous_torrent_paths(
+                    str(item.get("name", "")) for item in files
+                )
+                if unsafe_paths:
+                    raise GrabError(
+                        "Selected torrent contains a dangerous file type."
+                    )
+                if (
+                    language_rank(release) >= LanguageRank.CASTILIAN
+                    and english_only_torrent_paths(
+                        str(item.get("name", "")) for item in files
+                    )
+                ):
+                    raise GrabError(
+                        "Selected torrent payload conflicts with its claimed "
+                        "Spanish audio language."
+                    )
+            except (GrabError, QBittorrentError):
+                client.post_form(
+                    "/api/v2/torrents/delete",
+                    {"hashes": torrent_hash, "deleteFiles": "true"},
+                )
+                raise
             client.post_form(
                 "/api/v2/torrents/setShareLimits",
                 {
-                    "hashes": torrent["hash"],
-                    "ratioLimit": -2,
-                    "seedingTimeLimit": seed_time_minutes,
+                    "hashes": torrent_hash,
+                    "ratioLimit": (
+                        ratio_limit if ratio_limit is not None else -2
+                    ),
+                    "seedingTimeLimit": (
+                        seed_time_minutes if seed_time_minutes > 0 else -2
+                    ),
                     "inactiveSeedingTimeLimit": -2,
                     "shareLimitAction": "Default",
                 },
             )
+            client.post_form(
+                "/api/v2/torrents/start",
+                {"hashes": torrent_hash},
+            )
             print(
                 "ADDED: "
-                f"hash={str(torrent['hash'])[:12].upper()} "
+                f"hash={torrent_hash[:12].upper()} "
                 f"path={torrent.get('save_path')}"
             )
             return
@@ -400,6 +457,7 @@ def main() -> int:
         arguments.tags,
         arguments.seed_time_minutes,
         arguments.dry_run,
+        display_name=arguments.title,
     )
     return 0
 

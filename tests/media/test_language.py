@@ -11,6 +11,17 @@ from scripts.media.common.language import (
 
 
 class LanguageUpgradeTest(unittest.TestCase):
+    def test_btarg_verified_language_is_authoritative(self) -> None:
+        self.assertEqual(
+            language_rank(
+                {
+                    "title": "Unmarked Dual Audio 1080p",
+                    "btargVerifiedLanguage": "latino",
+                }
+            ),
+            LanguageRank.LATINO,
+        )
+
     def test_private_indexer_detection(self) -> None:
         self.assertTrue(
             release_is_private({"indexer": "BTArg (Prowlarr)"})

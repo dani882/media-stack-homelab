@@ -2,7 +2,7 @@
   "automaticPrivateGrab": {
     "minimumLanguage": "castilian",
     "minimumTitleResolution": 720,
-    "englishFallback": "explicit-only"
+    "englishFallbackAfterDays": 14
   },
   "postImportReview": {
     "releaseTitleIsNotAuthoritative": true,

@@ -28,6 +28,7 @@ SCORES = {
     "[Spanish] Castellano + English": 0,
     "[Latino] French Bonus": 250,
     "[Audio] Audio Description": -10000,
+    "[Safety] Dangerous payload": -10000,
 }
 
 LANGUAGE_FIRST_QUALITY_ORDER = (

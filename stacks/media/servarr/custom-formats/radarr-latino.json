@@ -450,5 +450,32 @@
         ]
       }
     ]
+  },
+  {
+    "name": "[Safety] Dangerous payload",
+    "includeCustomFormatWhenRenaming": false,
+    "specifications": [
+      {
+        "name": "Executable or unsafe archive marker",
+        "implementation": "ReleaseTitleSpecification",
+        "implementationName": "Release Title",
+        "infoLink": "https://wiki.servarr.com/settings#custom-formats",
+        "negate": false,
+        "required": true,
+        "fields": [
+          {
+            "order": 0,
+            "name": "value",
+            "label": "Regular Expression",
+            "helpText": "Reject executable-like payloads before download",
+            "value": "(?:^|[ ._-])(?:BAT|CMD|COM|EXE|JAR|JS|LNK|MSI|PS1|SCR|VBS|ZIPX)(?:$|[ ._-])",
+            "type": "textbox",
+            "advanced": false,
+            "privacy": "normal",
+            "isFloat": false
+          }
+        ]
+      }
+    ]
   }
 ]

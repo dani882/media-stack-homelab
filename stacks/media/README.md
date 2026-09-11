@@ -236,16 +236,40 @@ account-statistics endpoint.
 ### Scheduled private-request dispatcher
 
 `media-stack-private-dispatch.timer` evaluates outstanding Seerr movie
-requests every 30 minutes. It is deliberately **preview-only**: it requires an
-exact TMDB match, one or more seeders, and the repository's Castilian-or-Latino
-plus 720p private-release policy. Its output is retained in the system journal;
-it neither downloads nor changes a request by itself.
+requests every 30 minutes. It uses only known private indexers, requires an
+exact TMDB match, one or more seeders, and at least 720p. Candidates are ranked
+by language first (`Latino > Castellano > English/original`) and only then by
+tracker priority. New requests wait 14 days for Spanish before an English
+private fallback becomes eligible. Public releases are never dispatched.
+If an imported file is later removed as incorrect, its completed Seerr request
+becomes eligible again. Each dispatched release has a stable fingerprint, so a
+`language-mismatch` torrent blocks only that bad release while other private
+alternatives remain eligible.
+
+Before a selected private torrent starts, it is added stopped, confirmed as
+private, and its member paths are checked for executable-like extensions. An
+unsafe or unexpectedly public payload is deleted without starting.
+Unmistakable YTS/YIFY payload names are also rejected when a tracker page has
+incorrectly classified the release as Spanish audio.
 
 Use `make dispatch-private-seerr` to run the same evaluation on demand. The
 explicit `APPLY=1 make dispatch-private-seerr` path is idempotent: it refuses a
-request that already has a `seerr-request-<id>` qBittorrent tag. Enable
-automatic grabs only after a live candidate has passed that apply path and the
-Arr import/hardlink result has been verified.
+request that already has a `seerr-request-<id>` qBittorrent tag.
+
+### Stalled public download cleanup
+
+`media-stack-stalled-public-cleanup.timer` runs every two hours. It removes and
+blocklists only incomplete downloads that qBittorrent explicitly identifies as
+public, or metadata-only magnets whose Arr grab history proves a known public
+indexer. Private-tagged torrents and unverified origins always fail closed.
+
+- metadata magnets expire after 24 hours
+- a swarm with zero or incomplete availability expires after 72 hours
+- a stalled swarm with no useful connection expires after seven days
+
+After removal, a fresh search is started only when the movie or episode is
+still monitored. Because public automatic search remains disabled, the retry
+uses the configured private sources.
 
 ### Automatic BTArg multi-season series packs
 

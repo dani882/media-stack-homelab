@@ -19,6 +19,7 @@ RADARR_LATINO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/media/audit-radarr-latino.py"
 RADARR_LATINO_UPGRADE_SCRIPT="${ROOT_DIR}/scripts/media/upgrade-radarr-latino.py"
 RADARR_DOWNLOAD_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/media/cleanup-radarr-downloads.py"
 PUBLIC_IMPORTED_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-public-imported.py"
+STALLED_PUBLIC_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-stalled-public.py"
 TORRENT_NOTIFICATION_SCRIPT="${ROOT_DIR}/scripts/notify-torrent-completions.py"
 PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
@@ -35,6 +36,7 @@ MEDIA_COMMON_CLEANUP="${MEDIA_COMMON_DIR}/cleanup.py"
 MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
 MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
 MEDIA_COMMON_BTARG="${MEDIA_COMMON_DIR}/btarg.py"
+MEDIA_COMMON_RELEASE_SAFETY="${MEDIA_COMMON_DIR}/release_safety.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
@@ -63,6 +65,8 @@ HARDLINK_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-hardlink-audit.service"
 HARDLINK_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-hardlink-audit.timer"
 PUBLIC_CLEANUP_SERVICE="${STACK_DIR}/systemd/media-stack-public-cleanup.service"
 PUBLIC_CLEANUP_TIMER="${STACK_DIR}/systemd/media-stack-public-cleanup.timer"
+STALLED_PUBLIC_CLEANUP_SERVICE="${STACK_DIR}/systemd/media-stack-stalled-public-cleanup.service"
+STALLED_PUBLIC_CLEANUP_TIMER="${STACK_DIR}/systemd/media-stack-stalled-public-cleanup.timer"
 TORRENT_NOTIFICATION_SERVICE="${STACK_DIR}/systemd/media-stack-torrent-notifications.service"
 TORRENT_NOTIFICATION_TIMER="${STACK_DIR}/systemd/media-stack-torrent-notifications.timer"
 PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.service"
@@ -112,6 +116,7 @@ for required_file in \
   "$RADARR_LATINO_UPGRADE_SCRIPT" \
   "$RADARR_DOWNLOAD_CLEANUP_SCRIPT" \
   "$PUBLIC_IMPORTED_CLEANUP_SCRIPT" \
+  "$STALLED_PUBLIC_CLEANUP_SCRIPT" \
   "$TORRENT_NOTIFICATION_SCRIPT" \
   "$PRIVATE_GRAB_SCRIPT" \
   "$PRIVATE_DISPATCH_SCRIPT" \
@@ -123,6 +128,7 @@ for required_file in \
   "$MEDIA_COMMON_LATINO" \
   "$MEDIA_COMMON_LANGUAGE" \
   "$MEDIA_COMMON_BTARG" \
+  "$MEDIA_COMMON_RELEASE_SAFETY" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
   "$DISPATCHARR_SCRIPT" \
@@ -150,6 +156,8 @@ for required_file in \
   "$HARDLINK_AUDIT_TIMER" \
   "$PUBLIC_CLEANUP_SERVICE" \
   "$PUBLIC_CLEANUP_TIMER" \
+  "$STALLED_PUBLIC_CLEANUP_SERVICE" \
+  "$STALLED_PUBLIC_CLEANUP_TIMER" \
   "$TORRENT_NOTIFICATION_SERVICE" \
   "$TORRENT_NOTIFICATION_TIMER" \
   "$PRIVATE_DISPATCH_SERVICE" \
@@ -245,6 +253,7 @@ REMOTE_RADARR_LATINO_AUDIT_TEMP="${REMOTE_STAGING}/audit-radarr-latino-${USER}-$
 REMOTE_RADARR_LATINO_UPGRADE_TEMP="${REMOTE_STAGING}/upgrade-radarr-latino-${USER}-$$.py"
 REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-radarr-downloads-${USER}-$$.py"
 REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-public-imported-${USER}-$$.py"
+REMOTE_STALLED_PUBLIC_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-stalled-public-${USER}-$$.py"
 REMOTE_TORRENT_NOTIFICATION_TEMP="${REMOTE_STAGING}/notify-torrent-completions-${USER}-$$.py"
 REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
@@ -260,6 +269,7 @@ REMOTE_MEDIA_COMMON_CLEANUP_TEMP="${REMOTE_STAGING}/media-common-cleanup-${USER}
 REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_BTARG_TEMP="${REMOTE_STAGING}/media-common-btarg-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP="${REMOTE_STAGING}/media-common-release-safety-${USER}-$$.py"
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
@@ -288,6 +298,8 @@ REMOTE_HARDLINK_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit
 REMOTE_HARDLINK_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-hardlink-audit-${USER}-$$.timer"
 REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.service"
 REMOTE_PUBLIC_CLEANUP_TIMER_TEMP="${REMOTE_STAGING}/media-stack-public-cleanup-${USER}-$$.timer"
+REMOTE_STALLED_PUBLIC_CLEANUP_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-stalled-public-cleanup-${USER}-$$.service"
+REMOTE_STALLED_PUBLIC_CLEANUP_TIMER_TEMP="${REMOTE_STAGING}/media-stack-stalled-public-cleanup-${USER}-$$.timer"
 REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.service"
 REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.timer"
 REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.service"
@@ -537,6 +549,10 @@ echo "Uploading imported public torrent cleanup script through SSH..."
   < "$PUBLIC_IMPORTED_CLEANUP_SCRIPT"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_STALLED_PUBLIC_CLEANUP_TEMP}'" \
+  < "$STALLED_PUBLIC_CLEANUP_SCRIPT"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_TORRENT_NOTIFICATION_TEMP}'" \
   < "$TORRENT_NOTIFICATION_SCRIPT"
 
@@ -576,6 +592,10 @@ echo "Uploading shared media modules..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_MEDIA_COMMON_BTARG_TEMP}'" \
   < "$MEDIA_COMMON_BTARG"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}'" \
+  < "$MEDIA_COMMON_RELEASE_SAFETY"
 
 echo "Uploading Seerr configuration script through SSH..."
 
@@ -714,6 +734,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$PUBLIC_CLEANUP_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_STALLED_PUBLIC_CLEANUP_SERVICE_TEMP}'" \
+  < "$STALLED_PUBLIC_CLEANUP_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_STALLED_PUBLIC_CLEANUP_TIMER_TEMP}'" \
+  < "$STALLED_PUBLIC_CLEANUP_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}'" \
   < "$TORRENT_NOTIFICATION_SERVICE"
 
@@ -847,6 +875,9 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
     '${NAS_STACK_DIR}/cleanup-public-imported.py'
   sudo install -m 0755 \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_TEMP}' \
+    '${NAS_STACK_DIR}/cleanup-stalled-public.py'
+  sudo install -m 0755 \
     '${REMOTE_TORRENT_NOTIFICATION_TEMP}' \
     '${NAS_STACK_DIR}/notify-torrent-completions.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_GRAB_TEMP}' '${NAS_STACK_DIR}/grab-prowlarr-release.py'
@@ -886,6 +917,10 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0644 \
     '${REMOTE_MEDIA_COMMON_BTARG_TEMP}' \
     '${NAS_STACK_DIR}/scripts/common/btarg.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/release_safety.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -996,6 +1031,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-public-cleanup.timer
 
   sudo install -m 0644 \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-stalled-public-cleanup.service
+
+  sudo install -m 0644 \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-stalled-public-cleanup.timer
+
+  sudo install -m 0644 \
     '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-torrent-notifications.service
 
@@ -1041,6 +1084,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-healthcheck.timer \
     media-stack-hardlink-audit.timer \
     media-stack-public-cleanup.timer \
+    media-stack-stalled-public-cleanup.timer \
     media-stack-torrent-notifications.timer \
     media-stack-private-dispatch.timer \
     media-stack-btarg-series.timer \
@@ -1152,6 +1196,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_RADARR_LATINO_UPGRADE_TEMP}' \
     '${REMOTE_RADARR_DOWNLOAD_CLEANUP_TEMP}' \
     '${REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP}' \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_TEMP}' \
     '${REMOTE_TORRENT_NOTIFICATION_TEMP}' \
     '${REMOTE_MEDIA_COMMON_INIT_TEMP}' \
     '${REMOTE_MEDIA_COMMON_ARR_TEMP}' \
@@ -1160,6 +1205,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${REMOTE_MEDIA_COMMON_BTARG_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_DISPATCHARR_TEMP}' \
@@ -1187,6 +1233,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_HARDLINK_AUDIT_TIMER_TEMP}' \
     '${REMOTE_PUBLIC_CLEANUP_SERVICE_TEMP}' \
     '${REMOTE_PUBLIC_CLEANUP_TIMER_TEMP}' \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_SERVICE_TEMP}' \
+    '${REMOTE_STALLED_PUBLIC_CLEANUP_TIMER_TEMP}' \
     '${REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP}' \
     '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \

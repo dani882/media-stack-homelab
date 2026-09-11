@@ -76,6 +76,9 @@ repository, terminal output, documentation, commits, or chat responses.
 - Bare `Dual Audio` is ambiguous. Do not globally classify it as Latino. It
   may be selected only when an explicit language marker, reliable Arr
   metadata, or manual tracker-detail verification establishes the audio.
+- Treat unmistakable YTS/YIFY payload names as English-first even when a
+  tracker detail page claims Spanish audio. Inspect torrent members while
+  paused and reject that conflict before downloading.
 - `scripts/media/common/language.py` is the shared ranking source for audits
   and explicit upgrade helpers.
 - `scripts/deploy-language-priority.sh` deploys the focused language policy.
@@ -108,6 +111,18 @@ repository, terminal output, documentation, commits, or chat responses.
   correctly excluded. `Resident Evil: Death Island (2023)` was the sole safe
   private upgrade and was grabbed from Milnueve as Castellano; verify its
   final imported audio after the download completes.
+
+## Verified examples (2026-09-11)
+
+- A BTArg detail page incorrectly described an `Enola Holmes 3 (2026)` YTS
+  payload as Castellano. The downloaded file had one untagged audio stream,
+  and a speech sample was confirmed as English. Its Radarr library file was
+  removed, while the private torrent was retained for ratio 1.0 and tagged
+  `language-mismatch`. Guarded grabs now reject Spanish claims that conflict
+  with unmistakable YTS/YIFY torrent member names before downloading.
+- Eight long-stalled public downloads were removed and blocklisted through
+  their Arr queue entries. Seven monitored items received fresh searches;
+  the unmonitored `La Brea S01E01` was intentionally not searched.
 
 ## Operational workflow
 
@@ -176,6 +191,17 @@ repository, terminal output, documentation, commits, or chat responses.
 - Automatic monitored-library upgrades are limited to the known private
   indexers. Public interactive results remain manual fallback and must never be
   grabbed by the batch upgrade helpers.
+- Outstanding Seerr movie requests are retried automatically against known
+  private indexers. Require Spanish for the first 14 days, then permit an
+  English/original private fallback; always rank language before tracker.
+- Reconsider completed Seerr movie requests when their library file is later
+  removed as incorrect. Tag each dispatched release with a stable fingerprint;
+  a `language-mismatch` blocks only that fingerprint, not the whole request.
+- Stale incomplete public torrents are blocklisted automatically after the
+  guarded metadata, availability, or no-connection timeout. Unknown and private
+  torrents fail closed and are never removed by that workflow.
+- Reject executable-like release titles and inspect private torrent members
+  while stopped before allowing the payload to download.
 - Slow release searches retry once. If a title still times out, it is skipped
   and the rest of the audit continues; revisit skipped items separately.
 - Validate changes with `python3 -m unittest discover -s tests`,

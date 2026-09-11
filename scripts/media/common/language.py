@@ -127,6 +127,16 @@ def language_rank(
     if not payload:
         return LanguageRank.UNKNOWN
 
+    verified_language = str(
+        payload.get("btargVerifiedLanguage") or ""
+    ).casefold()
+    if verified_language == "latino":
+        return LanguageRank.LATINO
+    if verified_language == "castilian":
+        return LanguageRank.CASTILIAN
+    if verified_language == "english":
+        return LanguageRank.ENGLISH
+
     if _has_prefix(
         payload,
         LATINO_FORMAT_PREFIXES,
