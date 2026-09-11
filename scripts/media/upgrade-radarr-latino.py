@@ -23,6 +23,10 @@ from common.language import (
     language_name,
     release_is_private,
 )
+from common.btarg import BTArgCache, BTArgClient, enrich_releases
+
+
+DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 
 def movie_matches(
@@ -69,6 +73,7 @@ def main() -> int:
         "--config-file",
         default=DEFAULT_CONFIG_FILE,
     )
+    parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
 
     args = parser.parse_args()
 
@@ -79,6 +84,10 @@ def main() -> int:
     client = RadarrClient(
         args.radarr_url,
         api_key,
+    )
+    btarg = BTArgClient(
+        args.stack_dir / "secrets/prowlarr-private-indexers.json",
+        BTArgCache(args.stack_dir / "state/btarg-language-cache.json"),
     )
 
     movies = client.get("/movie")
@@ -157,6 +166,12 @@ def main() -> int:
                 flush=True,
             )
             continue
+
+        releases = enrich_releases(
+            releases,
+            btarg,
+            str(movie.get("imdbId") or "") or None,
+        )
 
         best = best_language_upgrade(
             movie_file,

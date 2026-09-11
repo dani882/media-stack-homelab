@@ -22,6 +22,10 @@ from common.latino import (
     installed_is_latino,
     is_latino_release,
 )
+from common.btarg import BTArgCache, BTArgClient, enrich_releases
+
+
+DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 
 def format_episode(
@@ -102,6 +106,7 @@ def main() -> int:
         "--config-file",
         default=DEFAULT_CONFIG_FILE,
     )
+    parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
 
     args = parser.parse_args()
 
@@ -110,6 +115,10 @@ def main() -> int:
     client = SonarrClient(
         args.sonarr_url,
         api_key,
+    )
+    btarg = BTArgClient(
+        args.stack_dir / "secrets/prowlarr-private-indexers.json",
+        BTArgCache(args.stack_dir / "state/btarg-language-cache.json"),
     )
 
     series = resolve_series(client, args.series)
@@ -166,11 +175,17 @@ def main() -> int:
                 {"episodeId": episode_id}
             )
         )
+        releases = enrich_releases(
+            releases,
+            btarg,
+            str(series.get("imdbId") or "") or None,
+        )
 
         latino_releases = [
             release
             for release in releases
             if is_latino_release(release)
+            or release.get("btargVerifiedLanguage") == "latino"
         ]
 
         # Prefer releases Sonarr can actually grab. Only after that

@@ -71,6 +71,23 @@ The scheduled worker verifies Latino audio on BTArg's authenticated detail
 page, exact series/seasons, safe file types, and complete episode mapping. It
 keeps the torrent to ratio 1.0 and never overwrites an existing episode.
 
+The same authenticated BTArg classification is used by the Sonarr and Radarr
+language-upgrade helpers. Results are cached without credentials, and empty
+pack searches back off automatically.
+
+Refresh the daily controlled-repair proposal:
+
+```bash
+make audit-language-repairs
+```
+
+This report is always a dry run. It does not download or replace anything.
+Review `/volume1/docker/media-stack/state/language-repair-candidates.txt`, then
+use the existing explicit upgrade command for approved candidates.
+
+The private audit also maintains a secret-free dashboard at
+`/volume1/docker/media-stack/state/private-trackers.html`.
+
 This is also part of the 30-minute media-stack health audit. It reports the
 short torrent hash, tracker name, configured seeding requirement, and time
 remaining. It fails safely for an unrecognized private tracker, a missing

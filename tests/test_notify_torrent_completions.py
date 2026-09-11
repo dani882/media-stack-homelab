@@ -95,6 +95,21 @@ class TorrentNotificationTest(unittest.TestCase):
             [],
         )
 
+    def test_retries_only_recipient_without_recorded_delivery(self) -> None:
+        torrent = {"hash": "abc", "progress": 1, "amount_left": 0}
+        first = MODULE.recipient_fingerprint(1001)
+        pending = MODULE.pending_notifications(
+            [torrent],
+            {"ABC": [first]},
+            [1001, 1002],
+        )
+        self.assertEqual(pending, [(torrent, [1002])])
+
+    def test_recipient_fingerprint_does_not_store_chat_id(self) -> None:
+        value = MODULE.recipient_fingerprint(123456789)
+        self.assertNotIn("123456789", value)
+        self.assertEqual(len(value), 16)
+
     def test_formats_private_completion_message(self) -> None:
         text = MODULE.notification_text(
             {

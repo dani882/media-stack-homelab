@@ -4,6 +4,9 @@
 
 
 import argparse
+import datetime
+import html
+import json
 import sys
 import time
 import urllib.parse
@@ -77,6 +80,67 @@ TRACKER_POLICIES = (
 
 class PrivateTrackerAuditError(RuntimeError):
     pass
+
+
+def audit_status(safe: bool, message: str) -> str:
+    if not safe:
+        return "risk"
+    if message.startswith("SATISFIED"):
+        return "satisfied"
+    if message.startswith("DOWNLOADING"):
+        return "downloading"
+    return "pending"
+
+
+def write_dashboard(path: Path, statistics: dict[str, dict[str, int]]) -> None:
+    updated = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
+    rows = []
+    names = [policy.name for policy in TRACKER_POLICIES]
+    names.extend(sorted(set(statistics) - set(names)))
+    for name in names:
+        totals = statistics.get(
+            name,
+            {
+                "torrents": 0,
+                "uploaded": 0,
+                "downloaded": 0,
+                "satisfied": 0,
+                "pending": 0,
+                "downloading": 0,
+                "risk": 0,
+            },
+        )
+        rows.append({"tracker": name, **totals})
+    payload = {"updatedAt": updated, "trackers": rows}
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    json_path = path.with_suffix(".json")
+    json_temp = json_path.with_suffix(".tmp")
+    json_temp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    json_temp.replace(json_path)
+
+    table_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(row['tracker'])}</td>"
+        f"<td>{row['torrents']}</td>"
+        f"<td>{row['downloading']}</td>"
+        f"<td>{row['pending']}</td>"
+        f"<td>{row['satisfied']}</td>"
+        f"<td class={'risk' if row['risk'] else 'ok'}>{row['risk']}</td>"
+        f"<td>{row['uploaded'] / 1024**3:.1f} GiB</td>"
+        f"<td>{row['downloaded'] / 1024**3:.1f} GiB</td>"
+        "</tr>"
+        for row in rows
+    )
+    document = f"""<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Trackers privados</title>
+<style>body{{font:16px system-ui;background:#101827;color:#e5e7eb;margin:2rem}}table{{border-collapse:collapse;width:100%;max-width:1100px}}th,td{{padding:.7rem;border-bottom:1px solid #334155;text-align:right}}th:first-child,td:first-child{{text-align:left}}.ok{{color:#4ade80}}.risk{{color:#fb7185;font-weight:700}}small{{color:#94a3b8}}</style>
+<h1>Estado de trackers privados</h1><small>Actualizado: {html.escape(updated)}</small>
+<table><thead><tr><th>Tracker</th><th>Torrents</th><th>Descargando</th><th>Pendientes</th><th>Cumplidos</th><th>Riesgo</th><th>Subido</th><th>Descargado</th></tr></thead><tbody>{table_rows}</tbody></table>
+</html>"""
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(document, encoding="utf-8")
+    temporary.replace(path)
 
 
 def tracker_host(url: str) -> str | None:
@@ -224,6 +288,7 @@ def run_audit(
     client: QBittorrentClient,
     *,
     enforce_limits: bool = False,
+    dashboard_path: Path | None = None,
 ) -> int:
     torrents = client.get_json("/api/v2/torrents/info")
     private_torrents = [
@@ -233,6 +298,8 @@ def run_audit(
     ]
 
     if not private_torrents:
+        if dashboard_path is not None:
+            write_dashboard(dashboard_path, {})
         print("PRIVATE TRACKER AUDIT OK: no private torrents present")
         return 0
 
@@ -292,14 +359,23 @@ def run_audit(
         print(message)
         if not safe:
             failures += 1
-        if policy is not None:
-            totals = statistics.setdefault(
-                policy.name,
-                {"torrents": 0, "uploaded": 0, "downloaded": 0},
-            )
-            totals["torrents"] += 1
-            totals["uploaded"] += int(torrent.get("uploaded", 0) or 0)
-            totals["downloaded"] += int(torrent.get("downloaded", 0) or 0)
+        dashboard_name = policy.name if policy is not None else "Unrecognized"
+        totals = statistics.setdefault(
+            dashboard_name,
+            {
+                "torrents": 0,
+                "uploaded": 0,
+                "downloaded": 0,
+                "satisfied": 0,
+                "pending": 0,
+                "downloading": 0,
+                "risk": 0,
+            },
+        )
+        totals["torrents"] += 1
+        totals["uploaded"] += int(torrent.get("uploaded", 0) or 0)
+        totals["downloaded"] += int(torrent.get("downloaded", 0) or 0)
+        totals[audit_status(safe, message)] += 1
 
     for name in sorted(statistics):
         totals = statistics[name]
@@ -309,6 +385,9 @@ def run_audit(
             f"uploaded={totals['uploaded']}B "
             f"downloaded={totals['downloaded']}B"
         )
+
+    if dashboard_path is not None:
+        write_dashboard(dashboard_path, statistics)
 
     if failures:
         raise PrivateTrackerAuditError(
@@ -335,6 +414,11 @@ def main() -> int:
         default=DEFAULT_STACK_DIR,
     )
     parser.add_argument(
+        "--dashboard-path",
+        type=Path,
+        help="Write a secret-free HTML and JSON tracker summary.",
+    )
+    parser.add_argument(
         "--enforce-limits",
         action="store_true",
         help="Raise managed private torrent limits to the retention policy.",
@@ -354,7 +438,12 @@ def main() -> int:
         password,
     )
     client.login()
-    return run_audit(client, enforce_limits=args.enforce_limits)
+    dashboard_path = args.dashboard_path or args.stack_dir / "state/private-trackers.html"
+    return run_audit(
+        client,
+        enforce_limits=args.enforce_limits,
+        dashboard_path=dashboard_path,
+    )
 
 
 if __name__ == "__main__":

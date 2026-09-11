@@ -263,6 +263,33 @@ persistent `[LATINO]` filename marker. It never replaces an existing episode.
 Run `make dispatch-btarg-series` for a preview or
 `APPLY=1 make dispatch-btarg-series` to process immediately.
 
+BTArg detail classifications are shared with the Sonarr and Radarr language
+upgrade helpers. Verified results are cached for seven days, unknown results
+for six hours, and empty searches use a 6/12/24-hour retry schedule. This lets
+normal movies, episodes, season packs, and multi-season packs use the detail
+page's actual language instead of trusting an ambiguous `Dual Audio` title.
+
+Before dispatching a large pack, the worker reserves space for both the
+download and a possible H.264 conversion. Conversion is sequential, low
+priority, and rechecks available space per file. After Sonarr rescans the
+library, every newly imported episode must point to the expected `[LATINO]`
+file before the torrent receives the `btarg-import-verified` tag. A mismatch is
+tagged `btarg-import-review` and retained for investigation.
+
+### Private tracker dashboard and controlled repairs
+
+Every private-tracker audit refreshes secret-free summaries at
+`/volume1/docker/media-stack/state/private-trackers.html` and `.json`. The
+panel shows totals, downloading, pending, satisfied and at-risk counts plus
+uploaded/downloaded volume; it contains no announce URLs or credentials.
+
+`media-stack-language-repair-audit.timer` runs once daily at approximately
+04:15 and writes `/volume1/docker/media-stack/state/language-repair-candidates.txt`.
+It checks all monitored Sonarr and Radarr media using private trackers and the
+authenticated BTArg language cache, but always uses dry-run mode. Review this
+report before using the existing explicit Sonarr/Radarr upgrade commands. Run
+`make audit-language-repairs` to refresh it immediately.
+
 Time-based private-retention values include a 10-hour accounting margin above
 each tracker's stated rule, because qBittorrent's local timer can run ahead of
 the tracker's credited seeding time. The managed values are 106 hours for

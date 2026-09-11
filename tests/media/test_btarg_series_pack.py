@@ -29,9 +29,9 @@ class BTArgSeriesPackTest(unittest.TestCase):
         self.assertEqual(detail.video_codec_text, "HEVC - AVC")
         self.assertIn("x265", detail.resolution_text)
 
-    def test_bare_dual_title_is_not_a_language_proof(self) -> None:
+    def test_detail_can_explicitly_classify_english(self) -> None:
         detail = parse_btarg_detail("<p>Idioma: Inglés</p><p>Ripper: example</p>")
-        self.assertEqual(detail.language, "unknown")
+        self.assertEqual(detail.language, "english")
 
     def test_parses_multi_season_range(self) -> None:
         self.assertEqual(parse_season_range("Show S01-S04 Dual 1080p"), (1, 4))

@@ -1,5 +1,6 @@
 
 import importlib.util
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -177,6 +178,30 @@ class PrivateTrackerAuditTest(unittest.TestCase):
 
         self.assertFalse(safe)
         self.assertIn("no finite", message)
+
+    def test_writes_secret_free_html_and_json_dashboard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "private-trackers.html"
+            MODULE.write_dashboard(
+                path,
+                {
+                    "BTArg": {
+                        "torrents": 2,
+                        "uploaded": 1024**3,
+                        "downloaded": 2 * 1024**3,
+                        "satisfied": 1,
+                        "pending": 1,
+                        "downloading": 0,
+                        "risk": 0,
+                    }
+                },
+            )
+            document = path.read_text(encoding="utf-8")
+            payload = (path.with_suffix(".json")).read_text(encoding="utf-8")
+            self.assertIn("BTArg", document)
+            self.assertIn("1.0 GiB", document)
+            self.assertNotIn("announce", document.casefold())
+            self.assertIn('"tracker": "BTArg"', payload)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
 BTARG_SERIES_SCRIPT="${ROOT_DIR}/scripts/dispatch-btarg-series.py"
 BTARG_SERIES_MODULE="${ROOT_DIR}/scripts/media/btarg_series_pack.py"
+LANGUAGE_REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
@@ -33,6 +34,7 @@ MEDIA_COMMON_QBITTORRENT="${MEDIA_COMMON_DIR}/qbittorrent.py"
 MEDIA_COMMON_CLEANUP="${MEDIA_COMMON_DIR}/cleanup.py"
 MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
 MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
+MEDIA_COMMON_BTARG="${MEDIA_COMMON_DIR}/btarg.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
@@ -67,6 +69,8 @@ PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.serv
 PRIVATE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-private-dispatch.timer"
 BTARG_SERIES_SERVICE="${STACK_DIR}/systemd/media-stack-btarg-series.service"
 BTARG_SERIES_TIMER="${STACK_DIR}/systemd/media-stack-btarg-series.timer"
+LANGUAGE_REPAIR_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-language-repair-audit.service"
+LANGUAGE_REPAIR_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-language-repair-audit.timer"
 ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
 ARCHIVE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
@@ -118,6 +122,7 @@ for required_file in \
   "$MEDIA_COMMON_CLEANUP" \
   "$MEDIA_COMMON_LATINO" \
   "$MEDIA_COMMON_LANGUAGE" \
+  "$MEDIA_COMMON_BTARG" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
   "$DISPATCHARR_SCRIPT" \
@@ -153,6 +158,9 @@ for required_file in \
   "$BTARG_SERIES_MODULE" \
   "$BTARG_SERIES_SERVICE" \
   "$BTARG_SERIES_TIMER" \
+  "$LANGUAGE_REPAIR_AUDIT_SCRIPT" \
+  "$LANGUAGE_REPAIR_AUDIT_SERVICE" \
+  "$LANGUAGE_REPAIR_AUDIT_TIMER" \
   "$ARCHIVE_DISPATCH_SERVICE" \
   "$ARCHIVE_DISPATCH_TIMER" \
   "$SERVARR_COMMON_MODULE" \
@@ -242,6 +250,7 @@ REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
 REMOTE_BTARG_SERIES_TEMP="${REMOTE_STAGING}/dispatch-btarg-series-${USER}-$$.py"
 REMOTE_BTARG_SERIES_MODULE_TEMP="${REMOTE_STAGING}/btarg-series-pack-${USER}-$$.py"
+REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
@@ -250,6 +259,7 @@ REMOTE_MEDIA_COMMON_QBITTORRENT_TEMP="${REMOTE_STAGING}/media-common-qbittorrent
 REMOTE_MEDIA_COMMON_CLEANUP_TEMP="${REMOTE_STAGING}/media-common-cleanup-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_BTARG_TEMP="${REMOTE_STAGING}/media-common-btarg-${USER}-$$.py"
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
@@ -284,6 +294,8 @@ REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-disp
 REMOTE_PRIVATE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.timer"
 REMOTE_BTARG_SERIES_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.service"
 REMOTE_BTARG_SERIES_TIMER_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.timer"
+REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.service"
+REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.timer"
 REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
 REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
@@ -532,6 +544,7 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_TEMP}'" < "$BTARG_SERIES_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_MODULE_TEMP}'" < "$BTARG_SERIES_MODULE"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}'" < "$LANGUAGE_REPAIR_AUDIT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
 
 echo "Uploading shared media modules..."
@@ -559,6 +572,10 @@ echo "Uploading shared media modules..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}'" \
   < "$MEDIA_COMMON_LANGUAGE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_BTARG_TEMP}'" \
+  < "$MEDIA_COMMON_BTARG"
 
 echo "Uploading Seerr configuration script through SSH..."
 
@@ -721,6 +738,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$BTARG_SERIES_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}'" \
+  < "$LANGUAGE_REPAIR_AUDIT_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP}'" \
+  < "$LANGUAGE_REPAIR_AUDIT_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}'" \
   < "$ARCHIVE_DISPATCH_SERVICE"
 
@@ -828,6 +853,7 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
   sudo install -m 0755 '${REMOTE_BTARG_SERIES_TEMP}' '${NAS_STACK_DIR}/dispatch-btarg-series.py'
   sudo install -m 0644 '${REMOTE_BTARG_SERIES_MODULE_TEMP}' '${NAS_STACK_DIR}/scripts/btarg_series_pack.py'
+  sudo install -m 0755 '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-language-repairs.py'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
 
   sudo mkdir -p \
@@ -856,6 +882,10 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0644 \
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${NAS_STACK_DIR}/scripts/common/language.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_BTARG_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/btarg.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -990,6 +1020,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-btarg-series.timer
 
   sudo install -m 0644 \
+    '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-language-repair-audit.service
+
+  sudo install -m 0644 \
+    '${REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-language-repair-audit.timer
+
+  sudo install -m 0644 \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-archive-spanish-dispatch.service
 
@@ -1006,6 +1044,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-torrent-notifications.timer \
     media-stack-private-dispatch.timer \
     media-stack-btarg-series.timer \
+    media-stack-language-repair-audit.timer \
     media-stack-archive-spanish-dispatch.timer
 
   sudo mkdir -p \
@@ -1120,6 +1159,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_CLEANUP_TEMP}' \
     '${REMOTE_MEDIA_COMMON_LATINO_TEMP}' \
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_BTARG_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_DISPATCHARR_TEMP}' \
@@ -1153,6 +1193,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
     '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
+    '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
+    '${REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
@@ -1178,6 +1220,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_DISPATCH_TEMP}' \
     '${REMOTE_BTARG_SERIES_TEMP}' \
     '${REMOTE_BTARG_SERIES_MODULE_TEMP}' \
+    '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TEMP}'
 
   cd '${NAS_STACK_DIR}'

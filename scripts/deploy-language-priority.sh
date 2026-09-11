@@ -26,6 +26,7 @@ FILES=(
   "scripts/servarr_config/settings.py"
   "scripts/media/common/language.py"
   "scripts/media/common/arr.py"
+  "scripts/media/common/btarg.py"
   "scripts/media/upgrade-sonarr-latino.py"
   "scripts/media/upgrade-radarr-latino.py"
   "stacks/media/servarr/custom-formats/sonarr-latino.json"
@@ -62,6 +63,7 @@ done
   sudo -n install -m 0644 \
     '${REMOTE_STAGING}/scripts/media/common/language.py' \
     '${REMOTE_STAGING}/scripts/media/common/arr.py' \
+    '${REMOTE_STAGING}/scripts/media/common/btarg.py' \
     /volume1/docker/media-stack/scripts/common/
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/media/upgrade-sonarr-latino.py' \

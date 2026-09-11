@@ -5,5 +5,6 @@ After=network.target docker.service
 [Service]
 Type=oneshot
 TimeoutStartSec=infinity
+Nice=10
+IOSchedulingClass=idle
 ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/dispatch-btarg-series.py --apply
-

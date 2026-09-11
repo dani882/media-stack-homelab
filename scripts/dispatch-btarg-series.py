@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import argparse
 import errno
-import http.cookiejar
+import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -29,21 +30,22 @@ from btarg_series_pack import (
     PackValidationError,
     destination_filename,
     map_pack_files,
-    parse_btarg_detail,
     parse_season_range,
     validate_torrent_paths,
 )
 from common.qbittorrent import QBittorrentClient, QBittorrentError, read_credentials
+from common.btarg import BTArgCache, BTArgClient, BTArgError
 
 
 SEERR_URL = "http://127.0.0.1:5055"
 SONARR_URL = "http://127.0.0.1:8989"
 PROWLARR_URL = "http://127.0.0.1:9696"
 QBITTORRENT_URL = "http://127.0.0.1:8888"
-BTARG_BASE_URL = "https://www.btarg.com.ar/"
 BTARG_RATIO_LIMIT = 1.0
 MINIMUM_SEEDERS = 1
 MAX_BTARG_DOWNLOADS = 6
+MINIMUM_FREE_BYTES = 10 * 1024**3
+DISPATCH_SPACE_MULTIPLIER = 2.1
 class DispatchError(RuntimeError):
     pass
 
@@ -144,64 +146,6 @@ def download_url_for_qbittorrent(value: str) -> str:
     )
 
 
-class BTArgSession:
-    def __init__(self, stack: Path) -> None:
-        try:
-            payload = json.loads(
-                (stack / "secrets/prowlarr-private-indexers.json").read_text(
-                    encoding="utf-8"
-                )
-            )["btarg"]
-            username = str(payload["username"])
-            password = str(payload["password"])
-        except (OSError, KeyError, json.JSONDecodeError) as error:
-            raise DispatchError(f"Unable to load BTArg credentials: {error}") from error
-        cookie_jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(cookie_jar)
-        )
-        self.opener.addheaders = [("User-Agent", "homelab-btarg-series/1.0")]
-        login = urllib.parse.urlencode(
-            {"username": username, "password": password}
-        ).encode("utf-8")
-        try:
-            with self.opener.open(
-                urllib.request.Request(
-                    urllib.parse.urljoin(BTARG_BASE_URL, "tracker/takelogin.php"),
-                    data=login,
-                    method="POST",
-                ),
-                timeout=30,
-            ) as response:
-                body = response.read().decode("iso-8859-1", errors="replace")
-        except (OSError, urllib.error.HTTPError, urllib.error.URLError) as error:
-            raise DispatchError(f"BTArg login failed: {error}") from error
-        if "logout.php" not in body.casefold():
-            raise DispatchError("BTArg login did not produce an authenticated session")
-
-    def detail(self, url: str) -> str:
-        parsed = urllib.parse.urlsplit(url)
-        if parsed.scheme != "https" or parsed.hostname not in {
-            "btarg.com.ar",
-            "www.btarg.com.ar",
-        }:
-            raise DispatchError("BTArg detail URL uses an unexpected host")
-        if parsed.path != "/tracker/details.php":
-            raise DispatchError("BTArg detail URL uses an unexpected path")
-        query = urllib.parse.parse_qs(parsed.query)
-        torrent_id = (query.get("id") or [""])[0]
-        if not torrent_id.isdigit():
-            raise DispatchError("BTArg detail URL has no numeric torrent ID")
-        safe_url = urllib.parse.urljoin(
-            BTARG_BASE_URL, f"tracker/details.php?id={torrent_id}"
-        )
-        try:
-            with self.opener.open(safe_url, timeout=30) as response:
-                return response.read().decode("iso-8859-1", errors="replace")
-        except (OSError, urllib.error.HTTPError, urllib.error.URLError) as error:
-            raise DispatchError(f"Unable to read BTArg detail: {error}") from error
-
-
 def btarg_indexer_id(prowlarr_key: str) -> int:
     indexers = request_json(
         PROWLARR_URL, prowlarr_key, "/indexer", api_version=1
@@ -228,7 +172,7 @@ def select_candidate(
     releases: list[dict[str, Any]],
     seasons: set[int],
     imdb_id: str,
-    btarg: BTArgSession,
+    btarg: BTArgClient,
 ) -> tuple[dict[str, Any], str]:
     accepted: list[tuple[dict[str, Any], str]] = []
     for release in releases:
@@ -245,8 +189,7 @@ def select_candidate(
         info_url = str(release.get("infoUrl", ""))
         if not info_url or not release.get("downloadUrl"):
             continue
-        document = btarg.detail(info_url)
-        detail = parse_btarg_detail(document)
+        detail = btarg.detail(info_url)
         if detail.language != "latino":
             continue
         if not detail.imdb_id or detail.imdb_id.casefold() != imdb_id.casefold():
@@ -262,6 +205,16 @@ def select_candidate(
         )
     )
     return accepted[0]
+
+
+def require_dispatch_space(path: Path, release_size: int) -> None:
+    required = max(int(release_size * DISPATCH_SPACE_MULTIPLIER), MINIMUM_FREE_BYTES)
+    free = shutil.disk_usage(path).free
+    if free < required:
+        raise DispatchError(
+            f"Insufficient free space: {free // 1024**3} GiB free, "
+            f"{required // 1024**3} GiB required"
+        )
 
 
 def wait_for_tagged_torrent(
@@ -293,6 +246,13 @@ def start_torrent(qbit: QBittorrentClient, torrent_hash: str) -> None:
         qbit.post_form("/api/v2/torrents/start", {"hashes": torrent_hash})
     except QBittorrentError:
         qbit.post_form("/api/v2/torrents/resume", {"hashes": torrent_hash})
+
+
+def add_torrent_tag(qbit: QBittorrentClient, torrent_hash: str, tag: str) -> None:
+    qbit.post_form(
+        "/api/v2/torrents/addTags",
+        {"hashes": torrent_hash, "tags": tag},
+    )
 
 
 def add_validated_pack(
@@ -412,6 +372,13 @@ def validate_verified_latino_audio(probe: dict[str, Any]) -> None:
 
 
 def transcode_to_h264(source: Path, destination: Path) -> None:
+    required = max(int(source.stat().st_size * 1.25), 5 * 1024**3)
+    free = shutil.disk_usage(destination.parent).free
+    if free < required:
+        raise DispatchError(
+            f"Insufficient free space to convert {source.name}: "
+            f"{free // 1024**3} GiB free"
+        )
     temporary = destination.with_name(destination.name + ".partial.mkv")
     temporary.unlink(missing_ok=True)
     command = [
@@ -467,6 +434,9 @@ def import_completed_pack(
     sonarr_key: str,
     apply: bool,
 ) -> None:
+    torrent_hash = str(torrent["hash"])
+    if "btarg-import-verified" in tags_for(torrent):
+        return
     files = qbit_files(qbit, str(torrent["hash"]))
     if any(float(item.get("progress", 0) or 0) < 1 for item in files):
         print(f"WAITING FOR FILES: {torrent.get('name', '')}")
@@ -478,6 +448,8 @@ def import_completed_pack(
     episodes_by_id = {int(item["id"]): item for item in episodes}
     changed = 0
     planned = 0
+    expected_destinations: dict[int, Path] = {}
+    needs_rescan = False
     for mapping in mappings:
         mapped_episodes = [episodes_by_id[item] for item in mapping.episode_ids]
         if any(item.get("hasFile") for item in mapped_episodes):
@@ -498,8 +470,11 @@ def import_completed_pack(
             / f"Season {mapping.season:02d}"
             / destination_filename(str(series["title"]), mapping, extension)
         )
+        for episode_id in mapping.episode_ids:
+            expected_destinations[episode_id] = destination
         planned += 1
         if destination.exists():
+            needs_rescan = True
             continue
         print(f"{'IMPORT' if apply else 'WOULD IMPORT'}: {mapping.path} -> {destination.name}")
         if not apply:
@@ -516,14 +491,50 @@ def import_completed_pack(
             transcode_to_h264(source, destination)
         changed += 1
     print(f"PACK IMPORT: planned={planned} changed={changed}")
-    if changed:
-        request_json(
+    if changed or needs_rescan:
+        command = request_json(
             SONARR_URL,
             sonarr_key,
             "/command",
             method="POST",
             payload={"name": "RescanSeries", "seriesId": int(series["id"])},
         )
+        command_id = int((command or {}).get("id", 0) or 0)
+        for _ in range(30):
+            if not command_id:
+                break
+            status = request_json(SONARR_URL, sonarr_key, f"/command/{command_id}")
+            if str(status.get("status", "")).casefold() in {"completed", "failed"}:
+                break
+            time.sleep(2)
+
+    if apply and expected_destinations:
+        refreshed = request_json(
+            SONARR_URL, sonarr_key, f"/episode?seriesId={series['id']}"
+        )
+        refreshed_by_id = {int(item["id"]): item for item in refreshed}
+        file_cache: dict[int, dict[str, Any]] = {}
+        problems: list[str] = []
+        for episode_id, destination in expected_destinations.items():
+            episode = refreshed_by_id.get(episode_id, {})
+            file_id = int(episode.get("episodeFileId", 0) or 0)
+            if not episode.get("hasFile") or not file_id:
+                problems.append(f"episode {episode_id} is not imported")
+                continue
+            if file_id not in file_cache:
+                file_cache[file_id] = request_json(
+                    SONARR_URL, sonarr_key, f"/episodefile/{file_id}"
+                )
+            relative_path = str(file_cache[file_id].get("relativePath", ""))
+            if Path(relative_path).name != destination.name:
+                problems.append(f"episode {episode_id} points to an unexpected file")
+        if problems:
+            add_torrent_tag(qbit, torrent_hash, "btarg-import-review")
+            raise DispatchError(
+                "Post-import verification failed: " + "; ".join(problems[:3])
+            )
+        add_torrent_tag(qbit, torrent_hash, "btarg-import-verified")
+        print(f"PACK VERIFIED: episodes={len(expected_destinations)}")
 
 
 def main() -> int:
@@ -545,7 +556,11 @@ def main() -> int:
         print("BTARG SERIES OK: no eligible Seerr TV requests")
         return 0
 
-    btarg: BTArgSession | None = None
+    cache = BTArgCache(stack / "state/btarg-language-cache.json")
+    btarg = BTArgClient(
+        stack / "secrets/prowlarr-private-indexers.json",
+        cache,
+    )
     indexer_id: int | None = None
     started = 0
     for request in requests:
@@ -566,7 +581,7 @@ def main() -> int:
         requested_episodes = [
             item for item in episodes if int(item.get("seasonNumber", 0)) in seasons
         ]
-        if not requested_episodes or all(item.get("hasFile") for item in requested_episodes):
+        if not requested_episodes:
             continue
         request_tag = f"seerr-request-{request['id']}"
         matches = [item for item in torrents if request_tag in tags_for(item)]
@@ -584,6 +599,8 @@ def main() -> int:
                 qbit, torrent, series, episodes, sonarr_key, arguments.apply
             )
             continue
+        if all(item.get("hasFile") for item in requested_episodes):
+            continue
         if started:
             continue
         active_btarg = sum(
@@ -596,18 +613,23 @@ def main() -> int:
         if active_btarg >= MAX_BTARG_DOWNLOADS:
             print("SKIP: BTArg simultaneous-download limit reached")
             continue
-        if btarg is None:
-            btarg = BTArgSession(stack)
         if indexer_id is None:
             indexer_id = btarg_indexer_id(prowlarr_key)
+        search_key = f"seerr-tv:{request['id']}:{','.join(map(str, sorted(seasons)))}"
+        if not cache.search_allowed(search_key):
+            print(f"BACKOFF request={request['id']}: previous BTArg search had no safe pack")
+            continue
         releases = prowlarr_search(prowlarr_key, str(series["title"]), indexer_id)
         try:
             release, language = select_candidate(
                 releases, seasons, str(series["imdbId"]), btarg
             )
         except DispatchError as error:
+            cache.record_search_miss(search_key)
             print(f"NO PACK request={request['id']}: {error}")
             continue
+        cache.clear_search(search_key)
+        require_dispatch_space(DATA_ROOT, int(release.get("size", 0) or 0))
         print(
             f"{'DISPATCH' if arguments.apply else 'WOULD DISPATCH'} "
             f"request={request['id']} series={series['title']} language={language} "
@@ -628,7 +650,15 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main())
-    except (DispatchError, PackValidationError, QBittorrentError) as error:
+        lock_path = STACK / "state/btarg-series.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with lock_path.open("w", encoding="utf-8") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print("BTARG SERIES: another worker is already running")
+                raise SystemExit(0)
+            raise SystemExit(main())
+    except (DispatchError, PackValidationError, QBittorrentError, BTArgError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         raise SystemExit(1)

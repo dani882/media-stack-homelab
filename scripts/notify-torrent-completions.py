@@ -4,6 +4,7 @@
 
 
 import argparse
+import hashlib
 import json
 import mimetypes
 import re
@@ -176,11 +177,28 @@ def load_state(state_file: Path) -> dict[str, Any] | None:
     return value
 
 
-def save_state(state_file: Path, torrents: dict[str, dict[str, Any]]) -> None:
+def recipient_fingerprint(chat_id: int) -> str:
+    return hashlib.sha256(str(chat_id).encode("ascii")).hexdigest()[:16]
+
+
+def save_state(
+    state_file: Path,
+    torrents: dict[str, dict[str, Any]],
+    notified: dict[str, list[str]] | None = None,
+    recipients: list[str] | None = None,
+) -> None:
     state_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = state_file.with_suffix(".tmp")
     temporary.write_text(
-        json.dumps({"torrents": torrents}, sort_keys=True) + "\n",
+        json.dumps(
+            {
+                "torrents": torrents,
+                "notified": notified or {},
+                "recipients": recipients or [],
+            },
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     temporary.chmod(0o600)
@@ -214,6 +232,27 @@ def newly_completed(
         if old is None or float(old.get("progress", 0) or 0) < 1:
             completed.append(torrent)
     return completed
+
+
+def pending_notifications(
+    torrents: list[dict[str, Any]],
+    notified: dict[str, list[str]],
+    chat_ids: list[int],
+) -> list[tuple[dict[str, Any], list[int]]]:
+    pending: list[tuple[dict[str, Any], list[int]]] = []
+    for torrent in torrents:
+        if not is_complete(torrent):
+            continue
+        torrent_hash = str(torrent.get("hash") or "").upper()
+        delivered = set(notified.get(torrent_hash, []))
+        missing = [
+            chat_id
+            for chat_id in chat_ids
+            if recipient_fingerprint(chat_id) not in delivered
+        ]
+        if torrent_hash and missing:
+            pending.append((torrent, missing))
+    return pending
 
 
 def human_size(size: int) -> str:
@@ -497,21 +536,54 @@ def run(
         if torrent.get("hash")
     }
     previous_state = load_state(state_file)
+    current_recipients = [recipient_fingerprint(chat_id) for chat_id in chat_ids]
     if previous_state is None:
-        save_state(state_file, current)
+        baseline = {
+            torrent_hash: current_recipients
+            for torrent_hash, snapshot in current.items()
+            if float(snapshot.get("progress", 0) or 0) >= 1
+        }
+        save_state(state_file, current, baseline, current_recipients)
         print(f"Notification baseline saved for {len(current)} torrents.")
         return 0
 
-    completed = newly_completed(torrents, previous_state["torrents"])
-    if len(completed) > MAX_NOTIFICATIONS_PER_RUN:
-        raise NotificationError(
-            f"Refusing to send {len(completed)} notifications in one run."
+    raw_notified = previous_state.get("notified")
+    if isinstance(raw_notified, dict):
+        notified = {
+            str(torrent_hash): [str(value) for value in values]
+            for torrent_hash, values in raw_notified.items()
+            if isinstance(values, list)
+        }
+    else:
+        # Migrate the original state format without repeating old messages.
+        notified = {
+            torrent_hash: [recipient_fingerprint(chat_id) for chat_id in chat_ids]
+            for torrent_hash, snapshot in previous_state["torrents"].items()
+            if float(snapshot.get("progress", 0) or 0) >= 1
+        }
+    known_recipients = {
+        str(value) for value in previous_state.get("recipients", current_recipients)
+    }
+    new_recipients = set(current_recipients) - known_recipients
+    if new_recipients:
+        for torrent_hash, snapshot in current.items():
+            if float(snapshot.get("progress", 0) or 0) >= 1:
+                notified.setdefault(torrent_hash, []).extend(sorted(new_recipients))
+    completed_now = newly_completed(torrents, previous_state["torrents"])
+    for torrent in completed_now:
+        notified.setdefault(str(torrent.get("hash") or "").upper(), [])
+    pending = pending_notifications(torrents, notified, chat_ids)
+    if len(pending) > MAX_NOTIFICATIONS_PER_RUN:
+        print(
+            f"Deferring {len(pending) - MAX_NOTIFICATIONS_PER_RUN} completion "
+            "notification(s) to the next run."
         )
+        pending = pending[:MAX_NOTIFICATIONS_PER_RUN]
     delivery_failures = 0
-    for torrent in completed:
+    for torrent, pending_chat_ids in pending:
         text = notification_text(torrent)
         if dry_run:
-            print(f"WOULD SEND TO {len(chat_ids)} RECIPIENTS:\n{text}")
+            print(f"WOULD SEND TO {len(pending_chat_ids)} RECIPIENTS:\n{text}")
         else:
             poster = None
             try:
@@ -522,7 +594,8 @@ def run(
                     file=sys.stderr,
                 )
             delivered = 0
-            for recipient_number, chat_id in enumerate(chat_ids, 1):
+            torrent_hash = str(torrent.get("hash") or "").upper()
+            for recipient_number, chat_id in enumerate(pending_chat_ids, 1):
                 try:
                     send_download_notification(token, chat_id, text, poster)
                 except NotificationError as error:
@@ -533,13 +606,26 @@ def run(
                     delivery_failures += 1
                     continue
                 delivered += 1
+                notified.setdefault(torrent_hash, []).append(
+                    recipient_fingerprint(chat_id)
+                )
             print(
-                f"Notified completion to {delivered}/{len(chat_ids)} recipients: "
+                f"Notified completion to {delivered}/{len(pending_chat_ids)} recipients: "
                 f"{torrent.get('name', '')}"
             )
 
     if not dry_run:
-        save_state(state_file, current)
+        active_hashes = set(current)
+        save_state(
+            state_file,
+            current,
+            {
+                torrent_hash: sorted(set(values))
+                for torrent_hash, values in notified.items()
+                if torrent_hash in active_hashes
+            },
+            current_recipients,
+        )
     if delivery_failures:
         raise NotificationError(
             f"Failed to notify {delivery_failures} recipient deliveries."

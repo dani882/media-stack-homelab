@@ -23,6 +23,10 @@ from common.latino import (
     custom_format_names,
     has_latino_format,
 )
+from common.btarg import BTArgCache, BTArgClient, enrich_releases
+
+
+DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 
 def movie_matches(
@@ -63,6 +67,7 @@ def main() -> int:
         "--config-file",
         default=DEFAULT_CONFIG_FILE,
     )
+    parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
 
     args = parser.parse_args()
 
@@ -73,6 +78,10 @@ def main() -> int:
     client = RadarrClient(
         args.radarr_url,
         api_key,
+    )
+    btarg = BTArgClient(
+        args.stack_dir / "secrets/prowlarr-private-indexers.json",
+        BTArgCache(args.stack_dir / "state/btarg-language-cache.json"),
     )
 
     movies = client.get("/movie")
@@ -125,17 +134,24 @@ def main() -> int:
         releases = client.get(
             f"/release?{query}"
         )
+        releases = enrich_releases(
+            releases,
+            btarg,
+            str(movie.get("imdbId") or "") or None,
+        )
 
         detected_latino_releases = [
             release
             for release in releases
             if has_latino_format(release)
+            or release.get("btargVerifiedLanguage") == "latino"
         ]
 
         qualifying_latino_releases = [
             release
             for release in detected_latino_releases
-            if int(
+            if release.get("btargVerifiedLanguage") == "latino"
+            or int(
                 release.get(
                     "customFormatScore",
                     0,

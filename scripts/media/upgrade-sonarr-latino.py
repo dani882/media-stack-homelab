@@ -23,6 +23,10 @@ from common.language import (
     language_name,
     release_is_private,
 )
+from common.btarg import BTArgCache, BTArgClient, enrich_releases
+
+
+DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 
 def format_episode(
@@ -77,6 +81,7 @@ def process_series(
     season_filter: int | None,
     episode_filter: int | None,
     dry_run: bool,
+    btarg: BTArgClient,
 ) -> tuple[int, int]:
     series_id = int(series["id"])
     title = series.get("title", "")
@@ -166,6 +171,12 @@ def process_series(
                 flush=True,
             )
             continue
+
+        releases = enrich_releases(
+            releases,
+            btarg,
+            str(series.get("imdbId") or "") or None,
+        )
 
         best = best_language_upgrade(
             file_payload,
@@ -294,6 +305,7 @@ def main() -> int:
         "--config-file",
         default=DEFAULT_CONFIG_FILE,
     )
+    parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
 
     args = parser.parse_args()
 
@@ -323,6 +335,10 @@ def main() -> int:
     client = SonarrClient(
         args.sonarr_url,
         api_key,
+    )
+    btarg = BTArgClient(
+        args.stack_dir / "secrets/prowlarr-private-indexers.json",
+        BTArgCache(args.stack_dir / "state/btarg-language-cache.json"),
     )
 
     all_series = client.get("/series")
@@ -354,6 +370,7 @@ def main() -> int:
             args.season,
             args.episode,
             args.dry_run,
+            btarg,
         )
 
         total_actionable += actionable

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import collections
 import difflib
-import html
 import re
 import unicodedata
-import urllib.parse
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any, Iterable
+
+try:
+    from .common.btarg import BTArgDetail, parse_btarg_detail
+except ImportError:  # Installed as a top-level NAS module.
+    from common.btarg import BTArgDetail, parse_btarg_detail
 
 
 VIDEO_EXTENSIONS = frozenset({".mkv", ".mp4", ".m4v"})
@@ -45,15 +48,6 @@ class PackValidationError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class BTArgDetail:
-    language: str
-    language_text: str
-    imdb_id: str | None
-    video_codec_text: str
-    resolution_text: str
-
-
-@dataclass(frozen=True)
 class ParsedPackFile:
     path: str
     season: int
@@ -75,62 +69,6 @@ def normalized(value: str) -> str:
     value = unicodedata.normalize("NFKD", value)
     value = "".join(character for character in value if not unicodedata.combining(character))
     return re.sub(r"[^a-z0-9]+", "", value.casefold())
-
-
-def html_to_text(value: str) -> str:
-    without_scripts = re.sub(
-        r"<(?:script|style)\b.*?</(?:script|style)>",
-        " ",
-        value,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    return html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", without_scripts))).strip()
-
-
-def _field(text: str, label: str, following_labels: Iterable[str]) -> str:
-    boundary = "|".join(re.escape(item) for item in following_labels)
-    match = re.search(
-        rf"\b{re.escape(label)}\s*:\s*(.+?)(?=\s+(?:{boundary})\s*:|$)",
-        text,
-        flags=re.IGNORECASE,
-    )
-    return match.group(1).strip() if match else ""
-
-
-def parse_btarg_detail(document: str) -> BTArgDetail:
-    text = html_to_text(document)
-    language_text = _field(
-        text,
-        "Idioma",
-        ("Fecha de Rippeo", "Ripper", "Link con Info", "SINOPSIS"),
-    )
-    folded_language = normalized(language_text)
-    if "latino" in folded_language or "latam" in folded_language:
-        language = "latino"
-    elif "castellano" in folded_language or "espanol" in folded_language:
-        language = "castilian"
-    else:
-        language = "unknown"
-
-    decoded_document = urllib.parse.unquote(html.unescape(document))
-    imdb_match = re.search(r"\btt\d{7,10}\b", decoded_document, re.IGNORECASE)
-    codec_text = _field(
-        text,
-        "Codec Video",
-        ("Codec Audio", "Bitrate Video", "Bitrate Audio", "DATOS"),
-    )
-    resolution_text = _field(
-        text,
-        "Resolución",
-        ("Formato", "Codec Video", "Codec Audio"),
-    )
-    return BTArgDetail(
-        language=language,
-        language_text=language_text,
-        imdb_id=imdb_match.group(0).lower() if imdb_match else None,
-        video_codec_text=codec_text,
-        resolution_text=resolution_text,
-    )
 
 
 def parse_season_range(title: str) -> tuple[int, int] | None:

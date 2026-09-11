@@ -1,0 +1,11 @@
+[Unit]
+Description=Create reviewable Latino language repair candidates
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=8h
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/audit-language-repairs.py
+

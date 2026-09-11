@@ -120,6 +120,25 @@ repository, terminal output, documentation, commits, or chat responses.
   and imports only missing episodes with a persistent `[LATINO]` marker.
 - Do not treat this importer as permission to replace existing episode files.
   Existing Spanish, Latino, or English files remain untouched by this flow.
+- BTArg language classification is shared through
+  `scripts/media/common/btarg.py`. Authenticated detail results contain no
+  credentials and are cached for seven days; unknown results expire after six
+  hours. Searches with no safe pack back off for 6, 12, then 24 hours.
+- The BTArg pack worker must reserve enough free space for the download plus a
+  possible H.264 conversion, run only one conversion worker, and verify the
+  resulting Sonarr episode-file association before applying the
+  `btarg-import-verified` tag.
+- `media-stack-language-repair-audit.timer` creates a daily dry-run report for
+  monitored Sonarr/Radarr language repairs. It must never grab a candidate by
+  itself; apply a reviewed candidate through the existing explicit upgrade
+  helpers so the required dry-run-first workflow remains intact.
+- The private-tracker audit writes secret-free HTML and JSON summaries under
+  `state/private-trackers.*`. Never include torrent announce URLs, passkeys,
+  account identifiers, or credentials in those summaries.
+- Telegram remains completion-only. Recipient delivery fingerprints may be
+  stored in NAS-local state so a failed recipient can be retried without
+  repeating successful deliveries; do not add routine start/search/import
+  messages.
 
 - Telegram synchronizes one account across its devices, so a new device on an
   existing account requires no recipient change. For another person's
