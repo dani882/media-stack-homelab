@@ -1,0 +1,9 @@
+[Unit]
+Description=Download and import verified Latino BTArg multi-season TV packs
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/dispatch-btarg-series.py --apply
+

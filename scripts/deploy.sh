@@ -22,6 +22,8 @@ PUBLIC_IMPORTED_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-public-imported.py"
 TORRENT_NOTIFICATION_SCRIPT="${ROOT_DIR}/scripts/notify-torrent-completions.py"
 PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
+BTARG_SERIES_SCRIPT="${ROOT_DIR}/scripts/dispatch-btarg-series.py"
+BTARG_SERIES_MODULE="${ROOT_DIR}/scripts/media/btarg_series_pack.py"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
@@ -63,6 +65,8 @@ TORRENT_NOTIFICATION_SERVICE="${STACK_DIR}/systemd/media-stack-torrent-notificat
 TORRENT_NOTIFICATION_TIMER="${STACK_DIR}/systemd/media-stack-torrent-notifications.timer"
 PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.service"
 PRIVATE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-private-dispatch.timer"
+BTARG_SERIES_SERVICE="${STACK_DIR}/systemd/media-stack-btarg-series.service"
+BTARG_SERIES_TIMER="${STACK_DIR}/systemd/media-stack-btarg-series.timer"
 ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
 ARCHIVE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
@@ -145,6 +149,10 @@ for required_file in \
   "$TORRENT_NOTIFICATION_TIMER" \
   "$PRIVATE_DISPATCH_SERVICE" \
   "$PRIVATE_DISPATCH_TIMER" \
+  "$BTARG_SERIES_SCRIPT" \
+  "$BTARG_SERIES_MODULE" \
+  "$BTARG_SERIES_SERVICE" \
+  "$BTARG_SERIES_TIMER" \
   "$ARCHIVE_DISPATCH_SERVICE" \
   "$ARCHIVE_DISPATCH_TIMER" \
   "$SERVARR_COMMON_MODULE" \
@@ -232,6 +240,8 @@ REMOTE_PUBLIC_IMPORTED_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-public-imported-$
 REMOTE_TORRENT_NOTIFICATION_TEMP="${REMOTE_STAGING}/notify-torrent-completions-${USER}-$$.py"
 REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
+REMOTE_BTARG_SERIES_TEMP="${REMOTE_STAGING}/dispatch-btarg-series-${USER}-$$.py"
+REMOTE_BTARG_SERIES_MODULE_TEMP="${REMOTE_STAGING}/btarg-series-pack-${USER}-$$.py"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
@@ -272,6 +282,8 @@ REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-torrent-
 REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.timer"
 REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.service"
 REMOTE_PRIVATE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.timer"
+REMOTE_BTARG_SERIES_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.service"
+REMOTE_BTARG_SERIES_TIMER_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.timer"
 REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
 REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
@@ -518,6 +530,8 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_GRAB_TEMP}'" < "$PRIVATE_GRAB_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_TEMP}'" < "$BTARG_SERIES_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_MODULE_TEMP}'" < "$BTARG_SERIES_MODULE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
 
 echo "Uploading shared media modules..."
@@ -699,6 +713,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$PRIVATE_DISPATCH_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_BTARG_SERIES_SERVICE_TEMP}'" \
+  < "$BTARG_SERIES_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_BTARG_SERIES_TIMER_TEMP}'" \
+  < "$BTARG_SERIES_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}'" \
   < "$ARCHIVE_DISPATCH_SERVICE"
 
@@ -804,6 +826,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/notify-torrent-completions.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_GRAB_TEMP}' '${NAS_STACK_DIR}/grab-prowlarr-release.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
+  sudo install -m 0755 '${REMOTE_BTARG_SERIES_TEMP}' '${NAS_STACK_DIR}/dispatch-btarg-series.py'
+  sudo install -m 0644 '${REMOTE_BTARG_SERIES_MODULE_TEMP}' '${NAS_STACK_DIR}/scripts/btarg_series_pack.py'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
 
   sudo mkdir -p \
@@ -958,6 +982,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-private-dispatch.timer
 
   sudo install -m 0644 \
+    '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-btarg-series.service
+
+  sudo install -m 0644 \
+    '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-btarg-series.timer
+
+  sudo install -m 0644 \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-archive-spanish-dispatch.service
 
@@ -973,6 +1005,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-public-cleanup.timer \
     media-stack-torrent-notifications.timer \
     media-stack-private-dispatch.timer \
+    media-stack-btarg-series.timer \
     media-stack-archive-spanish-dispatch.timer
 
   sudo mkdir -p \
@@ -1118,6 +1151,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
+    '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
+    '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
@@ -1141,6 +1176,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}' \
     '${REMOTE_PRIVATE_GRAB_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TEMP}' \
+    '${REMOTE_BTARG_SERIES_TEMP}' \
+    '${REMOTE_BTARG_SERIES_MODULE_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TEMP}'
 
   cd '${NAS_STACK_DIR}'

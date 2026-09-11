@@ -61,6 +61,16 @@ Audit private-tracker protection without exposing announce URLs or passkeys:
 make audit-private-trackers
 ```
 
+Preview the automatic BTArg multi-season series workflow:
+
+```bash
+make dispatch-btarg-series
+```
+
+The scheduled worker verifies Latino audio on BTArg's authenticated detail
+page, exact series/seasons, safe file types, and complete episode mapping. It
+keeps the torrent to ratio 1.0 and never overwrites an existing episode.
+
 This is also part of the 30-minute media-stack health audit. It reports the
 short torrent hash, tracker name, configured seeding requirement, and time
 remaining. It fails safely for an unrecognized private tracker, a missing

@@ -247,6 +247,22 @@ request that already has a `seerr-request-<id>` qBittorrent tag. Enable
 automatic grabs only after a live candidate has passed that apply path and the
 Arr import/hardlink result has been verified.
 
+### Automatic BTArg multi-season series packs
+
+`media-stack-btarg-series.timer` handles the packages Sonarr rejects with
+`Multi-season releases are not supported`. Every 15 minutes it checks approved
+Seerr series requests and accepts only a BTArg package that exactly covers the
+requested seasons, matches the series IMDb identity, has at least one seeder,
+contains no executable/archive payload, and whose authenticated detail page
+explicitly says Latino. A bare `Dual Audio` title is never sufficient.
+
+The torrent is kept to ratio 1.0. After completion, the worker validates the
+audio metadata, maps each broadcast file to Sonarr's segment episodes by title,
+converts HEVC video to H.264, and imports only missing episodes with the
+persistent `[LATINO]` filename marker. It never replaces an existing episode.
+Run `make dispatch-btarg-series` for a preview or
+`APPLY=1 make dispatch-btarg-series` to process immediately.
+
 Time-based private-retention values include a 10-hour accounting margin above
 each tracker's stated rule, because qBittorrent's local timer can run ahead of
 the tracker's credited seeding time. The managed values are 106 hours for

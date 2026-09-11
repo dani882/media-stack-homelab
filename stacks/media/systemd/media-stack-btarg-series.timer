@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically process verified Latino BTArg TV packs
+
+[Timer]
+OnBootSec=20min
+OnUnitActiveSec=15min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

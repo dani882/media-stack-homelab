@@ -111,6 +111,16 @@ repository, terminal output, documentation, commits, or chat responses.
 
 ## Operational workflow
 
+- `media-stack-btarg-series.timer` handles BTArg multi-season TV packs that
+  Sonarr rejects natively. It only accepts exact requested-season coverage,
+  an IMDb identity match, at least one seeder, safe payload extensions, and
+  explicit Latino audio from the authenticated BTArg detail page. It downloads
+  at most one new pack per run, preserves the torrent to ratio 1.0, maps
+  broadcast-segment files to Sonarr episodes by title, converts HEVC to H.264,
+  and imports only missing episodes with a persistent `[LATINO]` marker.
+- Do not treat this importer as permission to replace existing episode files.
+  Existing Spanish, Latino, or English files remain untouched by this flow.
+
 - Telegram synchronizes one account across its devices, so a new device on an
   existing account requires no recipient change. For another person's
   account, have them start the bot and send `/registrar CODIGO`, then run
