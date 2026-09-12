@@ -123,6 +123,10 @@ required for a strict private-first policy because Radarr and Sonarr compare
 quality and custom-format scores before using numerical indexer priority as a
 tiebreaker; priority numbers alone cannot guarantee a private result.
 
+ExtraTorrent.st is intentionally disabled because its test frequently reports
+a successful query with no results. The remaining public interactive
+fallbacks provide the same role without producing a false deployment failure.
+
 Managed Milnueve policy includes:
 
 - Prowlarr priority `4`
@@ -313,6 +317,8 @@ It checks all monitored Sonarr and Radarr media using private trackers and the
 authenticated BTArg language cache, but always uses dry-run mode. Review this
 report before using the existing explicit Sonarr/Radarr upgrade commands. Run
 `make audit-language-repairs` to refresh it immediately.
+Transient Sonarr/Radarr disconnects are retried once and then isolated to the
+affected episode or series so the rest of the daily report can finish.
 
 Time-based private-retention values include a 10-hour accounting margin above
 each tracker's stated rule, because qBittorrent's local timer can run ahead of
@@ -932,6 +938,17 @@ PROFILARR_SYNC_ON_DEPLOY=1
 
 in the NAS-side media environment file.
 
+The full Dispatcharr playlist and EPG refresh is intentionally excluded from
+normal deploys because it can take ten minutes and depends on an external EPG
+server. `make deploy` performs a quick database health check instead. Run
+`make configure-iptv` for an explicit full refresh, or set:
+
+```text
+DISPATCHARR_SYNC_ON_DEPLOY=1
+```
+
+when a full refresh is specifically required during deployment.
+
 ## Deployment
 
 Deploy the full stack:
@@ -952,8 +969,20 @@ The deployment workflow:
 8. configures qBittorrent
 9. configures Sonarr and Radarr
 10. synchronizes Recyclarr
-11. reapplies Radarr-specific post-Recyclarr policy
+11. reapplies language/safety scores and Radarr-specific policy after Recyclarr
 12. optionally synchronizes Profilarr when `PROFILARR_SYNC_ON_DEPLOY=1`
+13. validates live HTTP services, critical timers, and auxiliary audit state
+
+An OpenSSH warning about a missing post-quantum key exchange comes from the
+NAS SSH server or firmware, not from the media deployment. It is intentionally
+left visible rather than suppressed; update the NAS SSH implementation when a
+vendor-supported version with hybrid post-quantum key exchange is available.
+
+Container image, build, apply, restart, status, Recyclarr, and optional
+Profilarr operations have explicit safety deadlines. If Docker is delayed by
+heavy NAS disk activity, deployment stops with a load and storage summary
+instead of waiting indefinitely. Existing containers are not removed by this
+timeout path.
 
 ## Live Validation
 
@@ -962,6 +991,11 @@ Run a quick live service check on the NAS:
 ```bash
 make check-media-live
 ```
+
+This check also verifies the private dispatcher, cleanup, BTArg, and Telegram
+timers. Failed media audit services fail the standalone check; during a full
+deployment they are reported as historical warnings so they cannot disguise
+the health of the newly deployed containers.
 
 Audit live Seerr routing:
 
@@ -996,6 +1030,40 @@ Audit recent hardlink-backed imports automatically:
 
 ```bash
 make audit-hardlinks
+```
+
+The audit indexes download video files once and checks up to the 500 most
+recent library videos, avoiding both the old 20-file false negative and a
+separate full Downloads scan for every library file.
+
+Verify the audio metadata of recent Sonarr and Radarr imports:
+
+```bash
+make audit-imported-audio
+```
+
+The scheduled audit tags only proven English-only torrents whose managed
+filename claims `[LATINO]` or `[CASTELLANO]`. It never deletes a library file or
+torrent, and leaves undefined audio for review. Results are written to
+`state/imported-audio-audit.json` and `.html` without download identifiers.
+
+Build the combined secret-free health summary with `make health-dashboard`.
+The resulting `state/media-health.json` and `.html` combine timer state, report
+freshness, free space, imported-audio counts, and BTArg progress. If active
+BTArg progress does not change for over two hours, the scheduled monitor stops
+the worker control group while retaining its torrent and temporary files.
+
+Before changing containers, full deployments verify Docker responsiveness,
+normalized NAS load, available capacity, and volume usage. Run the same check
+directly with `make check-nas-preflight`. All `make` SSH connections have
+bounded connection and keepalive behavior, and standalone Docker commands have
+explicit deadlines.
+
+Observability, audio verification, preflight, and task-deadline changes can be
+installed without a full container deployment using:
+
+```bash
+make deploy-reliability
 ```
 
 Audit private-tracker seeding protection:

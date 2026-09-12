@@ -97,9 +97,17 @@ def run_manage_code(
             timeout=timeout,
         )
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-        stderr = getattr(error, "stderr", "") or ""
+        raw_stderr = getattr(error, "stderr", "") or ""
+        if isinstance(raw_stderr, bytes):
+            stderr = raw_stderr.decode("utf-8", errors="replace")
+        else:
+            stderr = str(raw_stderr)
+        if isinstance(error, subprocess.TimeoutExpired):
+            detail = f"Timed out after {error.timeout} seconds."
+        else:
+            detail = stderr.strip() or str(error)
         raise DispatcharrError(
-            "Dispatcharr configuration command failed.\n" + stderr.strip()
+            "Dispatcharr configuration command failed.\n" + detail
         ) from error
 
     return result.stdout.strip()
@@ -137,6 +145,39 @@ else:
     print(output)
 
 
+def check_playlist(container: str, account_name: str) -> None:
+    code = """
+import os
+from apps.channels.models import Channel, Stream
+from apps.m3u.models import M3UAccount
+
+name = os.environ['DISPATCHARR_ACCOUNT_NAME']
+account = M3UAccount.objects.filter(name=name).first()
+if account is None:
+    raise RuntimeError(f'Dispatcharr account not found: {name}')
+stream_count = Stream.objects.filter(m3u_account=account).count()
+channel_count = Channel.objects.filter(auto_created_by=account).count()
+if account.status != M3UAccount.Status.SUCCESS:
+    raise RuntimeError(
+        f'Dispatcharr account is not healthy: {account.status}: '
+        f'{account.last_message}'
+    )
+if stream_count == 0 or channel_count == 0:
+    raise RuntimeError('Dispatcharr has no streams or channels')
+print(
+    f'DISPATCHARR IPTV HEALTH OK: account={account.id} '
+    f'streams={stream_count} channels={channel_count}'
+)
+"""
+    output = run_manage_code(
+        container,
+        code,
+        {"DISPATCHARR_ACCOUNT_NAME": account_name},
+        timeout=60,
+    )
+    print(output)
+
+
 def configure_playlist(
     container: str,
     account_name: str,
@@ -145,6 +186,11 @@ def configure_playlist(
     epg_url: str = DEFAULT_EPG_URL,
     epg_aliases: dict[str, list[str]] | None = None,
 ) -> None:
+    print(
+        "Refreshing the complete Dispatcharr playlist and EPG; "
+        "this can take up to 10 minutes...",
+        flush=True,
+    )
     code = """
 import hashlib
 import json
@@ -433,6 +479,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epg-url", default=DEFAULT_EPG_URL)
     parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
     parser.add_argument("--username", default=DEFAULT_USERNAME)
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Validate the existing IPTV account without refreshing it.",
+    )
     return parser.parse_args()
 
 
@@ -443,6 +494,9 @@ def main() -> int:
 
     try:
         wait_until_ready(args.base_url)
+        if args.check_only:
+            check_playlist(args.container, args.account_name)
+            return 0
         username, password = read_or_create_credentials(
             secret_file,
             args.username,

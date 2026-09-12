@@ -4,4 +4,5 @@ After=network.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=10min
 ExecStart=/volume1/docker/media-stack/watchdog.sh

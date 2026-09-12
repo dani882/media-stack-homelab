@@ -329,7 +329,7 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             MODULE.managed_indexer_matches(payload, desired)
         )
 
-    def test_extto_resolves_flaresolverr_tag_by_label(self) -> None:
+    def test_unreliable_extto_is_disabled_without_testing(self) -> None:
         class FakeClient:
             def __init__(self) -> None:
                 self.requests: list[tuple[str, str, dict]] = []
@@ -344,7 +344,7 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
                 return {}
 
             def test_indexer(self, payload: dict) -> None:
-                self.requests.append(("TEST", "/indexer/test", payload))
+                raise AssertionError("disabled indexer must not be tested")
 
         desired = next(
             item for item in MODULE.INDEXERS
@@ -366,15 +366,13 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
             {},
             desired,
             dry_run=True,
-            tag_ids={"flaresolverr": 7},
             app_profile_ids={
                 MODULE.PUBLIC_FALLBACK_PROFILE: 2,
             },
         )
 
-        method, path, payload = client.requests[-1]
-        self.assertEqual((method, path), ("TEST", "/indexer/test"))
-        self.assertEqual(payload["tags"], [7])
+        self.assertFalse(desired["enabled"])
+        self.assertEqual(client.requests, [])
 
     def test_unknown_definition_is_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

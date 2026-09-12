@@ -22,7 +22,11 @@ set +a
 
 # CODE is restricted above to a shell-safe character set.
 # shellcheck disable=SC2029
-ssh "${NAS_USER}@${NAS_HOST}" \
+ssh \
+  -o ConnectTimeout=15 \
+  -o ServerAliveInterval=15 \
+  -o ServerAliveCountMax=4 \
+  "${NAS_USER}@${NAS_HOST}" \
   "cd /volume1/docker/media-stack && \
    sudo -n python3 ./notify-torrent-completions.py \
      --register-chat '$CODE' --test"

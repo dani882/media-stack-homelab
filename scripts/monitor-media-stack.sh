@@ -37,6 +37,9 @@ run_check "audit-seerr" \
   python3 "${STACK_DIR}/audit-seerr.py" || failed=1
 run_check "audit-private-trackers" \
   python3 "${STACK_DIR}/audit-private-trackers.py" || failed=1
+run_check "build-health-dashboard" \
+  python3 "${STACK_DIR}/build-health-dashboard.py" \
+    --stop-stalled-btarg || failed=1
 
 if [[ "${failed}" -ne 0 ]]; then
   exit 1

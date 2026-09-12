@@ -4,6 +4,7 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=30min
 Nice=10
 IOSchedulingClass=idle
 ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/cleanup-stalled-public.py --apply --max-delete 10

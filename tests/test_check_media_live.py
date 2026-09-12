@@ -43,22 +43,25 @@ class CheckMediaLiveTest(unittest.TestCase):
             "Profilarr",
             "http://127.0.0.1:6868/auth/login",
         )
-
-        with mock.patch.object(
-            MODULE.urllib.request,
-            "urlopen",
-            side_effect=MODULE.urllib.error.HTTPError(
-                target.url,
-                303,
-                "See Other",
-                {},
-                BytesIO(b""),
-            ),
-        ):
-            ok, message = MODULE.check_http_target(
-                target,
-                5,
-            )
+        redirect = MODULE.urllib.error.HTTPError(
+            target.url,
+            303,
+            "See Other",
+            {},
+            BytesIO(b""),
+        )
+        try:
+            with mock.patch.object(
+                MODULE.urllib.request,
+                "urlopen",
+                side_effect=redirect,
+            ):
+                ok, message = MODULE.check_http_target(
+                    target,
+                    5,
+                )
+        finally:
+            redirect.close()
 
         self.assertTrue(ok)
         self.assertEqual(message, "HTTP 303")
@@ -122,6 +125,59 @@ class CheckMediaLiveTest(unittest.TestCase):
 
         self.assertEqual(len(entries), 2)
         self.assertEqual(entries[0]["Service"], "sonarr")
+
+    def test_systemd_states_maps_each_unit(self) -> None:
+        completed = mock.Mock()
+        completed.stdout = "active\ninactive\n"
+
+        with mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            return_value=completed,
+        ):
+            states = MODULE.systemd_states(
+                "is-active",
+                ("first.timer", "second.timer"),
+            )
+
+        self.assertEqual(
+            states,
+            {"first.timer": "active", "second.timer": "inactive"},
+        )
+
+    def test_systemd_states_rejects_incomplete_output(self) -> None:
+        completed = mock.Mock()
+        completed.stdout = "active\n"
+
+        with mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            return_value=completed,
+        ):
+            with self.assertRaises(MODULE.LiveCheckError):
+                MODULE.systemd_states(
+                    "is-active",
+                    ("first.timer", "second.timer"),
+                )
+
+    def test_systemd_states_reports_timeout(self) -> None:
+        with mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            side_effect=MODULE.subprocess.TimeoutExpired(
+                ["systemctl", "is-active"],
+                5,
+            ),
+        ):
+            with self.assertRaisesRegex(
+                MODULE.LiveCheckError,
+                "timed out after 5 seconds",
+            ):
+                MODULE.systemd_states(
+                    "is-active",
+                    ("first.timer",),
+                    timeout=5,
+                )
 
 
 if __name__ == "__main__":

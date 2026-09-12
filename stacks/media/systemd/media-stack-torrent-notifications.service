@@ -4,4 +4,5 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=10min
 ExecStart=/usr/bin/python3 /volume1/docker/media-stack/notify-torrent-completions.py

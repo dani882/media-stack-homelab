@@ -187,10 +187,11 @@ INDEXERS = [
         },
     },
     {
-        # EXT.TO is Prowlarr's public ExtraTorrent.st definition. It is kept
-        # last because it can require FlareSolverr and has had intermittent
-        # availability; it is best-effort only and has no private retention.
+        # EXT.TO frequently reports a successful query with no results. Keep
+        # its definition documented but disabled so every deployment is quiet
+        # and deterministic. The other public manual fallbacks remain active.
         "definition": "extratorrent-st",
+        "enabled": False,
         "priority": 40,
         "app_profile": PUBLIC_FALLBACK_PROFILE,
         "minimum_seeders": 5,
@@ -198,10 +199,6 @@ INDEXERS = [
             "baseUrl": "https://ext.to/",
             "torrentBaseSettings.preferMagnetUrl": True,
         },
-        # Resolve the proxy by label at runtime rather than depending on a
-        # database-specific tag ID. EXT.TO is one of the definitions that can
-        # need FlareSolverr to pass its anti-bot challenge.
-        "tags": ["flaresolverr"],
     },
 ]
 

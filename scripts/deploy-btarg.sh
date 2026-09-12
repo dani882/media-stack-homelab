@@ -73,7 +73,14 @@ REMOTE_NOTIFICATION="${REMOTE_STAGING}/notify-torrents-${USER}-$$.py"
 REMOTE_REPAIR_AUDIT="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
 REMOTE_REPAIR_SERVICE="${REMOTE_STAGING}/media-stack-language-repair-${USER}-$$.service"
 REMOTE_REPAIR_TIMER="${REMOTE_STAGING}/media-stack-language-repair-${USER}-$$.timer"
-SSH=(ssh -o ControlMaster=auto -o ControlPersist=60)
+SSH=(
+  ssh
+  -o ControlMaster=auto
+  -o ControlPersist=60
+  -o ConnectTimeout=15
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=4
+)
 
 "${SSH[@]}" "$REMOTE" "mkdir -p '${REMOTE_STAGING}'"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PROWLARR}'" < "$PROWLARR_SCRIPT"

@@ -204,6 +204,40 @@ repository, terminal output, documentation, commits, or chat responses.
   while stopped before allowing the payload to download.
 - Slow release searches retry once. If a title still times out, it is skipped
   and the rest of the audit continues; revisit skipped items separately.
+- Treat connection resets and remote disconnects from Arr release searches as
+  retryable GET failures. A persistent failure must skip only that episode or
+  series rather than aborting the full language-repair report.
+- The hardlink audit indexes Downloads once and checks up to 500 recent media
+  files. Do not reduce it to a tiny recent window that can contain only copied
+  or transcoded imports and produce a false failure.
+- ExtraTorrent.st is intentionally disabled because its empty-result test is
+  unreliable. Public sources remain interactive-only fallbacks.
+- Full deploys finish with the live health validator. Keep the NAS OpenSSH
+  post-quantum warning visible; it requires a vendor-supported SSH upgrade and
+  must not be hidden as though the server had been secured.
+- Recyclarr may overwrite managed custom-format scores. Full deploys must run
+  `configure-servarr.py` again after both Recyclarr syncs before applying the
+  Radarr-specific post-policy.
+- Normal full deploys use Dispatcharr `--check-only`; the complete playlist and
+  EPG refresh is explicit through `make configure-iptv` or
+  `DISPATCHARR_SYNC_ON_DEPLOY=1` because the external EPG can exceed ten
+  minutes.
+- Docker operations in full deploys have explicit safety deadlines. If the NAS
+  is saturated, report load and storage context and exit without removing
+  containers instead of leaving an unbounded SSH deployment process.
+- `audit-imported-audio.py` reviews recent Arr imports. It may tag a proven
+  English-only torrent whose managed filename claims `[LATINO]` or
+  `[CASTELLANO]` as `language-mismatch`, but must not delete its library file or
+  torrent. Undefined audio stays review-only.
+- Full deploys run `check-nas-preflight.py` before Docker changes. Focused
+  reliability changes use `make deploy-reliability`; do not repeat a full
+  deploy solely to install observability scripts or systemd deadlines.
+- `state/media-health.json` and `.html` are the secret-free combined health
+  summary. A BTArg worker with active progress unchanged for over two hours may
+  be stopped as a control group; retain its torrent and temporary files.
+- All scheduled one-shot services have explicit runtime limits. Long BTArg
+  conversions retain a 36-hour overall ceiling plus their per-file conversion
+  limits.
 - Validate changes with `python3 -m unittest discover -s tests`,
   `git diff --check`, and relevant live read-only audits before committing.
 - Keep deployment scripts scoped and idempotent. Avoid full-stack restarts for

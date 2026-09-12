@@ -26,6 +26,9 @@ PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
 BTARG_SERIES_SCRIPT="${ROOT_DIR}/scripts/dispatch-btarg-series.py"
 BTARG_SERIES_MODULE="${ROOT_DIR}/scripts/media/btarg_series_pack.py"
 LANGUAGE_REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
+IMPORTED_AUDIO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-imported-audio.py"
+NAS_PREFLIGHT_SCRIPT="${ROOT_DIR}/scripts/check-nas-preflight.py"
+HEALTH_DASHBOARD_SCRIPT="${ROOT_DIR}/scripts/build-health-dashboard.py"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
@@ -75,6 +78,8 @@ BTARG_SERIES_SERVICE="${STACK_DIR}/systemd/media-stack-btarg-series.service"
 BTARG_SERIES_TIMER="${STACK_DIR}/systemd/media-stack-btarg-series.timer"
 LANGUAGE_REPAIR_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-language-repair-audit.service"
 LANGUAGE_REPAIR_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-language-repair-audit.timer"
+IMPORTED_AUDIO_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-imported-audio-audit.service"
+IMPORTED_AUDIO_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-imported-audio-audit.timer"
 ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
 ARCHIVE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
@@ -169,6 +174,11 @@ for required_file in \
   "$LANGUAGE_REPAIR_AUDIT_SCRIPT" \
   "$LANGUAGE_REPAIR_AUDIT_SERVICE" \
   "$LANGUAGE_REPAIR_AUDIT_TIMER" \
+  "$IMPORTED_AUDIO_AUDIT_SCRIPT" \
+  "$IMPORTED_AUDIO_AUDIT_SERVICE" \
+  "$IMPORTED_AUDIO_AUDIT_TIMER" \
+  "$NAS_PREFLIGHT_SCRIPT" \
+  "$HEALTH_DASHBOARD_SCRIPT" \
   "$ARCHIVE_DISPATCH_SERVICE" \
   "$ARCHIVE_DISPATCH_TIMER" \
   "$SERVARR_COMMON_MODULE" \
@@ -227,6 +237,9 @@ SSH=(
   -o ControlMaster=auto
   -o ControlPersist=60
   -o ControlPath="${SSH_CONTROL_PATH}"
+  -o ConnectTimeout=15
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=4
 )
 
 # Pseudo-TTY sessions cannot reliably be opened through the
@@ -236,6 +249,9 @@ SSH_TTY=(
   ssh
   -o ControlMaster=no
   -o ControlPath=none
+  -o ConnectTimeout=15
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=4
   -t
 )
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
@@ -260,6 +276,9 @@ REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$
 REMOTE_BTARG_SERIES_TEMP="${REMOTE_STAGING}/dispatch-btarg-series-${USER}-$$.py"
 REMOTE_BTARG_SERIES_MODULE_TEMP="${REMOTE_STAGING}/btarg-series-pack-${USER}-$$.py"
 REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
+REMOTE_IMPORTED_AUDIO_AUDIT_TEMP="${REMOTE_STAGING}/audit-imported-audio-${USER}-$$.py"
+REMOTE_NAS_PREFLIGHT_TEMP="${REMOTE_STAGING}/check-nas-preflight-${USER}-$$.py"
+REMOTE_HEALTH_DASHBOARD_TEMP="${REMOTE_STAGING}/build-health-dashboard-${USER}-$$.py"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
@@ -308,6 +327,8 @@ REMOTE_BTARG_SERIES_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${U
 REMOTE_BTARG_SERIES_TIMER_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.timer"
 REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.service"
 REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.timer"
+REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-imported-audio-audit-${USER}-$$.service"
+REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-imported-audio-audit-${USER}-$$.timer"
 REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
 REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
@@ -561,6 +582,9 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_TEMP}'" < "$BTARG_SERIES_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_MODULE_TEMP}'" < "$BTARG_SERIES_MODULE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}'" < "$LANGUAGE_REPAIR_AUDIT_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}'" < "$IMPORTED_AUDIO_AUDIT_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_NAS_PREFLIGHT_TEMP}'" < "$NAS_PREFLIGHT_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_HEALTH_DASHBOARD_TEMP}'" < "$HEALTH_DASHBOARD_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
 
 echo "Uploading shared media modules..."
@@ -774,6 +798,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$LANGUAGE_REPAIR_AUDIT_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP}'" \
+  < "$IMPORTED_AUDIO_AUDIT_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP}'" \
+  < "$IMPORTED_AUDIO_AUDIT_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}'" \
   < "$ARCHIVE_DISPATCH_SERVICE"
 
@@ -885,6 +917,9 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 '${REMOTE_BTARG_SERIES_TEMP}' '${NAS_STACK_DIR}/dispatch-btarg-series.py'
   sudo install -m 0644 '${REMOTE_BTARG_SERIES_MODULE_TEMP}' '${NAS_STACK_DIR}/scripts/btarg_series_pack.py'
   sudo install -m 0755 '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-language-repairs.py'
+  sudo install -m 0755 '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-imported-audio.py'
+  sudo install -m 0755 '${REMOTE_NAS_PREFLIGHT_TEMP}' '${NAS_STACK_DIR}/check-nas-preflight.py'
+  sudo install -m 0755 '${REMOTE_HEALTH_DASHBOARD_TEMP}' '${NAS_STACK_DIR}/build-health-dashboard.py'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
 
   sudo mkdir -p \
@@ -1071,6 +1106,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-language-repair-audit.timer
 
   sudo install -m 0644 \
+    '${REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-imported-audio-audit.service
+
+  sudo install -m 0644 \
+    '${REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-imported-audio-audit.timer
+
+  sudo install -m 0644 \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-archive-spanish-dispatch.service
 
@@ -1089,6 +1132,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-private-dispatch.timer \
     media-stack-btarg-series.timer \
     media-stack-language-repair-audit.timer \
+    media-stack-imported-audio-audit.timer \
     media-stack-archive-spanish-dispatch.timer
 
   sudo mkdir -p \
@@ -1243,6 +1287,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP}' \
+    '${REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP}' \
+    '${REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
@@ -1269,6 +1315,9 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_BTARG_SERIES_TEMP}' \
     '${REMOTE_BTARG_SERIES_MODULE_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' \
+    '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' \
+    '${REMOTE_NAS_PREFLIGHT_TEMP}' \
+    '${REMOTE_HEALTH_DASHBOARD_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TEMP}'
 
   cd '${NAS_STACK_DIR}'
@@ -1282,11 +1331,47 @@ echo "Pulling images and applying the stack..."
 "${SSH_TTY[@]}" "$REMOTE" "
   set -e
   cd '${NAS_STACK_DIR}'
-  sudo docker compose pull --ignore-buildable
-  sudo docker compose build dominican-iptv
-  sudo docker compose up -d
-  sudo docker compose restart prowlarr
-  sudo docker compose ps
+
+  diagnose_docker_timeout() {
+    echo >&2
+    echo 'Docker did not finish before its safety deadline.' >&2
+    echo 'NAS load and storage summary:' >&2
+    uptime >&2 || true
+    df -h '${NAS_STACK_DIR}' '/volume1/Family' >&2 || true
+    echo 'The media containers were not removed. Wait for NAS disk activity' >&2
+    echo 'to settle, then run the deployment again.' >&2
+  }
+
+  run_docker_step() {
+    step=\"\$1\"
+    deadline=\"\$2\"
+    shift 2
+    echo \"\${step} (deadline: \${deadline})...\"
+    set +e
+    sudo timeout -k 30s \"\${deadline}\" docker compose \"\$@\"
+    status=\$?
+    set -e
+    if [[ \${status} -eq 124 || \${status} -eq 137 ]]; then
+      diagnose_docker_timeout
+    elif [[ \${status} -ne 0 ]]; then
+      echo \"Docker step failed: \${step} (status \${status}).\" >&2
+    fi
+    return \${status}
+  }
+
+  if ! command -v timeout >/dev/null 2>&1; then
+    echo 'ERROR: the NAS timeout utility is required for bounded deploys.' >&2
+    exit 1
+  fi
+
+  echo 'Checking NAS capacity and Docker responsiveness...'
+  sudo python3 '${NAS_STACK_DIR}/check-nas-preflight.py'
+
+  run_docker_step 'Pulling container images' 20m pull --ignore-buildable
+  run_docker_step 'Building the Dominican IPTV helper' 10m build dominican-iptv
+  run_docker_step 'Applying the media stack' 10m up -d
+  run_docker_step 'Restarting Prowlarr' 3m restart prowlarr
+  run_docker_step 'Reading container status' 2m ps
 
   echo
   echo "Configuring Prowlarr indexers..."
@@ -1305,8 +1390,13 @@ echo "Pulling images and applying the stack..."
   sudo python3 '${NAS_STACK_DIR}/configure-seerr.py'
 
   echo
-  echo "Configuring Dispatcharr Dominican IPTV..."
-  sudo python3 '${NAS_STACK_DIR}/configure-dispatcharr.py'
+  if [[ \"\${DISPATCHARR_SYNC_ON_DEPLOY:-0}\" == \"1\" ]]; then
+    echo "Synchronizing the complete Dispatcharr Dominican IPTV catalog..."
+    sudo python3 '${NAS_STACK_DIR}/configure-dispatcharr.py'
+  else
+    echo "Checking Dispatcharr Dominican IPTV without a full refresh..."
+    sudo python3 '${NAS_STACK_DIR}/configure-dispatcharr.py' --check-only
+  fi
 
   echo
   echo "Configuring Jellyfin Live TV..."
@@ -1314,13 +1404,17 @@ echo "Pulling images and applying the stack..."
 
   echo
   echo "Synchronizing Recyclarr with Sonarr..."
-  sudo docker compose run --rm recyclarr \
+  run_docker_step 'Synchronizing Recyclarr with Sonarr' 10m run --rm recyclarr \
     sync sonarr --instance series
 
   echo
   echo "Synchronizing Recyclarr with Radarr..."
-  sudo docker compose run --rm recyclarr \
+  run_docker_step 'Synchronizing Recyclarr with Radarr' 10m run --rm recyclarr \
     sync radarr --instance movies
+
+  echo
+  echo "Reapplying language and safety scores after Recyclarr..."
+  sudo python3 '${NAS_STACK_DIR}/configure-servarr.py'
 
   echo
   echo "Applying post-Recyclarr Radarr Latino policy..."
@@ -1329,7 +1423,8 @@ echo "Pulling images and applying the stack..."
   if [[ \"\${PROFILARR_SYNC_ON_DEPLOY:-0}\" == \"1\" ]]; then
     echo
     echo \"Starting Profilarr pilot profile...\"
-    sudo docker compose --profile profilarr up -d profilarr profilarr-parser
+    run_docker_step 'Starting the Profilarr pilot profile' 10m \
+      --profile profilarr up -d profilarr profilarr-parser
 
     echo
     echo \"Bootstrapping Profilarr admin state...\"
@@ -1345,6 +1440,11 @@ echo "Pulling images and applying the stack..."
     echo
     echo \"Skipping Profilarr deploy sync (set PROFILARR_SYNC_ON_DEPLOY=1 to enable).\"
   fi
+
+  echo
+  echo \"Running post-deployment health validation...\"
+  sudo python3 '${NAS_STACK_DIR}/check-media-live.py' \
+    --audit-failures-as-warnings
 "
 
 echo "Deployment completed successfully."

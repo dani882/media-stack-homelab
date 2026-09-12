@@ -54,6 +54,35 @@ class AuditHardlinksTest(unittest.TestCase):
 
         self.assertIn(str(download), matches)
 
+    def test_download_inode_index_matches_hardlinked_video(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            downloads = root / "Downloads"
+            media = root / "Media"
+            downloads.mkdir()
+            media.mkdir()
+            download = downloads / "episode.mkv"
+            library = media / "episode.mkv"
+            download.write_bytes(b"video")
+            os.link(download, library)
+
+            index = MODULE.download_inode_index(downloads)
+            library_stat = library.stat()
+
+        self.assertEqual(
+            index[(library_stat.st_dev, library_stat.st_ino)].name,
+            "episode.mkv",
+        )
+
+    def test_download_inode_index_ignores_non_video_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            downloads = Path(temp_dir)
+            (downloads / "readme.txt").write_text("not media")
+
+            index = MODULE.download_inode_index(downloads)
+
+        self.assertEqual(index, {})
+
 
 if __name__ == "__main__":
     unittest.main()

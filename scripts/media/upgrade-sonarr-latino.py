@@ -364,14 +364,22 @@ def main() -> int:
     total_grabbed = 0
 
     for series in selected:
-        actionable, grabbed = process_series(
-            client,
-            series,
-            args.season,
-            args.episode,
-            args.dry_run,
-            btarg,
-        )
+        try:
+            actionable, grabbed = process_series(
+                client,
+                series,
+                args.season,
+                args.episode,
+                args.dry_run,
+                btarg,
+            )
+        except UpgradeError as error:
+            print(
+                f"SKIPPED SERIES: {series.get('title', '')}: {error}",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
 
         total_actionable += actionable
         total_grabbed += grabbed

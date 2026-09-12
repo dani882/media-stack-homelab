@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically verify imported Sonarr and Radarr audio
+
+[Timer]
+OnBootSec=25min
+OnUnitActiveSec=30min
+AccuracySec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Verify imported media audio and block proven language mismatches
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/audit-imported-audio.py --apply

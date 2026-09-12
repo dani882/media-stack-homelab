@@ -1,5 +1,7 @@
 
+import http.client
 import json
+import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -86,6 +88,7 @@ class ArrClient:
 
             except TimeoutError as error:
                 if attempt + 1 < attempts:
+                    time.sleep(attempt + 1)
                     continue
 
                 raise ArrError(
@@ -106,13 +109,35 @@ class ArrClient:
 
             except urllib.error.URLError as error:
                 if (
-                    isinstance(error.reason, TimeoutError)
+                    isinstance(
+                        error.reason,
+                        (
+                            TimeoutError,
+                            ConnectionError,
+                            http.client.RemoteDisconnected,
+                        ),
+                    )
                     and attempt + 1 < attempts
                 ):
+                    time.sleep(attempt + 1)
                     continue
 
                 raise ArrError(
                     f"{method} {path} failed: {error.reason}"
+                ) from error
+
+            except (
+                ConnectionError,
+                http.client.HTTPException,
+                OSError,
+            ) as error:
+                if attempt + 1 < attempts:
+                    time.sleep(attempt + 1)
+                    continue
+
+                raise ArrError(
+                    f"{method} {path} connection failed after "
+                    f"{attempts} attempts: {error}"
                 ) from error
 
         raise ArrError(f"{method} {path} failed unexpectedly")

@@ -4,6 +4,7 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=45min
 # The dispatcher only uses known private indexers and inspects the torrent
 # while stopped before allowing any payload to download.
 ExecStart=/usr/bin/python3 /volume1/docker/media-stack/dispatch-private-seerr.py --apply

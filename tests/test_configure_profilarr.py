@@ -77,26 +77,27 @@ class ProfilarrHelpersTest(unittest.TestCase):
 
     def test_setup_required_false_on_303(self):
         opener = mock.Mock()
-        opener.open.side_effect = (
-            MODULE.urllib.error.HTTPError(
-                "http://127.0.0.1:6868/auth/setup",
-                303,
-                "See Other",
-                {},
-                BytesIO(b""),
-            )
+        redirect = MODULE.urllib.error.HTTPError(
+            "http://127.0.0.1:6868/auth/setup",
+            303,
+            "See Other",
+            {},
+            BytesIO(b""),
         )
-
-        with mock.patch.object(
-            MODULE.urllib.request,
-            "build_opener",
-            return_value=opener,
-        ):
-            self.assertFalse(
-                MODULE.setup_required(
-                    "http://127.0.0.1:6868"
+        opener.open.side_effect = redirect
+        try:
+            with mock.patch.object(
+                MODULE.urllib.request,
+                "build_opener",
+                return_value=opener,
+            ):
+                self.assertFalse(
+                    MODULE.setup_required(
+                        "http://127.0.0.1:6868"
+                    )
                 )
-            )
+        finally:
+            redirect.close()
 
     def test_hash_password_uses_bcrypt_output(self):
         completed = mock.Mock()

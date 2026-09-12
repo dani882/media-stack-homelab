@@ -1,3 +1,4 @@
+import http.client
 import unittest
 from unittest.mock import patch
 
@@ -34,6 +35,26 @@ class ArrClientRetryTests(unittest.TestCase):
             with self.assertRaises(ArrError):
                 client.request("POST", "/release", {"id": 1})
         self.assertEqual(urlopen.call_count, 1)
+
+    @patch("scripts.media.common.arr.time.sleep", return_value=None)
+    def test_get_retries_remote_disconnect(self, _sleep) -> None:
+        client = ArrClient("http://arr", "secret")
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=[http.client.RemoteDisconnected(), FakeResponse()],
+        ) as urlopen:
+            self.assertEqual(client.get("/release"), {"ok": True})
+        self.assertEqual(urlopen.call_count, 2)
+
+    @patch("scripts.media.common.arr.time.sleep", return_value=None)
+    def test_remote_disconnect_becomes_arr_error(self, _sleep) -> None:
+        client = ArrClient("http://arr", "secret")
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=http.client.RemoteDisconnected(),
+        ):
+            with self.assertRaises(ArrError):
+                client.get("/release")
 
 
 if __name__ == "__main__":

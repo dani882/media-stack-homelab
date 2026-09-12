@@ -34,7 +34,14 @@ REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}"
 REMOTE_DEFINITION="${REMOTE_STAGING}/dreadvault-api-${USER}-$$.yml"
 REMOTE_PROWLARR="${REMOTE_STAGING}/configure-prowlarr-${USER}-$$.py"
 REMOTE_AUDIT="${REMOTE_STAGING}/audit-private-trackers-${USER}-$$.py"
-SSH=(ssh -o ControlMaster=auto -o ControlPersist=60)
+SSH=(
+  ssh
+  -o ControlMaster=auto
+  -o ControlPersist=60
+  -o ConnectTimeout=15
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=4
+)
 
 "${SSH[@]}" "$REMOTE" "mkdir -p '${REMOTE_STAGING}'"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_DEFINITION}'" < "$DEFINITION"

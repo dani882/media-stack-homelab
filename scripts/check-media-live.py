@@ -14,6 +14,18 @@ from pathlib import Path
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 DEFAULT_TIMEOUT = 15
+CRITICAL_TIMERS = (
+    "media-stack-private-dispatch.timer",
+    "media-stack-stalled-public-cleanup.timer",
+    "media-stack-public-cleanup.timer",
+    "media-stack-btarg-series.timer",
+    "media-stack-imported-audio-audit.timer",
+    "media-stack-torrent-notifications.timer",
+)
+AUDIT_SERVICES = (
+    "media-stack-hardlink-audit.service",
+    "media-stack-language-repair-audit.service",
+)
 
 
 class LiveCheckError(RuntimeError):
@@ -36,6 +48,7 @@ class HttpTarget:
 
 def run_compose_ps(
     stack_dir: Path,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict[str, object]]:
     result = subprocess.run(
         [
@@ -49,6 +62,7 @@ def run_compose_ps(
         capture_output=True,
         check=True,
         text=True,
+        timeout=timeout,
     )
 
     payload = result.stdout.strip()
@@ -183,6 +197,32 @@ def service_map(
     return targets
 
 
+def systemd_states(
+    action: str,
+    units: tuple[str, ...],
+    timeout: int = DEFAULT_TIMEOUT,
+) -> dict[str, str]:
+    try:
+        result = subprocess.run(
+            ["systemctl", action, *units],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise LiveCheckError(
+            f"systemctl {action} timed out after {timeout} seconds"
+        ) from error
+    states = [line.strip() for line in result.stdout.splitlines()]
+    if len(states) != len(units):
+        raise LiveCheckError(
+            f"systemctl {action} returned {len(states)} states for "
+            f"{len(units)} units"
+        )
+    return dict(zip(units, states, strict=True))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -199,10 +239,18 @@ def main() -> int:
         type=int,
         default=DEFAULT_TIMEOUT,
     )
+    parser.add_argument(
+        "--audit-failures-as-warnings",
+        action="store_true",
+        help=(
+            "Report historical audit failures without failing a deployment; "
+            "inactive critical timers still fail."
+        ),
+    )
     args = parser.parse_args()
 
     try:
-        compose_entries = run_compose_ps(args.stack_dir)
+        compose_entries = run_compose_ps(args.stack_dir, args.timeout)
     except (
         OSError,
         subprocess.CalledProcessError,
@@ -275,6 +323,38 @@ def main() -> int:
         "  OK: Recyclarr remains a one-shot tool service "
         "and is not expected in compose ps"
     )
+
+    try:
+        timer_states = systemd_states(
+            "is-active", CRITICAL_TIMERS, args.timeout
+        )
+        audit_states = systemd_states(
+            "is-failed", AUDIT_SERVICES, args.timeout
+        )
+    except (OSError, LiveCheckError) as error:
+        print(f"  FAIL: unable to inspect scheduled automation: {error}")
+        return 1
+
+    print()
+    print("Scheduled automation:")
+    for unit, state in timer_states.items():
+        ok = state == "active"
+        print(f"  {'OK' if ok else 'FAIL'}: {unit} -> {state}")
+        failed = failed or not ok
+
+    print()
+    print("Auxiliary audits:")
+    for unit, state in audit_states.items():
+        audit_failed = state == "failed"
+        if audit_failed and args.audit_failures_as_warnings:
+            label = "WARN"
+        elif state not in {"active", "inactive"}:
+            label = "FAIL"
+            failed = True
+        else:
+            label = "FAIL" if audit_failed else "OK"
+            failed = failed or audit_failed
+        print(f"  {label}: {unit} -> {state}")
 
     return 1 if failed else 0
 

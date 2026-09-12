@@ -4,4 +4,5 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=20min
 ExecStart=/volume1/docker/media-stack/monitor-media-stack.sh

@@ -4,4 +4,5 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=30min
 ExecStart=/volume1/docker/media-stack/cleanup-public-imported.py --max-delete 10

@@ -1,5 +1,6 @@
 
 import importlib.util
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -49,6 +50,31 @@ class DispatcharrConfigurationTest(unittest.TestCase):
         )
         embedded_code = run_manage_code.call_args.args[1]
         compile(embedded_code, "<dispatcharr-config>", "exec")
+
+    @mock.patch.object(MODULE, "run_manage_code", return_value="ok")
+    def test_playlist_health_check_embedded_code_compiles(self, run_manage_code):
+        MODULE.check_playlist(
+            "dispatcharr",
+            "Republica Dominicana (combinada)",
+        )
+        embedded_code = run_manage_code.call_args.args[1]
+        compile(embedded_code, "<dispatcharr-health>", "exec")
+
+    @mock.patch.object(
+        MODULE.subprocess,
+        "run",
+        side_effect=subprocess.TimeoutExpired(
+            ["docker", "exec"],
+            600,
+            stderr=b"timeout details",
+        ),
+    )
+    def test_timeout_is_reported_without_bytes_type_error(self, _run):
+        with self.assertRaisesRegex(
+            MODULE.DispatcharrError,
+            "Timed out after 600 seconds",
+        ):
+            MODULE.run_manage_code("dispatcharr", "pass", timeout=600)
 
 
 if __name__ == "__main__":

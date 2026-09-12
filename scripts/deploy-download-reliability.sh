@@ -16,7 +16,14 @@ set +a
 
 REMOTE="${NAS_USER}@${NAS_HOST}"
 REMOTE_STAGING="/volume1/docker/deploy-staging/${NAS_USER}/download-reliability-$$"
-SSH=(ssh -o ControlMaster=auto -o ControlPersist=60)
+SSH=(
+  ssh
+  -o ControlMaster=auto
+  -o ControlPersist=60
+  -o ConnectTimeout=15
+  -o ServerAliveInterval=15
+  -o ServerAliveCountMax=4
+)
 
 FILES=(
   "scripts/cleanup-stalled-public.py"
