@@ -194,6 +194,16 @@ repository, terminal output, documentation, commits, or chat responses.
   `sonarr-series-N` or `radarr-movie-N` qBittorrent tag is the safe poster
   fallback. Poster troubleshooting must not resend an already delivered
   completion notification.
+
+- Bazarr is managed by `scripts/configure-bazarr.py`. Full deploys must keep
+  its Radarr and Sonarr integrations enabled, inspect embedded audio, preserve
+  pre-existing providers/profiles, and apply the managed `Español` subtitle
+  profile to existing and new movies and series. A reachable Bazarr with zero
+  synchronized media or no managed profile is unhealthy, not successfully
+  configured.
+- Use `make search-bazarr-missing` for an explicit library-wide wanted search.
+  Keep it out of normal deploys to avoid unnecessary provider throttling; the
+  managed profile limits it to movies and episodes still missing Spanish.
 - For `btarg-series-pack` torrents, qBittorrent completion is not enough to
   notify. Wait for `btarg-import-verified`, then send the single completion
   message with wording that the series is available in Sonarr. Existing

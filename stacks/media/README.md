@@ -1088,11 +1088,34 @@ verifies identity-based routing and confirms the library item is managed below
 make audit-seerr-request-flow REQUEST_ID=37
 ```
 
-Audit Bazarr before removing compatibility mounts:
+Configure Bazarr's managed Spanish subtitle policy without a full deployment:
+
+```bash
+make dry-run-bazarr
+make configure-bazarr
+make search-bazarr-missing
+```
+
+The configuration connects Bazarr to Sonarr and Radarr over the Compose
+network, enables embedded-audio inspection, preserves existing providers and
+profiles, and adds the managed `Español` profile. New and existing movies and
+series receive that profile. The credential-free providers cover embedded
+subtitles, Spanish movie releases, and two independent Spanish TV sources;
+API keys remain in the NAS-local Arr and Bazarr configuration files.
+
+`make search-bazarr-missing` explicitly starts Bazarr's wanted searches for
+movies and episodes still missing Spanish. It is intentionally not part of
+every deploy so subtitle providers are not queried unnecessarily.
+
+Audit Bazarr before removing compatibility mounts or after changing subtitle
+settings:
 
 ```bash
 make audit-bazarr
 ```
+
+The audit now checks the managed integrations, providers, language profile,
+and synchronized Sonarr/Radarr inventory in addition to legacy mount paths.
 
 Audit every compatibility-mount consumer and the qBittorrent inventory before
 planning any removal. A non-zero result is expected while a torrent still

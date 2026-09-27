@@ -93,6 +93,31 @@ def inspect_mount_targets() -> list[str]:
     ]
 
 
+def inspect_managed_configuration(stack_dir: Path) -> str:
+    script = stack_dir / "configure-bazarr.py"
+    if not script.is_file():
+        raise BazarrAuditError(f"Bazarr configuration validator is missing: {script}")
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), "--check-only"],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=90,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise BazarrAuditError(
+            f"Unable to validate managed Bazarr configuration: {error}"
+        ) from error
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise BazarrAuditError(
+            "Bazarr is reachable but not fully configured: " + detail
+        )
+    lines = result.stdout.strip().splitlines()
+    return lines[-1] if lines else "Bazarr managed configuration is valid"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -181,6 +206,10 @@ def main() -> int:
             "No Bazarr /media references found. Compatibility "
             "mount removal may be reviewed separately."
         )
+
+    print()
+    print("Bazarr managed configuration audit:")
+    print(f"  {inspect_managed_configuration(args.stack_dir)}")
 
     return 0
 

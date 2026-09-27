@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path("scripts/audit-bazarr.py")
@@ -48,6 +49,20 @@ class BazarrAuditTest(unittest.TestCase):
             )
 
         self.assertEqual(matches, [])
+
+    def test_managed_configuration_rejects_disabled_bazarr(self) -> None:
+        completed = mock.Mock()
+        completed.returncode = 1
+        completed.stdout = ""
+        completed.stderr = "ERROR: general.use_radarr is not enabled\n"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "configure-bazarr.py").write_text("# validator\n")
+            with mock.patch.object(MODULE.subprocess, "run", return_value=completed):
+                with self.assertRaisesRegex(
+                    MODULE.BazarrAuditError, "not fully configured"
+                ):
+                    MODULE.inspect_managed_configuration(root)
 
 
 if __name__ == "__main__":

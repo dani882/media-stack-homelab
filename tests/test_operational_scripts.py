@@ -78,6 +78,15 @@ class OperationalScriptsTest(unittest.TestCase):
             categories,
         )
 
+    def test_bazarr_configuration_is_wired_into_full_deploy(self) -> None:
+        deploy = self.read("scripts/deploy.sh")
+        self.assertIn("configure-bazarr.py", deploy)
+        self.assertIn("Configuring Bazarr Spanish subtitles", deploy)
+        self.assertLess(
+            deploy.index("Configuring Seerr"),
+            deploy.index("Configuring Bazarr Spanish subtitles"),
+        )
+
     def test_series_fallback_is_wired_into_focused_and_full_deploys(self) -> None:
         full = self.read("scripts/deploy.sh")
         focused = self.read("scripts/deploy-download-reliability.sh")

@@ -180,6 +180,16 @@ class CheckMediaLiveTest(unittest.TestCase):
                     timeout=5,
                 )
 
+    def test_bazarr_configuration_check_reports_drift(self) -> None:
+        completed = mock.Mock()
+        completed.returncode = 1
+        completed.stdout = ""
+        completed.stderr = "ERROR: no Radarr movies are synchronized\n"
+        with mock.patch.object(MODULE.subprocess, "run", return_value=completed):
+            ok, message = MODULE.check_bazarr_configuration(Path("/stack"), 5)
+        self.assertFalse(ok)
+        self.assertIn("no Radarr movies", message)
+
 
 if __name__ == "__main__":
     unittest.main()
