@@ -134,6 +134,22 @@ class PublicCleanupTest(unittest.TestCase):
             (True, "safe private retention satisfied (BTArg)"),
         )
 
+    def test_docspedia_requires_58_hour_retention(self) -> None:
+        torrent = dict(
+            self.torrent,
+            private=True,
+            seeding_time_limit=3480,
+            seeding_time=(3479 * 60),
+        )
+
+        self.assertEqual(
+            MODULE.torrent_is_removable(
+                torrent,
+                {"tracker.docspedia.world"},
+            ),
+            (False, "seeded only 3479.0 minutes; requires 3480.0 minutes"),
+        )
+
     def test_detects_private_title_matched_library_hardlink(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

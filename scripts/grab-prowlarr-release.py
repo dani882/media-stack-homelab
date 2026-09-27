@@ -217,6 +217,9 @@ def add_to_qbittorrent(
     dry_run: bool,
     ratio_limit: float | None = None,
     display_name: str | None = None,
+    require_private: bool = True,
+    policy_label: str = "PRIVATE POLICY",
+    allow_public_private_flag: bool = False,
 ) -> None:
     title = str(release["title"])
     seeders = int(release.get("seeders", 0) or 0)
@@ -231,7 +234,7 @@ def add_to_qbittorrent(
         policy_parts.append(f"seed-time={seed_time_minutes}m")
     if ratio_limit is not None:
         policy_parts.append(f"ratio={ratio_limit:.2f}")
-    print("PRIVATE POLICY: " + " ".join(policy_parts))
+    print(f"{policy_label}: " + " ".join(policy_parts))
 
     if dry_run:
         print("DRY RUN: would add the selected torrent to qBittorrent")
@@ -292,9 +295,52 @@ def add_to_qbittorrent(
             torrent = matches[0]
             torrent_hash = str(torrent["hash"])
             try:
-                if torrent.get("private") is not True:
+                is_private = torrent.get("private")
+                if require_private and is_private not in (True, 1):
                     raise GrabError(
                         "Selected private-indexer torrent is not explicitly private."
+                    )
+                if not require_private and is_private not in (False, 0):
+                    if not allow_public_private_flag:
+                        raise GrabError(
+                            "Selected public-indexer torrent is not explicitly public."
+                        )
+                    trackers = client.get_json(
+                        "/api/v2/torrents/trackers?"
+                        + urllib.parse.urlencode({"hash": torrent_hash})
+                    )
+                    tracker_hosts = {
+                        str(urllib.parse.urlsplit(str(item.get("url") or "")).hostname or "").casefold()
+                        for item in trackers
+                        if urllib.parse.urlsplit(
+                            str(item.get("url") or "")
+                        ).scheme
+                        in {"http", "https", "udp"}
+                    }
+                    private_markers = (
+                        "lat-team",
+                        "btarg",
+                        "milnueve",
+                        "retrotoon",
+                        "dreadvault",
+                        "torrenthaven",
+                        "docspedia",
+                    )
+                    if not tracker_hosts:
+                        raise GrabError(
+                            "Public-indexer torrent has no verifiable tracker host."
+                        )
+                    if any(
+                        marker in host
+                        for host in tracker_hosts
+                        for marker in private_markers
+                    ):
+                        raise GrabError(
+                            "Public-indexer torrent announces to a known private tracker."
+                        )
+                    print(
+                        "PUBLIC ORIGIN VERIFIED: private flag retained; "
+                        "no known private tracker host"
                     )
                 files = client.get_json(
                     "/api/v2/torrents/files?"
@@ -351,7 +397,7 @@ def add_to_qbittorrent(
         if len(matches) > 1:
             raise GrabError(
                 "More than one torrent has the requested tags; refusing to "
-                "choose a torrent for the private-tracker policy."
+                "choose a torrent for the guarded policy."
             )
 
         time.sleep(2)

@@ -16,11 +16,13 @@ DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 DEFAULT_TIMEOUT = 15
 CRITICAL_TIMERS = (
     "media-stack-private-dispatch.timer",
+    "media-stack-series-fallback.timer",
     "media-stack-stalled-public-cleanup.timer",
     "media-stack-public-cleanup.timer",
     "media-stack-btarg-series.timer",
     "media-stack-imported-audio-audit.timer",
     "media-stack-torrent-notifications.timer",
+    "media-stack-docspedia-learning.timer",
 )
 AUDIT_SERVICES = (
     "media-stack-hardlink-audit.service",
@@ -180,6 +182,10 @@ def service_map(
             expected_statuses=(200,),
         ),
         HttpTarget(
+            "Kavita",
+            "http://127.0.0.1:5000/",
+        ),
+        HttpTarget(
             "FlareSolverr",
             "http://127.0.0.1:8191/",
             expected_statuses=(200, 405),
@@ -275,6 +281,7 @@ def main() -> int:
         "seerr",
         "qbittorrent",
         "jellyfin",
+        "kavita",
         "flaresolverr",
     )
 

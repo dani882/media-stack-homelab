@@ -59,6 +59,22 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         self.assertFalse(profile["enableAutomaticSearch"])
         self.assertTrue(profile["enableInteractiveSearch"])
 
+    def test_docspedia_uses_learning_manual_profile(self) -> None:
+        desired = MODULE.PRIVATE_INDEXERS["docspedia"]
+        self.assertEqual(
+            desired["app_profile"],
+            MODULE.LEARNING_MANUAL_PROFILE,
+        )
+        profile = next(
+            item
+            for item in MODULE.APP_PROFILES
+            if item["name"] == MODULE.LEARNING_MANUAL_PROFILE
+        )
+        self.assertFalse(profile["enableRss"])
+        self.assertFalse(profile["enableAutomaticSearch"])
+        self.assertTrue(profile["enableInteractiveSearch"])
+        self.assertEqual(profile["minimumSeeders"], 1)
+
     def test_missing_secret_returns_empty(self) -> None:
         result = MODULE.load_private_indexers(
             Path("/tmp/does-not-exist-prowlarr-secret.json")
@@ -201,6 +217,29 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         self.assertEqual(
             result[0]["fields"]["torrentBaseSettings.packSeedTime"],
             7800,
+        )
+
+    def test_loads_docspedia_cookie_with_protected_seed_time(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "private-indexers.json"
+            path.write_text(
+                json.dumps({"docspedia": {"cookie": "test-only"}})
+            )
+
+            result = MODULE.load_private_indexers(path)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["definition"], "docspedia")
+        self.assertEqual(result[0]["priority"], 9)
+        self.assertEqual(result[0]["minimum_seeders"], 1)
+        self.assertEqual(result[0]["fields"]["cookie"], "test-only")
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.seedTime"],
+            3480,
+        )
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.packSeedTime"],
+            3480,
         )
 
     def test_generic_torznab_identity_uses_instance_name(self) -> None:

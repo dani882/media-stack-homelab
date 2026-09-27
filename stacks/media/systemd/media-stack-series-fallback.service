@@ -1,0 +1,11 @@
+[Unit]
+Description=Dispatch one guarded fallback for a missing requested TV episode
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+# The worker ranks language before source, inspects the torrent while stopped,
+# and starts at most one new episode download per run.
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/dispatch-series-fallback.py --apply
+

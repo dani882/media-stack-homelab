@@ -98,10 +98,18 @@ Private Prowlarr credentials, when configured, are loaded from:
 /volume1/docker/media-stack/secrets/prowlarr-private-indexers.json
 ```
 
-This file currently supports Milnueve, RetroToon World, and TorrentHaven
-credentials. Managed tracker limits use each published minimum plus ten hours:
-Milnueve 106 hours, RetroToon 82 hours, and TorrentHaven 82 hours. RetroToon
-uses Generic Torznab; credentials and passkeys remain NAS-local.
+This file currently supports Milnueve, RetroToon World, TorrentHaven,
+DreadVault, BTArg, and DocsPedia credentials. Managed tracker limits use each
+published minimum plus ten hours: Milnueve 106 hours, RetroToon 82 hours,
+TorrentHaven 82 hours, DreadVault 130 hours, and DocsPedia 58 hours. BTArg uses
+ratio 1.0 instead. RetroToon uses Generic Torznab; credentials, cookies, and
+passkeys remain NAS-local.
+
+DocsPedia learning content bypasses Seerr and the Arr applications. Prowlarr
+provides interactive search, qBittorrent retains the private torrent, and a
+guarded hardlink importer separates videos for Jellyfin from documents for
+Kavita. This keeps downloading, seeding, and presentation as independent
+layers without duplicating media data.
 
 Telegram completion notification credentials are stored only at:
 

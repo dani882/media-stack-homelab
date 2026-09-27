@@ -1,0 +1,10 @@
+[Unit]
+Description=Import completed DocsPedia learning content with hardlinks
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=15min
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/import-docspedia-learning.py

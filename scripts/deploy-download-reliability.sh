@@ -28,6 +28,7 @@ SSH=(
 FILES=(
   "scripts/cleanup-stalled-public.py"
   "scripts/dispatch-private-seerr.py"
+  "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
   "scripts/configure-servarr.py"
   "scripts/media/common/arr.py"
@@ -44,6 +45,8 @@ FILES=(
   "stacks/media/servarr/custom-formats/radarr-latino.json"
   "stacks/media/systemd/media-stack-private-dispatch.service"
   "stacks/media/systemd/media-stack-private-dispatch.timer"
+  "stacks/media/systemd/media-stack-series-fallback.service"
+  "stacks/media/systemd/media-stack-series-fallback.timer"
   "stacks/media/systemd/media-stack-stalled-public-cleanup.service"
   "stacks/media/systemd/media-stack-stalled-public-cleanup.timer"
 )
@@ -67,6 +70,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/dispatch-private-seerr.py' \
     /volume1/docker/media-stack/dispatch-private-seerr.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/dispatch-series-fallback.py' \
+    /volume1/docker/media-stack/dispatch-series-fallback.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/grab-prowlarr-release.py' \
     /volume1/docker/media-stack/grab-prowlarr-release.py
@@ -102,6 +108,12 @@ done
     '${REMOTE_STAGING}/stacks/media/systemd/media-stack-private-dispatch.timer' \
     /etc/systemd/system/media-stack-private-dispatch.timer
   sudo -n install -m 0644 \
+    '${REMOTE_STAGING}/stacks/media/systemd/media-stack-series-fallback.service' \
+    /etc/systemd/system/media-stack-series-fallback.service
+  sudo -n install -m 0644 \
+    '${REMOTE_STAGING}/stacks/media/systemd/media-stack-series-fallback.timer' \
+    /etc/systemd/system/media-stack-series-fallback.timer
+  sudo -n install -m 0644 \
     '${REMOTE_STAGING}/stacks/media/systemd/media-stack-stalled-public-cleanup.service' \
     /etc/systemd/system/media-stack-stalled-public-cleanup.service
   sudo -n install -m 0644 \
@@ -110,6 +122,7 @@ done
   sudo -n systemctl daemon-reload
   sudo -n systemctl enable --now \
     media-stack-private-dispatch.timer \
+    media-stack-series-fallback.timer \
     media-stack-stalled-public-cleanup.timer
   cd /volume1/docker/media-stack
   sudo -n python3 ./configure-servarr.py

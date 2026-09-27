@@ -239,7 +239,8 @@ Cleanup is intentionally conservative.
   positive seeding time limit and that limit has been satisfied
 - every managed private tracker uses its published minimum plus ten hours:
   Milnueve 106 hours (`6360` minutes), RetroToon 82 hours (`4920` minutes),
-  and TorrentHaven 82 hours (`4920` minutes). These per-torrent limits are
+  TorrentHaven 82 hours (`4920` minutes), DreadVault 130 hours (`7800`
+  minutes), and DocsPedia 58 hours (`3480` minutes). These per-torrent limits are
   propagated through Prowlarr and honored by the cleanup guard
 - Force Start torrents are never removed automatically
 - destructive cleanup now refuses large batches unless the operator
@@ -270,7 +271,14 @@ make cleanup-public-imported
 
 ## Private Indexers
 
-Milnueve, RetroToon World, and TorrentHaven are the managed private trackers.
+Milnueve, BTArg, RetroToon World, TorrentHaven, DreadVault, and DocsPedia are
+the managed private trackers.
+
+DocsPedia is manual-only. Search it from Prowlarr, then use qBittorrent's
+`learning` category. The five-minute importer applies the category
+automatically when needed, protects the 58-hour obligation, and hardlinks only
+supported learning files. Review torrents tagged `learning-import-review`;
+never run or copy their rejected executable-like payloads into a library.
 Their credentials are configured from the NAS-local Prowlarr secret file;
 passkeys and API tokens must never be committed, copied into documentation, or
 printed. Every future private tracker must be added with its documented

@@ -106,6 +106,7 @@ class CheckMediaLiveTest(unittest.TestCase):
                 for target in with_profile
             )
         )
+        self.assertTrue(any(target.name == "Kavita" for target in without))
 
     def test_run_compose_ps_accepts_ndjson_lines(self) -> None:
         completed = mock.Mock()

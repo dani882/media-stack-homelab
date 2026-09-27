@@ -1,4 +1,5 @@
 import subprocess
+import json
 import unittest
 from pathlib import Path
 
@@ -17,6 +18,9 @@ class OperationalScriptsTest(unittest.TestCase):
             ROOT / "scripts/restore.sh",
             ROOT / "scripts/monitor-media-stack.sh",
             ROOT / "scripts/deploy-reliability.sh",
+            ROOT / "scripts/deploy-download-reliability.sh",
+            ROOT / "scripts/deploy-series-fallback.sh",
+            ROOT / "scripts/deploy-docspedia.sh",
         ]
         result = subprocess.run(
             ["bash", "-n", *map(str, scripts)], capture_output=True, text=True
@@ -55,6 +59,32 @@ class OperationalScriptsTest(unittest.TestCase):
         script = self.read("scripts/restore.sh")
         self.assertIn("Creating pre-restore safety backup", script)
         self.assertIn('BACKUP_SCRIPT="${STACK_DIR}/backup.sh"', script)
+
+    def test_docspedia_learning_lane_is_wired_into_full_deploy(self) -> None:
+        deploy = self.read("scripts/deploy.sh")
+        compose = self.read("stacks/media/compose.yaml")
+        categories = json.loads(
+            self.read("stacks/media/qbittorrent/categories.json")
+        )
+        self.assertIn("import-docspedia-learning.py", deploy)
+        self.assertIn("configure-learning-libraries.py", deploy)
+        self.assertIn("media-stack-docspedia-learning.timer", deploy)
+        self.assertIn("kavita:", compose)
+        self.assertIn(
+            {
+                "name": "learning",
+                "save_path": "/data/Downloads/complete/learning",
+            },
+            categories,
+        )
+
+    def test_series_fallback_is_wired_into_focused_and_full_deploys(self) -> None:
+        full = self.read("scripts/deploy.sh")
+        focused = self.read("scripts/deploy-download-reliability.sh")
+        for script in (full, focused):
+            self.assertIn("dispatch-series-fallback.py", script)
+            self.assertIn("media-stack-series-fallback.service", script)
+            self.assertIn("media-stack-series-fallback.timer", script)
 
 
 if __name__ == "__main__":

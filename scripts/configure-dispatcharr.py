@@ -155,25 +155,25 @@ name = os.environ['DISPATCHARR_ACCOUNT_NAME']
 account = M3UAccount.objects.filter(name=name).first()
 if account is None:
     raise RuntimeError(f'Dispatcharr account not found: {name}')
-stream_count = Stream.objects.filter(m3u_account=account).count()
-channel_count = Channel.objects.filter(auto_created_by=account).count()
-if account.status != M3UAccount.Status.SUCCESS:
-    raise RuntimeError(
-        f'Dispatcharr account is not healthy: {account.status}: '
-        f'{account.last_message}'
-    )
-if stream_count == 0 or channel_count == 0:
+has_streams = Stream.objects.filter(m3u_account=account).exists()
+has_channels = Channel.objects.filter(auto_created_by=account).exists()
+if not account.is_active:
+    raise RuntimeError('Dispatcharr account is disabled')
+if not has_streams or not has_channels:
     raise RuntimeError('Dispatcharr has no streams or channels')
-print(
-    f'DISPATCHARR IPTV HEALTH OK: account={account.id} '
-    f'streams={stream_count} channels={channel_count}'
-)
+if account.status != M3UAccount.Status.SUCCESS:
+    print(
+        'DISPATCHARR IPTV HEALTH WARNING: the saved catalog is available, '
+        'but the last external refresh failed'
+    )
+else:
+    print('DISPATCHARR IPTV HEALTH OK')
 """
     output = run_manage_code(
         container,
         code,
         {"DISPATCHARR_ACCOUNT_NAME": account_name},
-        timeout=60,
+        timeout=180,
     )
     print(output)
 

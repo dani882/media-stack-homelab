@@ -6,5 +6,9 @@
   {
     "name": "tv",
     "save_path": "/data/Downloads/complete/tv"
+  },
+  {
+    "name": "learning",
+    "save_path": "/data/Downloads/complete/learning"
   }
 ]

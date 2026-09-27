@@ -33,6 +33,7 @@ SPEC.loader.exec_module(GRAB)
 ARCHIVE_PROFILE_NAME = "Archivo Español"
 PRIVATE_INDEXER_NAMES = {
     "dreadvault",
+    "docspedia",
     "milnueve",
     "retrotoon",
     "torrenthaven",

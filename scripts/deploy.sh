@@ -23,6 +23,7 @@ STALLED_PUBLIC_CLEANUP_SCRIPT="${ROOT_DIR}/scripts/cleanup-stalled-public.py"
 TORRENT_NOTIFICATION_SCRIPT="${ROOT_DIR}/scripts/notify-torrent-completions.py"
 PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
+SERIES_FALLBACK_SCRIPT="${ROOT_DIR}/scripts/dispatch-series-fallback.py"
 BTARG_SERIES_SCRIPT="${ROOT_DIR}/scripts/dispatch-btarg-series.py"
 BTARG_SERIES_MODULE="${ROOT_DIR}/scripts/media/btarg_series_pack.py"
 LANGUAGE_REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
@@ -30,6 +31,8 @@ IMPORTED_AUDIO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-imported-audio.py"
 NAS_PREFLIGHT_SCRIPT="${ROOT_DIR}/scripts/check-nas-preflight.py"
 HEALTH_DASHBOARD_SCRIPT="${ROOT_DIR}/scripts/build-health-dashboard.py"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
+DOCSPEDIA_LEARNING_SCRIPT="${ROOT_DIR}/scripts/import-docspedia-learning.py"
+LEARNING_LIBRARIES_SCRIPT="${ROOT_DIR}/scripts/configure-learning-libraries.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
 MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
@@ -74,6 +77,8 @@ TORRENT_NOTIFICATION_SERVICE="${STACK_DIR}/systemd/media-stack-torrent-notificat
 TORRENT_NOTIFICATION_TIMER="${STACK_DIR}/systemd/media-stack-torrent-notifications.timer"
 PRIVATE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-private-dispatch.service"
 PRIVATE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-private-dispatch.timer"
+SERIES_FALLBACK_SERVICE="${STACK_DIR}/systemd/media-stack-series-fallback.service"
+SERIES_FALLBACK_TIMER="${STACK_DIR}/systemd/media-stack-series-fallback.timer"
 BTARG_SERIES_SERVICE="${STACK_DIR}/systemd/media-stack-btarg-series.service"
 BTARG_SERIES_TIMER="${STACK_DIR}/systemd/media-stack-btarg-series.timer"
 LANGUAGE_REPAIR_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-language-repair-audit.service"
@@ -82,6 +87,8 @@ IMPORTED_AUDIO_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-imported-audio-au
 IMPORTED_AUDIO_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-imported-audio-audit.timer"
 ARCHIVE_DISPATCH_SERVICE="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.service"
 ARCHIVE_DISPATCH_TIMER="${STACK_DIR}/systemd/media-stack-archive-spanish-dispatch.timer"
+DOCSPEDIA_LEARNING_SERVICE="${STACK_DIR}/systemd/media-stack-docspedia-learning.service"
+DOCSPEDIA_LEARNING_TIMER="${STACK_DIR}/systemd/media-stack-docspedia-learning.timer"
 SERVARR_MODULE_DIR="${ROOT_DIR}/scripts/servarr_config"
 SERVARR_COMMON_MODULE="${SERVARR_MODULE_DIR}/common.py"
 SERVARR_CUSTOM_FORMATS_MODULE="${SERVARR_MODULE_DIR}/custom_formats.py"
@@ -125,7 +132,10 @@ for required_file in \
   "$TORRENT_NOTIFICATION_SCRIPT" \
   "$PRIVATE_GRAB_SCRIPT" \
   "$PRIVATE_DISPATCH_SCRIPT" \
+  "$SERIES_FALLBACK_SCRIPT" \
   "$ARCHIVE_DISPATCH_SCRIPT" \
+  "$DOCSPEDIA_LEARNING_SCRIPT" \
+  "$LEARNING_LIBRARIES_SCRIPT" \
   "$MEDIA_COMMON_INIT" \
   "$MEDIA_COMMON_ARR" \
   "$MEDIA_COMMON_QBITTORRENT" \
@@ -167,6 +177,8 @@ for required_file in \
   "$TORRENT_NOTIFICATION_TIMER" \
   "$PRIVATE_DISPATCH_SERVICE" \
   "$PRIVATE_DISPATCH_TIMER" \
+  "$SERIES_FALLBACK_SERVICE" \
+  "$SERIES_FALLBACK_TIMER" \
   "$BTARG_SERIES_SCRIPT" \
   "$BTARG_SERIES_MODULE" \
   "$BTARG_SERIES_SERVICE" \
@@ -181,6 +193,8 @@ for required_file in \
   "$HEALTH_DASHBOARD_SCRIPT" \
   "$ARCHIVE_DISPATCH_SERVICE" \
   "$ARCHIVE_DISPATCH_TIMER" \
+  "$DOCSPEDIA_LEARNING_SERVICE" \
+  "$DOCSPEDIA_LEARNING_TIMER" \
   "$SERVARR_COMMON_MODULE" \
   "$SERVARR_CUSTOM_FORMATS_MODULE" \
   "$SERVARR_SETTINGS_MODULE" \
@@ -273,6 +287,7 @@ REMOTE_STALLED_PUBLIC_CLEANUP_TEMP="${REMOTE_STAGING}/cleanup-stalled-public-${U
 REMOTE_TORRENT_NOTIFICATION_TEMP="${REMOTE_STAGING}/notify-torrent-completions-${USER}-$$.py"
 REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
+REMOTE_SERIES_FALLBACK_TEMP="${REMOTE_STAGING}/dispatch-series-fallback-${USER}-$$.py"
 REMOTE_BTARG_SERIES_TEMP="${REMOTE_STAGING}/dispatch-btarg-series-${USER}-$$.py"
 REMOTE_BTARG_SERIES_MODULE_TEMP="${REMOTE_STAGING}/btarg-series-pack-${USER}-$$.py"
 REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
@@ -280,6 +295,8 @@ REMOTE_IMPORTED_AUDIO_AUDIT_TEMP="${REMOTE_STAGING}/audit-imported-audio-${USER}
 REMOTE_NAS_PREFLIGHT_TEMP="${REMOTE_STAGING}/check-nas-preflight-${USER}-$$.py"
 REMOTE_HEALTH_DASHBOARD_TEMP="${REMOTE_STAGING}/build-health-dashboard-${USER}-$$.py"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
+REMOTE_DOCSPEDIA_LEARNING_TEMP="${REMOTE_STAGING}/import-docspedia-learning-${USER}-$$.py"
+REMOTE_LEARNING_LIBRARIES_TEMP="${REMOTE_STAGING}/configure-learning-libraries-${USER}-$$.py"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
@@ -323,6 +340,8 @@ REMOTE_TORRENT_NOTIFICATION_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-torrent-
 REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP="${REMOTE_STAGING}/media-stack-torrent-notifications-${USER}-$$.timer"
 REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.service"
 REMOTE_PRIVATE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-private-dispatch-${USER}-$$.timer"
+REMOTE_SERIES_FALLBACK_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-series-fallback-${USER}-$$.service"
+REMOTE_SERIES_FALLBACK_TIMER_TEMP="${REMOTE_STAGING}/media-stack-series-fallback-${USER}-$$.timer"
 REMOTE_BTARG_SERIES_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.service"
 REMOTE_BTARG_SERIES_TIMER_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.timer"
 REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.service"
@@ -331,6 +350,8 @@ REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-imported
 REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-imported-audio-audit-${USER}-$$.timer"
 REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.service"
 REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP="${REMOTE_STAGING}/media-stack-archive-spanish-dispatch-${USER}-$$.timer"
+REMOTE_DOCSPEDIA_LEARNING_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-docspedia-learning-${USER}-$$.service"
+REMOTE_DOCSPEDIA_LEARNING_TIMER_TEMP="${REMOTE_STAGING}/media-stack-docspedia-learning-${USER}-$$.timer"
 REMOTE_SERVARR_COMMON_TEMP="${REMOTE_STAGING}/servarr-common-${USER}-$$.py"
 REMOTE_SERVARR_CUSTOM_FORMATS_TEMP="${REMOTE_STAGING}/servarr-custom-formats-${USER}-$$.py"
 REMOTE_SERVARR_SETTINGS_TEMP="${REMOTE_STAGING}/servarr-settings-${USER}-$$.py"
@@ -579,6 +600,7 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_GRAB_TEMP}'" < "$PRIVATE_GRAB_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_SERIES_FALLBACK_TEMP}'" < "$SERIES_FALLBACK_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_TEMP}'" < "$BTARG_SERIES_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_MODULE_TEMP}'" < "$BTARG_SERIES_MODULE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}'" < "$LANGUAGE_REPAIR_AUDIT_SCRIPT"
@@ -586,6 +608,8 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_NAS_PREFLIGHT_TEMP}'" < "$NAS_PREFLIGHT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_HEALTH_DASHBOARD_TEMP}'" < "$HEALTH_DASHBOARD_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_DOCSPEDIA_LEARNING_TEMP}'" < "$DOCSPEDIA_LEARNING_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LEARNING_LIBRARIES_TEMP}'" < "$LEARNING_LIBRARIES_SCRIPT"
 
 echo "Uploading shared media modules..."
 
@@ -782,6 +806,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$PRIVATE_DISPATCH_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_SERIES_FALLBACK_SERVICE_TEMP}'" \
+  < "$SERIES_FALLBACK_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_SERIES_FALLBACK_TIMER_TEMP}'" \
+  < "$SERIES_FALLBACK_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_BTARG_SERIES_SERVICE_TEMP}'" \
   < "$BTARG_SERIES_SERVICE"
 
@@ -812,6 +844,14 @@ echo "Uploading media watchdog systemd units through SSH..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}'" \
   < "$ARCHIVE_DISPATCH_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DOCSPEDIA_LEARNING_SERVICE_TEMP}'" \
+  < "$DOCSPEDIA_LEARNING_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_DOCSPEDIA_LEARNING_TIMER_TEMP}'" \
+  < "$DOCSPEDIA_LEARNING_TIMER"
 
 echo "Uploading qBittorrent configuration files..."
 
@@ -914,6 +954,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/notify-torrent-completions.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_GRAB_TEMP}' '${NAS_STACK_DIR}/grab-prowlarr-release.py'
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
+  sudo install -m 0755 '${REMOTE_SERIES_FALLBACK_TEMP}' '${NAS_STACK_DIR}/dispatch-series-fallback.py'
   sudo install -m 0755 '${REMOTE_BTARG_SERIES_TEMP}' '${NAS_STACK_DIR}/dispatch-btarg-series.py'
   sudo install -m 0644 '${REMOTE_BTARG_SERIES_MODULE_TEMP}' '${NAS_STACK_DIR}/scripts/btarg_series_pack.py'
   sudo install -m 0755 '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-language-repairs.py'
@@ -921,6 +962,8 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 '${REMOTE_NAS_PREFLIGHT_TEMP}' '${NAS_STACK_DIR}/check-nas-preflight.py'
   sudo install -m 0755 '${REMOTE_HEALTH_DASHBOARD_TEMP}' '${NAS_STACK_DIR}/build-health-dashboard.py'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
+  sudo install -m 0755 '${REMOTE_DOCSPEDIA_LEARNING_TEMP}' '${NAS_STACK_DIR}/import-docspedia-learning.py'
+  sudo install -m 0755 '${REMOTE_LEARNING_LIBRARIES_TEMP}' '${NAS_STACK_DIR}/configure-learning-libraries.py'
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/scripts/common'
@@ -1090,6 +1133,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-private-dispatch.timer
 
   sudo install -m 0644 \
+    '${REMOTE_SERIES_FALLBACK_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-series-fallback.service
+
+  sudo install -m 0644 \
+    '${REMOTE_SERIES_FALLBACK_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-series-fallback.timer
+
+  sudo install -m 0644 \
     '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-btarg-series.service
 
@@ -1121,6 +1172,20 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     /etc/systemd/system/media-stack-archive-spanish-dispatch.timer
 
+  sudo install -m 0644 \
+    '${REMOTE_DOCSPEDIA_LEARNING_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-docspedia-learning.service
+
+  sudo install -m 0644 \
+    '${REMOTE_DOCSPEDIA_LEARNING_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-docspedia-learning.timer
+
+  sudo install -d -o 1000 -g 10 -m 0755 \
+    '${NAS_STACK_DIR}/config/kavita' \
+    '/volume1/Family/Downloads/complete/learning' \
+    '/volume1/Family/Media/Learning/Videos' \
+    '/volume1/Family/Media/Learning/Documents'
+
   sudo systemctl daemon-reload
   sudo systemctl enable --now \
     media-stack-watchdog.timer \
@@ -1130,10 +1195,12 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-stalled-public-cleanup.timer \
     media-stack-torrent-notifications.timer \
     media-stack-private-dispatch.timer \
+    media-stack-series-fallback.timer \
     media-stack-btarg-series.timer \
     media-stack-language-repair-audit.timer \
     media-stack-imported-audio-audit.timer \
-    media-stack-archive-spanish-dispatch.timer
+    media-stack-archive-spanish-dispatch.timer \
+    media-stack-docspedia-learning.timer
 
   sudo mkdir -p \
     '${NAS_STACK_DIR}/servarr_config'
@@ -1283,6 +1350,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_TORRENT_NOTIFICATION_TIMER_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TIMER_TEMP}' \
+    '${REMOTE_SERIES_FALLBACK_SERVICE_TEMP}' \
+    '${REMOTE_SERIES_FALLBACK_TIMER_TEMP}' \
     '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
     '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
@@ -1291,6 +1360,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_IMPORTED_AUDIO_AUDIT_TIMER_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_SERVICE_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
+    '${REMOTE_DOCSPEDIA_LEARNING_TEMP}' \
+    '${REMOTE_LEARNING_LIBRARIES_TEMP}' \
+    '${REMOTE_DOCSPEDIA_LEARNING_SERVICE_TEMP}' \
+    '${REMOTE_DOCSPEDIA_LEARNING_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
     '${REMOTE_SERVARR_CUSTOM_FORMATS_TEMP}' \
     '${REMOTE_SERVARR_SETTINGS_TEMP}' \
@@ -1312,6 +1385,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_RELEASE_POLICY_TEMP}' \
     '${REMOTE_PRIVATE_GRAB_TEMP}' \
     '${REMOTE_PRIVATE_DISPATCH_TEMP}' \
+    '${REMOTE_SERIES_FALLBACK_TEMP}' \
     '${REMOTE_BTARG_SERIES_TEMP}' \
     '${REMOTE_BTARG_SERIES_MODULE_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' \
@@ -1388,6 +1462,10 @@ echo "Pulling images and applying the stack..."
   echo
   echo "Configuring Seerr..."
   sudo python3 '${NAS_STACK_DIR}/configure-seerr.py'
+
+  echo
+  echo "Configuring DocsPedia learning libraries..."
+  sudo python3 '${NAS_STACK_DIR}/configure-learning-libraries.py'
 
   echo
   if [[ \"\${DISPATCHARR_SYNC_ON_DEPLOY:-0}\" == \"1\" ]]; then

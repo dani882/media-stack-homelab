@@ -59,6 +59,10 @@ class DispatcharrConfigurationTest(unittest.TestCase):
         )
         embedded_code = run_manage_code.call_args.args[1]
         compile(embedded_code, "<dispatcharr-health>", "exec")
+        self.assertIn(".exists()", embedded_code)
+        self.assertIn("saved catalog is available", embedded_code)
+        self.assertIn("Dispatcharr account is disabled", embedded_code)
+        self.assertEqual(run_manage_code.call_args.kwargs["timeout"], 180)
 
     @mock.patch.object(
         MODULE.subprocess,

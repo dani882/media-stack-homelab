@@ -147,3 +147,107 @@ class SelectReleaseTests(unittest.TestCase):
                 "english",
                 720,
             )
+
+    def test_guarded_public_torrent_is_inspected_before_start(self) -> None:
+        class FakeQbit:
+            def __init__(self) -> None:
+                self.info_calls = 0
+                self.posts: list[tuple[str, dict]] = []
+
+            def get_json(self, path: str) -> list[dict]:
+                if path == "/api/v2/torrents/info":
+                    self.info_calls += 1
+                    if self.info_calls == 1:
+                        return []
+                    return [
+                        {
+                            "hash": "abcdef1234567890",
+                            "tags": "public,series-fallback,sonarr-episode-9",
+                            "private": 0,
+                            "save_path": "/data/Downloads/complete/tv",
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/files?"):
+                    return [{"name": "Example.S01E01.1080p.mkv"}]
+                raise AssertionError(path)
+
+            def post_form(self, path: str, form: dict) -> None:
+                self.posts.append((path, form))
+
+        client = FakeQbit()
+        MODULE.add_to_qbittorrent(
+            client,
+            release(title="Example.S01E01.English.1080p.WEB-DL"),
+            "tv",
+            "public,series-fallback,sonarr-episode-9",
+            30,
+            False,
+            require_private=False,
+            policy_label="PUBLIC FALLBACK POLICY",
+        )
+        self.assertIn(
+            "/api/v2/torrents/start",
+            [path for path, _form in client.posts],
+        )
+
+    def test_public_source_private_flag_requires_non_private_tracker(self) -> None:
+        class FakeQbit:
+            def __init__(self, tracker: str) -> None:
+                self.tracker = tracker
+                self.info_calls = 0
+                self.posts: list[tuple[str, dict]] = []
+
+            def get_json(self, path: str) -> list[dict]:
+                if path == "/api/v2/torrents/info":
+                    self.info_calls += 1
+                    if self.info_calls == 1:
+                        return []
+                    return [
+                        {
+                            "hash": "abcdef1234567890",
+                            "tags": "public,series-fallback,sonarr-episode-9",
+                            "private": True,
+                            "save_path": "/data/Downloads/complete/tv",
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/trackers?"):
+                    return [{"url": self.tracker}]
+                if path.startswith("/api/v2/torrents/files?"):
+                    return [{"name": "Example.S01E01.1080p.mkv"}]
+                raise AssertionError(path)
+
+            def post_form(self, path: str, form: dict) -> None:
+                self.posts.append((path, form))
+
+        safe = FakeQbit("udp://tracker.opentrackr.org:1337/announce")
+        MODULE.add_to_qbittorrent(
+            safe,
+            release(title="Example.S01E01.English.1080p.WEB-DL"),
+            "tv",
+            "public,series-fallback,sonarr-episode-9",
+            30,
+            False,
+            require_private=False,
+            allow_public_private_flag=True,
+        )
+        self.assertIn(
+            "/api/v2/torrents/start",
+            [path for path, _form in safe.posts],
+        )
+
+        private = FakeQbit("https://announce.btarg.org/announce")
+        with self.assertRaises(MODULE.GrabError):
+            MODULE.add_to_qbittorrent(
+                private,
+                release(title="Example.S01E01.English.1080p.WEB-DL"),
+                "tv",
+                "public,series-fallback,sonarr-episode-9",
+                30,
+                False,
+                require_private=False,
+                allow_public_private_flag=True,
+            )
+        self.assertNotIn(
+            "/api/v2/torrents/start",
+            [path for path, _form in private.posts],
+        )

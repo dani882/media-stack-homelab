@@ -110,9 +110,28 @@ PRIVATE_INDEXERS = {
             "freeleech": False,
         },
     },
+    "docspedia": {
+        # DocsPedia uses Prowlarr's native cookie-authenticated Cardigann
+        # definition. It is an English-first e-learning tracker, so it shares
+        # the lowest managed private priority and never outranks language.
+        "definition": "docspedia",
+        "enabled": True,
+        "priority": 9,
+        "minimum_seeders": 1,
+        "app_profile": "Learning Manual",
+        "fields": {
+            # The tracker permits 48 h or ratio 1:1. Use time plus the normal
+            # accounting margin so a quiet torrent can still be released
+            # safely without depending on another peer downloading from us.
+            "torrentBaseSettings.seedTime": 3480,
+            "torrentBaseSettings.packSeedTime": 3480,
+            "freeleech": False,
+        },
+    },
 }
 
 PUBLIC_FALLBACK_PROFILE = "Public Manual Fallback"
+LEARNING_MANUAL_PROFILE = "Learning Manual"
 
 APP_PROFILES = (
     {
@@ -121,6 +140,13 @@ APP_PROFILES = (
         "enableAutomaticSearch": False,
         "enableInteractiveSearch": True,
         "minimumSeeders": 5,
+    },
+    {
+        "name": LEARNING_MANUAL_PROFILE,
+        "enableRss": False,
+        "enableAutomaticSearch": False,
+        "enableInteractiveSearch": True,
+        "minimumSeeders": 1,
     },
 )
 

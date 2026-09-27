@@ -183,6 +183,20 @@ services:
     networks:
       - media
 
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ${CONFIG_DIR}/kavita:/kavita/config
+      - ${MEDIA_DIR}/Learning/Documents:/documents:ro
+    ports:
+      - "${KAVITA_PORT:-5000}:5000"
+    networks:
+      - media
+
   dispatcharr:
     image: ghcr.io/dispatcharr/dispatcharr:${DISPATCHARR_TAG:-latest}
     container_name: dispatcharr

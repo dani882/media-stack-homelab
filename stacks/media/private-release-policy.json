@@ -4,6 +4,14 @@
     "minimumTitleResolution": 720,
     "englishFallbackAfterDays": 14
   },
+  "automaticSeriesFallback": {
+    "minimumTitleResolution": 720,
+    "englishFallbackAfterDays": 0,
+    "publicFallbackEnabled": true,
+    "publicMinimumSeeders": 5,
+    "publicSeedTimeMinutes": 30,
+    "maxEpisodeSearchesPerRun": 12
+  },
   "postImportReview": {
     "releaseTitleIsNotAuthoritative": true,
     "retainPrivateTorrentForRequiredSeedTime": true,

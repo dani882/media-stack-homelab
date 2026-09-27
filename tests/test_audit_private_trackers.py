@@ -179,6 +179,21 @@ class PrivateTrackerAuditTest(unittest.TestCase):
         self.assertFalse(safe)
         self.assertIn("no finite", message)
 
+    def test_docspedia_uses_48_hour_policy_plus_margin(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "l" * 40,
+                "progress": 1,
+                "seeding_time_limit": 3480,
+                "seeding_time": 60,
+            },
+            {"tracker.docspedia.world"},
+        )
+
+        self.assertTrue(safe)
+        self.assertIn("DocsPedia", message)
+        self.assertIn("remaining=3479m", message)
+
     def test_writes_secret_free_html_and_json_dashboard(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "private-trackers.html"

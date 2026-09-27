@@ -8,6 +8,8 @@ repository, terminal output, documentation, commits, or chat responses.
 ## User intent and communication
 
 - Communicate with the user in clear, non-technical Spanish.
+- At the end of repository changes, always suggest a concise Git commit
+  message, even when the user does not explicitly ask for one.
 - The user wants automated media selection in this order:
   `Latino > Castellano > English/original`.
 - Language always outranks source quality and tracker priority. A private or
@@ -39,6 +41,10 @@ repository, terminal output, documentation, commits, or chat responses.
 - RetroToon World is priority 8 with an 82-hour seed-time policy.
 - DreadVault and TorrentHaven are priority 9; DreadVault uses 130 hours and
   TorrentHaven uses 82 hours.
+- DocsPedia is priority 9 and uses a 58-hour policy: its 48-hour-or-1:1 rule
+  is enforced through the deterministic time path plus a 10-hour margin.
+- DocsPedia uses the `Learning Manual` Prowlarr profile. RSS and automatic
+  searches are disabled; users search it interactively in Prowlarr.
 - Public indexers are interactive/manual fallback only: RSS and automatic
   search are disabled for them.
 - Prowlarr queries indexers concurrently. Its numeric priority is only a
@@ -125,6 +131,17 @@ repository, terminal output, documentation, commits, or chat responses.
   the unmonitored `La Brea S01E01` was intentionally not searched.
 
 ## Operational workflow
+
+- DocsPedia downloads use the qBittorrent `learning` category and remain under
+  `/volume1/Family/Downloads/complete/learning` for seeding. The learning
+  importer recognizes the tracker host, applies the category and private tags,
+  enforces 58 hours, rejects executable-like payloads, and hardlinks supported
+  videos into `/volume1/Family/Media/Learning/Videos` and supported documents
+  into `/volume1/Family/Media/Learning/Documents` without replacing files.
+- Jellyfin exposes the video library as `Cursos`; Kavita exposes documents.
+  `media-stack-docspedia-learning.timer` performs the guarded import every five
+  minutes. Unknown formats remain only in Downloads, and unsafe or conflicting
+  payloads receive `learning-import-review` rather than being imported.
 
 - `media-stack-btarg-series.timer` handles BTArg multi-season TV packs that
   Sonarr rejects natively. It only accepts exact requested-season coverage,

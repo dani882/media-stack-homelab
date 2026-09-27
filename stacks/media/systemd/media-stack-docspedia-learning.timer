@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically classify and import DocsPedia learning content
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=5min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

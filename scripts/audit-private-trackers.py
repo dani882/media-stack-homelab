@@ -75,6 +75,13 @@ TRACKER_POLICIES = (
         # account ratio must remain at or above 0.5.
         minimum_ratio=1.0,
     ),
+    TrackerPolicy(
+        name="DocsPedia",
+        host_suffixes=("docspedia.world",),
+        # Rule: 48 h or 1:1. Retention uses the deterministic time path plus
+        # the standard 10 h tracker-accounting margin.
+        minimum_seed_minutes=3480,
+    ),
 )
 
 

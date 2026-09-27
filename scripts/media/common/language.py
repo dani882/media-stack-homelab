@@ -88,6 +88,7 @@ PRIVATE_INDEXER_MARKERS = (
     "retrotoon",
     "torrenthaven",
     "dreadvault",
+    "docspedia",
 )
 
 

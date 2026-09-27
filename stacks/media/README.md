@@ -105,8 +105,8 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
-Milnueve, BTArg, RetroToon World, Torrent Haven, and DreadVault are production
-private trackers integrated with the stack. Their credentials remain
+Milnueve, BTArg, RetroToon World, Torrent Haven, DreadVault, and DocsPedia are
+production private trackers integrated with the stack. Their credentials remain
 NAS-local and are loaded from the private indexer secret file.
 
 All managed private-indexer priorities are numerically ahead of every public
@@ -198,6 +198,50 @@ the mandatory 120 hours after completion plus a 10-hour accounting margin.
 Freeleech downloads retain the same seed-time obligation. The periodic audit
 recognizes `dreadvault.org` announce hosts, and automated cleanup cannot remove
 their payloads before the managed retention period is complete.
+
+DocsPedia uses Prowlarr's native `docspedia` definition and authenticates with
+the site's session cookie because its login form is protected by Cloudflare.
+The cookie must remain only in the NAS-local private-indexer secret. Its
+managed policy uses priority `9`, at least one seeder, and a conservative
+58-hour (`3480` minute) seed time for torrents and packs: the site's 48-hour
+or 1:1 rule plus the standard 10-hour accounting margin. DocsPedia is an
+English-first e-learning source; it is excluded from the automatic Seerr movie
+dispatcher and never overrides the language order. Prowlarr recommends setting
+the site's results-per-page preference to 100, and regular indexer activity
+prevents the account from becoming inactive.
+
+DocsPedia is intentionally assigned to the `Learning Manual` Prowlarr profile:
+RSS and automatic searches are disabled, while interactive Prowlarr searches
+remain available. It does not use Seerr, Sonarr, or Radarr. A manually grabbed
+DocsPedia torrent is recognized by its tracker host, assigned the qBittorrent
+`learning` category, tagged as private, and retained for 58 hours.
+
+The guarded learning importer runs every five minutes. Completed, safe files
+are hardlinked without replacing existing content:
+
+- videos and adjacent audio/subtitles go to `/data/Media/Learning/Videos` and
+  appear in Jellyfin as the `Cursos` library;
+- PDF, EPUB and other supported reading formats go to
+  `/data/Media/Learning/Documents` and are mounted read-only in Kavita;
+- executable-like payloads, path traversal, symlinks, and destination
+  conflicts receive `learning-import-review` and are not imported.
+
+Kavita is available on port `5000`. Its first administrator and the
+`/documents` library are created interactively on first use so no account
+credential is stored in Git. The original torrent data remains in Downloads
+for seeding, and the library entries are hardlinks on the same filesystem.
+
+Install or refresh only the indexer policy with `make configure-docspedia`.
+This scoped operation updates Prowlarr and the private-retention audit without
+restarting the media stack or exposing the NAS-local cookie.
+
+After the full stack has installed the learning lane, run an immediate guarded
+preview or import with:
+
+```bash
+make dry-run-import-docspedia-learning
+make import-docspedia-learning
+```
 
 Install or refresh only this integration with `make configure-dreadvault`.
 This scoped operation installs the custom definition, restarts only Prowlarr,
@@ -297,6 +341,26 @@ for six hours, and empty searches use a 6/12/24-hour retry schedule. This lets
 normal movies, episodes, season packs, and multi-season packs use the detail
 page's actual language instead of trusting an ambiguous `Dual Audio` title.
 
+### Guarded series fallback
+
+`media-stack-series-fallback.timer` fills missing episodes from approved Seerr
+series requests without enabling unrestricted public automatic search. It
+checks exact single-episode results accepted by Sonarr, ranks language first
+(`Latino > Castellano > English/original`), then prefers private trackers over
+public trackers for an equal language. Bare `Dual Audio`, unknown language,
+x265/AV1 bans, unsafe titles, rejected qualities, weak public swarms, season
+packs, and multi-episode packs are excluded.
+
+The selected torrent is added stopped. Private sources must remain explicitly
+private. A public-source torrent that carries the private bit is accepted only
+when none of its announce hosts belongs to a known private tracker. Its member
+paths are checked before it starts. The worker starts at most one new torrent
+per run, retains public torrents for at least 30 minutes, rotates through
+missing episodes so an unavailable episode cannot starve the rest of the
+request, and leaves every missing episode monitored for a later Spanish
+upgrade. The current policy permits an English/original fallback immediately
+after a Spanish search produces no safe candidate.
+
 Before dispatching a large pack, the worker reserves space for both the
 download and a possible H.264 conversion. Conversion is sequential, low
 priority, and rechecks available space per file. After Sonarr rescans the
@@ -324,7 +388,7 @@ Time-based private-retention values include a 10-hour accounting margin above
 each tracker's stated rule, because qBittorrent's local timer can run ahead of
 the tracker's credited seeding time. The managed values are 106 hours for
 Milnueve, 82 hours for RetroToon and Torrent Haven, and 130 hours for
-DreadVault. BTArg instead uses a 1.0 ratio target. Run
+DreadVault, and 58 hours for DocsPedia. BTArg instead uses a 1.0 ratio target. Run
 `make enforce-private-tracker-limits` after a policy change to update existing
 managed torrents as well.
 

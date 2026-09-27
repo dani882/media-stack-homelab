@@ -1,4 +1,4 @@
-.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-reliability backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-reliability deploy-series-fallback backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-docspedia configure-learning import-docspedia-learning dry-run-import-docspedia-learning configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-series-fallback dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 PYTHON ?= python3
 SSH := ssh -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
@@ -29,6 +29,9 @@ deploy:
 
 deploy-reliability:
 	@./scripts/deploy-reliability.sh
+
+deploy-series-fallback:
+	@./scripts/deploy-series-fallback.sh
 
 backup:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
@@ -72,6 +75,24 @@ configure-btarg:
 
 configure-dreadvault:
 	@./scripts/deploy-dreadvault.sh
+
+configure-docspedia:
+	@./scripts/deploy-docspedia.sh
+
+configure-learning:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-learning-libraries.py"
+
+import-docspedia-learning:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./import-docspedia-learning.py"
+
+dry-run-import-docspedia-learning:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./import-docspedia-learning.py --dry-run"
 
 configure-language-priority:
 	@./scripts/deploy-language-priority.sh
@@ -271,6 +292,10 @@ dispatch-private-seerr:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "sudo -n python3 -u - $(if $(APPLY),--apply)" \
 	  < scripts/dispatch-private-seerr.py
+
+dispatch-series-fallback:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 -u /volume1/docker/media-stack/dispatch-series-fallback.py $(if $(REQUEST_ID),--request-id '$(REQUEST_ID)') $(if $(SERIES),--series '$(SERIES)') $(if $(MAX_SEARCHES),--max-searches '$(MAX_SEARCHES)') $(if $(APPLY),--apply)"
 
 dispatch-btarg-series:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
