@@ -229,6 +229,26 @@ def systemd_states(
     return dict(zip(units, states, strict=True))
 
 
+def check_bazarr_configuration(
+    stack_dir: Path,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> tuple[bool, str]:
+    script = stack_dir / "configure-bazarr.py"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), "--check-only", "--timeout", str(timeout)],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=max(timeout * 3, 30),
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return False, f"unable to validate: {error}"
+    output = (result.stdout or result.stderr).strip().splitlines()
+    message = output[-1] if output else f"exit code {result.returncode}"
+    return result.returncode == 0, message
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -330,6 +350,15 @@ def main() -> int:
         "  OK: Recyclarr remains a one-shot tool service "
         "and is not expected in compose ps"
     )
+
+    bazarr_ok, bazarr_message = check_bazarr_configuration(
+        args.stack_dir, args.timeout
+    )
+    print(
+        f"  {'OK' if bazarr_ok else 'FAIL'}: "
+        f"Bazarr managed configuration -> {bazarr_message}"
+    )
+    failed = failed or not bazarr_ok
 
     try:
         timer_states = systemd_states(

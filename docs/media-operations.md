@@ -49,7 +49,29 @@ Audit Seerr routing and profile bindings:
 make audit-seerr
 ```
 
-Audit Bazarr for legacy mount assumptions:
+Configure or validate managed Spanish subtitles in Bazarr:
+
+```bash
+make dry-run-bazarr
+make configure-bazarr
+```
+
+This preserves any existing providers and profiles while ensuring that
+Radarr, Sonarr, embedded-audio detection, Spanish subtitle providers, and the
+managed `Español` profile remain active.
+
+Force a one-time search for Spanish subtitles on every movie and episode that
+Bazarr currently marks as missing Spanish:
+
+```bash
+make search-bazarr-missing
+```
+
+This remains separate from normal deployments to avoid repeatedly querying
+subtitle providers. Titles that already have Spanish audio or subtitles are
+excluded by the managed Bazarr profile.
+
+Audit Bazarr integration and legacy mount assumptions:
 
 ```bash
 make audit-bazarr

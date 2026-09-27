@@ -46,6 +46,7 @@ MEDIA_COMMON_RELEASE_SAFETY="${MEDIA_COMMON_DIR}/release_safety.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
+BAZARR_SCRIPT="${ROOT_DIR}/scripts/configure-bazarr.py"
 DISPATCHARR_SCRIPT="${ROOT_DIR}/scripts/configure-dispatcharr.py"
 JELLYFIN_LIVETV_SCRIPT="${ROOT_DIR}/scripts/configure-jellyfin-livetv.py"
 DOMINICAN_IPTV_SCRIPT="${ROOT_DIR}/scripts/dominican-iptv.py"
@@ -146,6 +147,7 @@ for required_file in \
   "$MEDIA_COMMON_RELEASE_SAFETY" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
+  "$BAZARR_SCRIPT" \
   "$DISPATCHARR_SCRIPT" \
   "$JELLYFIN_LIVETV_SCRIPT" \
   "$DOMINICAN_IPTV_SCRIPT" \
@@ -309,6 +311,7 @@ REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP="${REMOTE_STAGING}/media-common-release-
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
+REMOTE_BAZARR_TEMP="${REMOTE_STAGING}/configure-bazarr-${USER}-$$.py"
 REMOTE_DISPATCHARR_TEMP="${REMOTE_STAGING}/configure-dispatcharr-${USER}-$$.py"
 REMOTE_JELLYFIN_LIVETV_TEMP="${REMOTE_STAGING}/configure-jellyfin-livetv-${USER}-$$.py"
 REMOTE_DOMINICAN_IPTV_TEMP="${REMOTE_STAGING}/dominican-iptv-${USER}-$$.py"
@@ -652,6 +655,12 @@ echo "Uploading Seerr configuration script through SSH..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_SEERR_TEMP}'" \
   < "$SEERR_SCRIPT"
+
+echo "Uploading Bazarr configuration script through SSH..."
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_BAZARR_TEMP}'" \
+  < "$BAZARR_SCRIPT"
 
 echo "Uploading IPTV configuration scripts through SSH..."
 
@@ -1009,6 +1018,10 @@ echo "Installing and validating Compose file on the NAS..."
     '${NAS_STACK_DIR}/configure-seerr.py'
 
   sudo install -m 0755 \
+    '${REMOTE_BAZARR_TEMP}' \
+    '${NAS_STACK_DIR}/configure-bazarr.py'
+
+  sudo install -m 0755 \
     '${REMOTE_DISPATCHARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-dispatcharr.py'
 
@@ -1319,6 +1332,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
+    '${REMOTE_BAZARR_TEMP}' \
     '${REMOTE_DISPATCHARR_TEMP}' \
     '${REMOTE_JELLYFIN_LIVETV_TEMP}' \
     '${REMOTE_DOMINICAN_IPTV_TEMP}' \
@@ -1462,6 +1476,10 @@ echo "Pulling images and applying the stack..."
   echo
   echo "Configuring Seerr..."
   sudo python3 '${NAS_STACK_DIR}/configure-seerr.py'
+
+  echo
+  echo "Configuring Bazarr Spanish subtitles..."
+  sudo python3 '${NAS_STACK_DIR}/configure-bazarr.py'
 
   echo
   echo "Configuring DocsPedia learning libraries..."

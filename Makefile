@@ -1,4 +1,4 @@
-.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-reliability deploy-series-fallback backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-docspedia configure-learning import-docspedia-learning dry-run-import-docspedia-learning configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-series-fallback dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-reliability deploy-series-fallback backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-docspedia configure-learning import-docspedia-learning dry-run-import-docspedia-learning configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-bazarr dry-run-bazarr search-bazarr-missing configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-series-fallback dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 PYTHON ?= python3
 SSH := ssh -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
@@ -136,6 +136,27 @@ dry-run-seerr:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
 	  "cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./configure-seerr.py --dry-run"
+
+configure-bazarr:
+	@tmp_script="/tmp/configure-bazarr-$$$$.py"; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" < scripts/configure-bazarr.py; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n install -m 0755 '$$tmp_script' \
+	     /volume1/docker/media-stack/configure-bazarr.py && \
+	   rm -f '$$tmp_script' && \
+	   cd /volume1/docker/media-stack && \
+	   sudo -n python3 ./configure-bazarr.py $(BAZARR_ARGS)"
+
+search-bazarr-missing:
+	@$(MAKE) configure-bazarr BAZARR_ARGS=--search-missing
+
+dry-run-bazarr:
+	@tmp_script="/tmp/configure-bazarr-$$$$.py"; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" < scripts/configure-bazarr.py; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n python3 '$$tmp_script' --dry-run; rm -f '$$tmp_script'"
 
 configure-iptv:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
