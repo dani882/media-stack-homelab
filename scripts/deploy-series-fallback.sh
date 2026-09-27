@@ -28,6 +28,7 @@ SSH=(
 FILES=(
   "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
+  "scripts/notify-torrent-completions.py"
   "scripts/media/common/btarg.py"
   "scripts/media/common/language.py"
   "scripts/media/common/qbittorrent.py"
@@ -53,6 +54,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/grab-prowlarr-release.py' \
     /volume1/docker/media-stack/grab-prowlarr-release.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/notify-torrent-completions.py' \
+    /volume1/docker/media-stack/notify-torrent-completions.py
   sudo -n install -m 0644 \
     '${REMOTE_STAGING}/scripts/media/common/btarg.py' \
     '${REMOTE_STAGING}/scripts/media/common/language.py' \

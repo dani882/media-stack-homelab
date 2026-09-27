@@ -30,6 +30,7 @@ FILES=(
   "scripts/dispatch-private-seerr.py"
   "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
+  "scripts/notify-torrent-completions.py"
   "scripts/configure-servarr.py"
   "scripts/media/common/arr.py"
   "scripts/media/common/btarg.py"
@@ -76,6 +77,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/grab-prowlarr-release.py' \
     /volume1/docker/media-stack/grab-prowlarr-release.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/notify-torrent-completions.py' \
+    /volume1/docker/media-stack/notify-torrent-completions.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/configure-servarr.py' \
     /volume1/docker/media-stack/configure-servarr.py

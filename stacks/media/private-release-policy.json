@@ -10,7 +10,12 @@
     "publicFallbackEnabled": true,
     "publicMinimumSeeders": 5,
     "publicSeedTimeMinutes": 30,
-    "maxEpisodeSearchesPerRun": 12
+    "maxEpisodeSearchesPerRun": 12,
+    "maxActiveDownloads": 3,
+    "minimumFreeSpaceGiB": 50,
+    "stalledAfterHours": 12,
+    "maxStalledRemovalsPerRun": 2,
+    "seasonPacksEnabled": true
   },
   "postImportReview": {
     "releaseTitleIsNotAuthoritative": true,
