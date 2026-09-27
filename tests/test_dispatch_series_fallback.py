@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path("scripts/dispatch-series-fallback.py")
@@ -23,6 +24,11 @@ class SeriesFallbackTests(unittest.TestCase):
             "public_minimum_seeders": 5,
             "public_seed_minutes": 30,
             "max_searches": 12,
+            "max_active_downloads": 3,
+            "minimum_free_space_gib": 50,
+            "stalled_after_hours": 12,
+            "max_stalled_removals": 2,
+            "season_packs_enabled": True,
         }
         self.episode = {"id": 4512, "seasonNumber": 2, "episodeNumber": 1}
 
@@ -116,6 +122,48 @@ class SeriesFallbackTests(unittest.TestCase):
                 self.policy,
             )
         )
+
+    def test_exact_missing_season_pack_is_accepted(self) -> None:
+        candidate = self.release(
+            "Example.S02.English.1080p.WEB-DL",
+            "LimeTorrents (Prowlarr)",
+            episodeNumbers=[1, 2, 3],
+        )
+        self.assertIs(
+            MODULE.select_candidate(
+                [candidate],
+                self.episode,
+                MODULE.LanguageRank.ENGLISH,
+                self.policy,
+                {1, 2, 3},
+            ),
+            candidate,
+        )
+        self.assertIsNone(
+            MODULE.select_candidate(
+                [candidate],
+                self.episode,
+                MODULE.LanguageRank.ENGLISH,
+                self.policy,
+                {1, 2},
+            )
+        )
+
+    def test_pack_members_must_exactly_cover_missing_episodes(self) -> None:
+        MODULE.validate_pack_members(
+            [
+                "Season 2/Example.S02E01.mkv",
+                "Season 2/Example.S02E02.mkv",
+            ],
+            2,
+            {1, 2},
+        )
+        with self.assertRaises(MODULE.GRAB.GrabError):
+            MODULE.validate_pack_members(
+                ["Season 2/Example.S02E01.mkv"],
+                2,
+                {1, 2},
+            )
 
     def test_sonarr_rejection_is_respected(self) -> None:
         candidate = self.release(
@@ -227,6 +275,120 @@ class SeriesFallbackTests(unittest.TestCase):
             now,
         )
         self.assertEqual([item["id"] for item in missing], [3])
+
+    def test_audio_rank_uses_imported_media_metadata(self) -> None:
+        self.assertEqual(
+            MODULE.detected_audio_rank(
+                {"mediaInfo": {"audioLanguages": "spa/eng"}}
+            ),
+            MODULE.LanguageRank.CASTILIAN,
+        )
+        self.assertEqual(
+            MODULE.detected_audio_rank(
+                {"mediaInfo": {"audioLanguages": "eng"}}
+            ),
+            MODULE.LanguageRank.ENGLISH,
+        )
+
+    def test_completed_import_is_verified_from_sonarr_audio(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "series-fallback,sonarr-episode-4512,"
+                "fallback-language-latino"
+            ),
+        }
+        qbit = mock.Mock()
+
+        def fake_get(_base: str, path: str, _key: str) -> dict:
+            if path == "/api/v3/episode/4512":
+                return {"hasFile": True, "episodeFileId": 88}
+            if path == "/api/v3/episodefile/88":
+                return {"mediaInfo": {"audioLanguages": "spa/eng"}}
+            raise AssertionError(path)
+
+        with mock.patch.object(MODULE, "get_json", side_effect=fake_get):
+            self.assertEqual(
+                MODULE.reconcile_imports(qbit, [torrent], "key", True),
+                (1, 0),
+            )
+        qbit.post_form.assert_called_once_with(
+            "/api/v2/torrents/addTags",
+            {"hashes": "abc", "tags": "series-fallback-import-verified"},
+        )
+
+    def test_english_only_import_is_marked_as_language_mismatch(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "series-fallback,sonarr-episode-4512,"
+                "fallback-language-castilian"
+            ),
+        }
+        qbit = mock.Mock()
+
+        def fake_get(_base: str, path: str, _key: str) -> dict:
+            if path == "/api/v3/episode/4512":
+                return {"hasFile": True, "episodeFileId": 88}
+            return {"mediaInfo": {"audioLanguages": "eng"}}
+
+        with mock.patch.object(MODULE, "get_json", side_effect=fake_get):
+            self.assertEqual(
+                MODULE.reconcile_imports(qbit, [torrent], "key", True),
+                (0, 1),
+            )
+        self.assertIn("language-mismatch", torrent["tags"])
+
+    def test_incomplete_torrent_is_not_import_verified(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 0.99,
+            "tags": "series-fallback,sonarr-episode-4512",
+        }
+        qbit = mock.Mock()
+        with mock.patch.object(MODULE, "get_json") as get_json:
+            self.assertEqual(
+                MODULE.reconcile_imports(qbit, [torrent], "key", True),
+                (0, 0),
+            )
+        get_json.assert_not_called()
+        qbit.post_form.assert_not_called()
+
+    def test_only_old_stalled_public_fallback_is_removable(self) -> None:
+        now = 1_000_000
+        old = now - 13 * 3600
+        torrents = [
+            {
+                "tags": "public,series-fallback",
+                "state": "stalledDL",
+                "progress": 0.1,
+                "dlspeed": 0,
+                "added_on": old,
+            },
+            {
+                "tags": "private,series-fallback",
+                "state": "stalledDL",
+                "progress": 0,
+                "dlspeed": 0,
+                "added_on": old,
+            },
+        ]
+        self.assertEqual(
+            MODULE.stalled_public_torrents(torrents, now, 12),
+            [torrents[0]],
+        )
+
+    def test_free_space_reserves_candidate_and_safety_floor(self) -> None:
+        usage = mock.Mock(free=100 * 1024**3)
+        with mock.patch.object(MODULE.shutil, "disk_usage", return_value=usage):
+            self.assertTrue(
+                MODULE.free_space_allows(Path("/downloads"), 40 * 1024**3, 50)
+            )
+            self.assertFalse(
+                MODULE.free_space_allows(Path("/downloads"), 60 * 1024**3, 50)
+            )
 
 
 if __name__ == "__main__":

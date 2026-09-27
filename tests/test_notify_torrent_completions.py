@@ -132,6 +132,33 @@ class TorrentNotificationTest(unittest.TestCase):
             [(torrent, [1001])],
         )
 
+    def test_series_fallback_waits_for_import_and_audio_verification(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "amount_left": 0,
+            "tags": "series-fallback, sonarr-episode-4515",
+        }
+        self.assertFalse(MODULE.notification_ready(torrent))
+        torrent["tags"] += ", series-fallback-import-verified"
+        self.assertTrue(MODULE.notification_ready(torrent))
+
+    def test_verified_series_fallback_message_means_available(self) -> None:
+        text = MODULE.notification_text(
+            {
+                "name": "Example Series S02E04",
+                "category": "tv",
+                "size": 1024**3,
+                "private": False,
+                "tags": (
+                    "series-fallback, series-fallback-import-verified, "
+                    "sonarr-episode-4515"
+                ),
+            }
+        )
+        self.assertIn("Contenido disponible", text)
+        self.assertIn("audio fue verificado", text)
+
     def test_verified_pack_message_means_available_in_sonarr(self) -> None:
         text = MODULE.notification_text(
             {

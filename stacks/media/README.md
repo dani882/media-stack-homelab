@@ -341,32 +341,45 @@ for six hours, and empty searches use a 6/12/24-hour retry schedule. This lets
 normal movies, episodes, season packs, and multi-season packs use the detail
 page's actual language instead of trusting an ambiguous `Dual Audio` title.
 
-### Guarded series fallback
-
-`media-stack-series-fallback.timer` fills missing episodes from approved Seerr
-series requests without enabling unrestricted public automatic search. It
-checks exact single-episode results accepted by Sonarr, ranks language first
-(`Latino > Castellano > English/original`), then prefers private trackers over
-public trackers for an equal language. Bare `Dual Audio`, unknown language,
-x265/AV1 bans, unsafe titles, rejected qualities, weak public swarms, season
-packs, and multi-episode packs are excluded.
-
-The selected torrent is added stopped. Private sources must remain explicitly
-private. A public-source torrent that carries the private bit is accepted only
-when none of its announce hosts belongs to a known private tracker. Its member
-paths are checked before it starts. The worker starts at most one new torrent
-per run, retains public torrents for at least 30 minutes, rotates through
-missing episodes so an unavailable episode cannot starve the rest of the
-request, and leaves every missing episode monitored for a later Spanish
-upgrade. The current policy permits an English/original fallback immediately
-after a Spanish search produces no safe candidate.
-
-Before dispatching a large pack, the worker reserves space for both the
+Before dispatching a large BTArg pack, the worker reserves space for both the
 download and a possible H.264 conversion. Conversion is sequential, low
 priority, and rechecks available space per file. After Sonarr rescans the
 library, every newly imported episode must point to the expected `[LATINO]`
 file before the torrent receives the `btarg-import-verified` tag. A mismatch is
 tagged `btarg-import-review` and retained for investigation.
+
+### Guarded series fallback
+
+`media-stack-series-fallback.timer` fills missing episodes from approved Seerr
+series requests without enabling unrestricted public automatic search. It
+checks exact episode coverage accepted by Sonarr, ranks language first
+(`Latino > Castellano > English/original`), then prefers private trackers over
+public trackers for an equal language. Bare `Dual Audio`, unknown language,
+x265/AV1 bans, unsafe titles, rejected qualities, and weak public swarms are
+excluded. A season pack is accepted only when both Sonarr's release metadata
+and the paused torrent members cover exactly every currently missing episode
+in that season; partial, extra, or ambiguous packs are rejected.
+
+The selected torrent is added stopped. Private sources must remain explicitly
+private. A public-source torrent that carries the private bit is accepted only
+when none of its announce hosts belongs to a known private tracker. Its member
+paths are checked before it starts. The worker starts at most one new torrent
+per run and no more than three fallback downloads at once. It reserves the
+selected release size plus 50 GiB of free space, retains public torrents for
+at least 30 minutes, and removes and blocklists only public fallback downloads
+that remain stalled for 12 hours. Private torrents are never removed by this
+recovery path. Fair rotation across requests and episodes prevents one missing
+title from starving the others. Every missing episode remains monitored for a
+later Spanish upgrade. The current policy permits an English/original fallback
+immediately after a Spanish search produces no safe candidate.
+
+Completion alone is not considered success. Once Sonarr imports every covered
+episode, the worker checks the imported audio metadata against the expected
+language. It then tags the torrent as verified or as a language mismatch.
+Telegram sends the availability message only after that successful import and
+audio verification. Secret-free status is refreshed at
+`/volume1/docker/media-stack/state/series-fallback-status.json` and
+`/volume1/docker/media-stack/state/series-fallback-status.html`.
 
 ### Private tracker dashboard and controlled repairs
 

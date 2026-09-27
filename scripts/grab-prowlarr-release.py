@@ -17,7 +17,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
@@ -220,6 +220,7 @@ def add_to_qbittorrent(
     require_private: bool = True,
     policy_label: str = "PRIVATE POLICY",
     allow_public_private_flag: bool = False,
+    member_validator: Callable[[list[str]], None] | None = None,
 ) -> None:
     title = str(release["title"])
     seeders = int(release.get("seeders", 0) or 0)
@@ -353,6 +354,9 @@ def add_to_qbittorrent(
                     raise GrabError(
                         "Selected torrent contains a dangerous file type."
                     )
+                member_paths = [str(item.get("name", "")) for item in files]
+                if member_validator is not None:
+                    member_validator(member_paths)
                 if (
                     language_rank(release) >= LanguageRank.CASTILIAN
                     and english_only_torrent_paths(

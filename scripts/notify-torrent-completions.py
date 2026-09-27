@@ -228,7 +228,11 @@ def notification_ready(torrent: dict[str, Any]) -> bool:
         for tag in str(torrent.get("tags") or "").split(",")
         if tag.strip()
     }
-    return "btarg-series-pack" not in tags or "btarg-import-verified" in tags
+    if "btarg-series-pack" in tags:
+        return "btarg-import-verified" in tags
+    if "series-fallback" in tags:
+        return "series-fallback-import-verified" in tags
+    return True
 
 
 def newly_completed(
@@ -292,6 +296,26 @@ def notification_text(torrent: dict[str, Any]) -> str:
             f"Tamaño: {human_size(int(torrent.get('size', 0) or 0))}\n"
             f"Origen: {private}\n"
             "La serie ya fue importada y verificada por Sonarr."
+        )
+    if "series-fallback" in tags and "series-fallback-import-verified" in tags:
+        episode_count = sum(
+            1 for tag in tags if tag.startswith("sonarr-episode-")
+        )
+        availability = (
+            "El episodio ya fue importado y su audio fue verificado por Sonarr."
+            if episode_count == 1
+            else (
+                f"Los {episode_count} episodios ya fueron importados y su "
+                "audio fue verificado por Sonarr."
+            )
+        )
+        return (
+            "✅ Contenido disponible\n"
+            f"{torrent.get('name', 'Sin título')}\n"
+            f"Categoría: {category}\n"
+            f"Tamaño: {human_size(int(torrent.get('size', 0) or 0))}\n"
+            f"Origen: {private}\n"
+            f"{availability}"
         )
     return (
         "✅ Descarga completada\n"

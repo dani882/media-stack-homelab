@@ -10,6 +10,8 @@ repository, terminal output, documentation, commits, or chat responses.
 - Communicate with the user in clear, non-technical Spanish.
 - At the end of repository changes, always suggest a concise Git commit
   message, even when the user does not explicitly ask for one.
+- Start repository changes on a new `feature/` branch, even though the user is
+  the only maintainer, so related work remains easy to organize.
 - The user wants automated media selection in this order:
   `Latino > Castellano > English/original`.
 - Language always outranks source quality and tracker priority. A private or
@@ -184,6 +186,9 @@ repository, terminal output, documentation, commits, or chat responses.
   stored in NAS-local state so a failed recipient can be retried without
   repeating successful deliveries; do not add routine start/search/import
   messages.
+- Series fallback notifications are delayed until Sonarr has imported every
+  covered episode and its audio metadata has passed the expected-language
+  check. A completed qBittorrent transfer alone must not notify.
 - Telegram posters normally resolve through Arr download history. Directly
   dispatched private packs have no Arr download record, so their managed
   `sonarr-series-N` or `radarr-movie-N` qBittorrent tag is the safe poster
