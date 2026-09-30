@@ -55,6 +55,19 @@ changes through service web interfaces.
 
 All media services are managed through Docker Compose.
 
+## JDownloader
+
+JDownloader is kept in a separate Compose project under
+`stacks/jdownloader`. Its lifecycle is independent from the media stack, while
+its `/output` directory maps to
+`/volume1/Family/Downloads/jdownloader`. Persistent application state lives in
+`/volume1/docker/jdownloader/config`.
+
+Only the browser interface on TCP port 5800 is published to the trusted LAN.
+Raw VNC and optional browser file-management and terminal features are
+disabled. Credentials for MyJDownloader or download services are configured
+inside JDownloader and are not version controlled.
+
 ## Storage
 
 Primary storage paths:

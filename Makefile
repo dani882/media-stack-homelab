@@ -1,4 +1,4 @@
-.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-reliability deploy-series-fallback backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-docspedia configure-learning import-docspedia-learning dry-run-import-docspedia-learning configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-bazarr dry-run-bazarr search-bazarr-missing configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-series-fallback dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
+.PHONY: check-python dry-run-radarr-policy validate lint shellcheck test bootstrap check deploy deploy-jdownloader status-jdownloader logs-jdownloader stop-jdownloader deploy-reliability deploy-series-fallback backup dry-run-backup restore dry-run-restore configure-prowlarr configure-btarg configure-dreadvault configure-docspedia configure-learning import-docspedia-learning dry-run-import-docspedia-learning configure-language-priority deploy-download-reliability register-telegram-recipient dry-run-prowlarr configure-qbittorrent configure-radarr configure-radarr-policy audit-radarr-releases configure-servarr configure-seerr dry-run-seerr configure-bazarr dry-run-bazarr search-bazarr-missing configure-iptv audit-iptv dry-run-jellyfin-livetv configure-profilarr dry-run-configure-profilarr configure-profilarr-pilot dry-run-configure-profilarr-pilot sync-profilarr dry-run-sync-profilarr sync-recyclarr check-media-live check-nas-preflight health-dashboard audit-imported-audio audit-bazarr audit-seerr audit-private-trackers audit-language-repairs enforce-private-tracker-limits audit-legacy-mounts audit-seerr-request-flow grab-prowlarr-release dispatch-private-seerr dispatch-series-fallback dispatch-btarg-series dispatch-archive-spanish audit-hardlinks verify-hardlinks import-sonarr-title-matched dry-run-import-sonarr-title-matched install-media-observability dry-run-cleanup-stalled-public cleanup-stalled-public dry-run-cleanup-public-imported cleanup-public-imported dry-run-cleanup-sonarr-dangerous cleanup-sonarr-dangerous dry-run-cleanup-radarr-dangerous cleanup-radarr-dangerous dry-run-cleanup-sonarr-normal cleanup-sonarr-normal dry-run-cleanup-radarr-normal cleanup-radarr-normal
 
 PYTHON ?= python3
 SSH := ssh -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
@@ -26,6 +26,21 @@ check: check-python shellcheck lint validate test
 
 deploy:
 	@./scripts/deploy.sh
+
+deploy-jdownloader:
+	@./scripts/deploy-jdownloader.sh
+
+status-jdownloader:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/jdownloader && sudo -n docker compose ps"
+
+logs-jdownloader:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/jdownloader && sudo -n docker compose logs --tail=100 jdownloader"
+
+stop-jdownloader:
+	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/jdownloader && sudo -n docker compose stop jdownloader"
 
 deploy-reliability:
 	@./scripts/deploy-reliability.sh

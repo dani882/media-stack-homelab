@@ -7,6 +7,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
+JDOWNLOADER_DIR="${ROOT_DIR}/stacks/jdownloader"
+JDOWNLOADER_COMPOSE_FILE="${JDOWNLOADER_DIR}/compose.yaml"
+JDOWNLOADER_ENV_FILE="${JDOWNLOADER_DIR}/.env.example"
 
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "ERROR: Missing environment file:"
@@ -24,4 +27,9 @@ docker compose \
     -f "$COMPOSE_FILE" \
     config >/dev/null
 
-echo "✓ Compose configuration is valid."
+docker compose \
+    --env-file "$JDOWNLOADER_ENV_FILE" \
+    -f "$JDOWNLOADER_COMPOSE_FILE" \
+    config >/dev/null
+
+echo "✓ Media and JDownloader Compose configurations are valid."

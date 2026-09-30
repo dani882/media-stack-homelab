@@ -1,0 +1,34 @@
+---
+name: jdownloader
+
+services:
+  jdownloader:
+    image: jlesage/jdownloader-2:${JDOWNLOADER_TAG:-v26.09.1}
+    container_name: jdownloader
+    restart: unless-stopped
+    environment:
+      USER_ID: ${PUID:-1000}
+      GROUP_ID: ${PGID:-10}
+      TZ: ${TZ:-America/Toronto}
+      KEEP_APP_RUNNING: "1"
+      DISPLAY_WIDTH: ${DISPLAY_WIDTH:-1920}
+      DISPLAY_HEIGHT: ${DISPLAY_HEIGHT:-1080}
+      DARK_MODE: ${DARK_MODE:-1}
+      VNC_LISTENING_PORT: "-1"
+      WEB_AUDIO: "0"
+      WEB_FILE_MANAGER: "0"
+      WEB_TERMINAL: "0"
+      JDOWNLOADER_MAX_MEM: ${JDOWNLOADER_MAX_MEM:-2G}
+    ports:
+      - "${JDOWNLOADER_BIND_ADDRESS:-0.0.0.0}:${JDOWNLOADER_WEB_PORT:-5800}:5800"
+    volumes:
+      - "${JDOWNLOADER_CONFIG_DIR:-/volume1/docker/jdownloader/config}:/config:rw"
+      - "${JDOWNLOADER_DOWNLOADS_DIR:-/volume1/Family/Downloads/jdownloader}:/output:rw"
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

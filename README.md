@@ -28,6 +28,7 @@ Current release: `v0.29.0`
 | Stack | Status |
 | --- | --- |
 | Media | Active |
+| JDownloader | Active |
 | AI | Planned |
 | Monitoring | Planned |
 | Networking | Planned |
@@ -47,6 +48,11 @@ The current media platform includes:
 - Seerr
 - FlareSolverr
 - Recyclarr
+
+JDownloader is managed as a separate Compose stack under
+[`stacks/jdownloader`](stacks/jdownloader/README.md). It writes to a dedicated
+subfolder below the family download directory without sharing the media
+stack's container lifecycle.
 
 The repository also manages application configuration and media policies,
 including:
@@ -105,6 +111,7 @@ homelab/
 |-- scripts/            Deployment, configuration, audit, and maintenance tools
 |-- stacks/
 |   |-- ai/             Planned AI infrastructure
+|   |-- jdownloader/    Independent direct-download stack
 |   |-- media/          Production media stack
 |   |-- monitoring/     Planned observability stack
 |   |-- networking/     Planned networking infrastructure

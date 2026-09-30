@@ -6,6 +6,9 @@ All notable changes to this repository are documented here.
 
 ### Added
 
+- Independent JDownloader 2 Compose stack with persistent NAS configuration,
+  dedicated family-download storage, bounded deployment, and LAN-only
+  operational guidance.
 - Telegram notification service and two-minute timer for newly completed
   qBittorrent torrents, using a NAS-local bot credential.
 - Post-import Radarr audio validation that removes only a confirmed
