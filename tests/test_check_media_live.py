@@ -190,6 +190,18 @@ class CheckMediaLiveTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("no Radarr movies", message)
 
+    def test_bazarr_configuration_check_prefers_error_after_ready_message(
+        self,
+    ) -> None:
+        completed = mock.Mock()
+        completed.returncode = 1
+        completed.stdout = "Bazarr is ready.\n"
+        completed.stderr = "ERROR: missing providers: argenteam\n"
+        with mock.patch.object(MODULE.subprocess, "run", return_value=completed):
+            ok, message = MODULE.check_bazarr_configuration(Path("/stack"), 5)
+        self.assertFalse(ok)
+        self.assertEqual(message, "ERROR: missing providers: argenteam")
+
 
 if __name__ == "__main__":
     unittest.main()

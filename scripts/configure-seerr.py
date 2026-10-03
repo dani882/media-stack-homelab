@@ -312,28 +312,6 @@ def configure_jellyfin_libraries(
             "Unexpected Jellyfin library response."
         )
 
-    by_name = {
-        str(library.get("name")): library
-        for library in libraries
-    }
-
-    missing = [
-        name
-        for name in JELLYFIN_LIBRARIES
-        if name not in by_name
-    ]
-
-    if missing:
-        raise SeerrError(
-            "Jellyfin libraries not found: "
-            + ", ".join(missing)
-        )
-
-    desired_ids = [
-        str(by_name[name]["id"])
-        for name in JELLYFIN_LIBRARIES
-    ]
-
     enabled_names = {
         str(item.get("name"))
         for item in libraries
@@ -351,32 +329,80 @@ def configure_jellyfin_libraries(
 
     if dry_run:
         print(
-            "WOULD ENABLE JELLYFIN LIBRARIES: "
+            "WOULD SYNC AND RECONCILE JELLYFIN LIBRARIES: "
             + ", ".join(JELLYFIN_LIBRARIES)
         )
         return
 
-    query = urllib.parse.urlencode(
-        {
-            "sync": "true",
-            "enable": ",".join(desired_ids),
-        },
-        safe=",",
+    synced = client.request(
+        "POST",
+        "/settings/jellyfin/library/sync",
     )
 
-    updated = client.request(
+    if not isinstance(synced, list):
+        raise SeerrError(
+            "Unexpected synchronized Jellyfin library response."
+        )
+
+    by_name = {
+        str(library.get("name")): library
+        for library in synced
+    }
+
+    missing = [
+        name
+        for name in JELLYFIN_LIBRARIES
+        if name not in by_name
+    ]
+
+    if missing:
+        raise SeerrError(
+            "Jellyfin libraries not found after sync: "
+            + ", ".join(missing)
+        )
+
+    for library in synced:
+        name = str(library.get("name"))
+        desired_enabled = name in desired_names
+        if bool(library.get("enabled")) == desired_enabled:
+            continue
+
+        raw_library_id = library.get("id")
+        if raw_library_id is None or not str(raw_library_id).strip():
+            raise SeerrError(
+                f"Jellyfin library {name} has no identifier."
+            )
+
+        library_id = urllib.parse.quote(
+            str(raw_library_id),
+            safe="",
+        )
+
+        updated = client.request(
+            "PUT",
+            f"/settings/jellyfin/library/{library_id}",
+            {"enabled": desired_enabled},
+        )
+        if not isinstance(updated, dict):
+            raise SeerrError(
+                f"Unexpected Jellyfin library update response for {name}."
+            )
+
+    persisted = client.request(
         "GET",
-        f"/settings/jellyfin/library?{query}",
+        "/settings/jellyfin",
     )
-
-    if not isinstance(updated, list):
+    if not isinstance(persisted, dict) or not isinstance(
+        persisted.get("libraries"),
+        list,
+    ):
         raise SeerrError(
             "Unexpected persisted Jellyfin library response."
         )
 
     persisted_names = {
         str(item.get("name"))
-        for item in updated
+        for item in persisted["libraries"]
         if item.get("enabled")
     }
 

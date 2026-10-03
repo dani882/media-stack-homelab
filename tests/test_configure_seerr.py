@@ -447,13 +447,17 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
 
         self.assertEqual(len(client.calls), 1)
 
-    def test_missing_library_raises(self):
+    def test_missing_library_after_sync_raises(self):
         client = FakeClient(
             {
                 (
                     "GET",
                     "/settings/jellyfin",
                 ): {"libraries": self.disabled[:2]},
+                (
+                    "POST",
+                    "/settings/jellyfin/library/sync",
+                ): self.disabled[:2],
             }
         )
 
@@ -464,18 +468,34 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             )
 
     def test_library_enable_persists(self):
-        update_path = (
-            "/settings/jellyfin/library?"
-            "sync=true&enable=movies-id,kids-id,series-id"
+        settings_responses = iter(
+            [
+                {"libraries": self.disabled},
+                {"libraries": self.enabled},
+            ]
         )
-
         client = FakeClient(
             {
                 (
                     "GET",
                     "/settings/jellyfin",
-                ): {"libraries": self.disabled},
-                ("GET", update_path): self.enabled,
+                ): lambda _payload: next(settings_responses),
+                (
+                    "POST",
+                    "/settings/jellyfin/library/sync",
+                ): self.disabled,
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/kids-id",
+                ): self.enabled[0],
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/movies-id",
+                ): self.enabled[1],
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/series-id",
+                ): self.enabled[2],
             }
         )
 
@@ -484,21 +504,63 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             False,
         )
 
-        self.assertEqual(len(client.calls), 2)
-
-    def test_library_enable_not_persisted_raises(self):
-        update_path = (
-            "/settings/jellyfin/library?"
-            "sync=true&enable=movies-id,kids-id,series-id"
+        self.assertEqual(
+            client.calls,
+            [
+                ("GET", "/settings/jellyfin", None),
+                (
+                    "POST",
+                    "/settings/jellyfin/library/sync",
+                    None,
+                ),
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/kids-id",
+                    {"enabled": True},
+                ),
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/movies-id",
+                    {"enabled": True},
+                ),
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/series-id",
+                    {"enabled": True},
+                ),
+                ("GET", "/settings/jellyfin", None),
+            ],
         )
 
+    def test_library_enable_not_persisted_raises(self):
+        settings_responses = iter(
+            [
+                {"libraries": self.disabled},
+                {"libraries": self.disabled},
+            ]
+        )
         client = FakeClient(
             {
                 (
                     "GET",
                     "/settings/jellyfin",
-                ): {"libraries": self.disabled},
-                ("GET", update_path): self.disabled,
+                ): lambda _payload: next(settings_responses),
+                (
+                    "POST",
+                    "/settings/jellyfin/library/sync",
+                ): self.disabled,
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/kids-id",
+                ): self.enabled[0],
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/movies-id",
+                ): self.enabled[1],
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/series-id",
+                ): self.enabled[2],
             }
         )
 
@@ -516,7 +578,55 @@ class SeerrJellyfinLibrariesTest(unittest.TestCase):
             "Persisted none",
             str(context.exception),
         )
-        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(len(client.calls), 6)
+
+    def test_extra_library_is_disabled(self):
+        extra = {
+            "id": "archive/id",
+            "name": "Archive",
+            "enabled": True,
+        }
+        synced = [*self.enabled, extra]
+        persisted = [
+            *self.enabled,
+            {**extra, "enabled": False},
+        ]
+        settings_responses = iter(
+            [
+                {"libraries": synced},
+                {"libraries": persisted},
+            ]
+        )
+        client = FakeClient(
+            {
+                (
+                    "GET",
+                    "/settings/jellyfin",
+                ): lambda _payload: next(settings_responses),
+                (
+                    "POST",
+                    "/settings/jellyfin/library/sync",
+                ): synced,
+                (
+                    "PUT",
+                    "/settings/jellyfin/library/archive%2Fid",
+                ): persisted[-1],
+            }
+        )
+
+        MODULE.configure_jellyfin_libraries(
+            client,
+            False,
+        )
+
+        self.assertIn(
+            (
+                "PUT",
+                "/settings/jellyfin/library/archive%2Fid",
+                {"enabled": False},
+            ),
+            client.calls,
+        )
 
 
 class SeerrInitializationTest(unittest.TestCase):

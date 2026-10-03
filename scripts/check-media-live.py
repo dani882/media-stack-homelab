@@ -244,7 +244,8 @@ def check_bazarr_configuration(
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         return False, f"unable to validate: {error}"
-    output = (result.stdout or result.stderr).strip().splitlines()
+    diagnostic = result.stdout if result.returncode == 0 else result.stderr
+    output = diagnostic.strip().splitlines()
     message = output[-1] if output else f"exit code {result.returncode}"
     return result.returncode == 0, message
 

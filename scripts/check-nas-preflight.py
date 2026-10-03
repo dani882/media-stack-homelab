@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +24,7 @@ class PreflightError(RuntimeError):
 @dataclass(frozen=True)
 class PreflightSnapshot:
     normalized_load: float
+    io_wait_percent: float
     stack_free_gib: float
     data_free_gib: float
     data_used_percent: float
@@ -33,6 +35,7 @@ def evaluate_snapshot(
     minimum_free_gib: float,
     maximum_used_percent: float,
     maximum_normalized_load: float,
+    maximum_io_wait_percent: float,
 ) -> list[str]:
     problems: list[str] = []
     if snapshot.stack_free_gib < minimum_free_gib:
@@ -45,6 +48,10 @@ def evaluate_snapshot(
         problems.append(
             f"normalized system load is {snapshot.normalized_load:.1f}x CPU capacity"
         )
+    if snapshot.io_wait_percent >= maximum_io_wait_percent:
+        problems.append(
+            f"disk I/O wait is {snapshot.io_wait_percent:.1f}%"
+        )
     return problems
 
 
@@ -55,12 +62,57 @@ def disk_values(path: Path) -> tuple[float, float]:
     return free_gib, used_percent
 
 
-def snapshot(stack_dir: Path, data_root: Path) -> PreflightSnapshot:
+def cpu_counters() -> tuple[int, int]:
+    try:
+        fields = (
+            Path("/proc/stat")
+            .read_text(encoding="utf-8")
+            .splitlines()[0]
+            .split()
+        )
+        values = [int(value) for value in fields[1:]]
+    except (OSError, ValueError, IndexError) as error:
+        raise PreflightError(f"Unable to read CPU I/O counters: {error}") from error
+
+    if len(values) < 5:
+        raise PreflightError("CPU I/O counters are incomplete")
+
+    # Guest time is already included in user/nice on Linux, so do not
+    # double-count the optional guest and guest_nice fields.
+    return sum(values[:8]), values[4]
+
+
+def io_wait_percent(sample_seconds: float) -> float:
+    if sample_seconds <= 0:
+        raise PreflightError("CPU I/O sample duration must be positive")
+
+    total_before, wait_before = cpu_counters()
+    time.sleep(sample_seconds)
+    total_after, wait_after = cpu_counters()
+    total_delta = total_after - total_before
+    wait_delta = wait_after - wait_before
+    if total_delta <= 0 or wait_delta < 0:
+        raise PreflightError("CPU I/O counters did not advance normally")
+    return wait_delta / total_delta * 100
+
+
+def snapshot(
+    stack_dir: Path,
+    data_root: Path,
+    io_sample_seconds: float,
+) -> PreflightSnapshot:
     cpu_count = max(os.cpu_count() or 1, 1)
     normalized_load = os.getloadavg()[0] / cpu_count
+    current_io_wait = io_wait_percent(io_sample_seconds)
     stack_free, _ = disk_values(stack_dir)
     data_free, data_used = disk_values(data_root)
-    return PreflightSnapshot(normalized_load, stack_free, data_free, data_used)
+    return PreflightSnapshot(
+        normalized_load,
+        current_io_wait,
+        stack_free,
+        data_free,
+        data_used,
+    )
 
 
 def check_docker(timeout: int) -> None:
@@ -85,19 +137,31 @@ def main() -> int:
     parser.add_argument("--minimum-free-gib", type=float, default=10.0)
     parser.add_argument("--maximum-used-percent", type=float, default=95.0)
     parser.add_argument("--maximum-normalized-load", type=float, default=8.0)
+    parser.add_argument(
+        "--maximum-io-wait-percent",
+        type=float,
+        default=50.0,
+    )
+    parser.add_argument("--io-sample-seconds", type=float, default=2.0)
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args()
     check_docker(args.timeout)
-    current = snapshot(args.stack_dir, args.data_root)
+    current = snapshot(
+        args.stack_dir,
+        args.data_root,
+        args.io_sample_seconds,
+    )
     problems = evaluate_snapshot(
         current,
         args.minimum_free_gib,
         args.maximum_used_percent,
         args.maximum_normalized_load,
+        args.maximum_io_wait_percent,
     )
     print(
         "NAS PREFLIGHT: "
         f"load={current.normalized_load:.2f}x "
+        f"io_wait={current.io_wait_percent:.1f}% "
         f"stack_free={current.stack_free_gib:.1f}GiB "
         f"data_free={current.data_free_gib:.1f}GiB "
         f"data_used={current.data_used_percent:.1f}%"

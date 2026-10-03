@@ -547,10 +547,18 @@ Preview the configuration without applying changes with
 
 The Sonarr and Radarr configuration is reconciled idempotently.
 
+Seerr defaults to the reviewed `v3.5.0` image through `SEERR_TAG`. Update that
+value deliberately after reviewing release notes and API changes instead of
+allowing a full deployment to adopt an incompatible `latest` image silently.
+
 Jellyfin library selection is also configured automatically. The managed
-script now uses the safe Jellyfin settings endpoint for reads and only uses
-the mutating library endpoint for the actual apply step, so the enabled
-library state persists correctly.
+script uses Seerr 3.5's read-only settings endpoint to inspect state, the
+dedicated `POST /settings/jellyfin/library/sync` endpoint to refresh
+libraries, and per-library `PUT` requests to enable exactly `Movies`, `Kids`,
+and `Series`. It reads the settings again after applying changes and fails if
+the enabled state did not persist. The focused `configure-seerr` and
+`dry-run-seerr` targets upload the current local script before running it, so
+they do not depend on an older copy left by a previous full deployment.
 
 ### Browser-facing Jellyfin links
 
@@ -1102,6 +1110,9 @@ profiles, and adds the managed `Español` profile. New and existing movies and
 series receive that profile. The credential-free providers cover embedded
 subtitles, Spanish movie releases, and two independent Spanish TV sources;
 API keys remain in the NAS-local Arr and Bazarr configuration files.
+Bazarr uses the canonical `/data` mount only; its former `/media`
+compatibility mount was removed after the live audit found no remaining
+configuration references.
 
 `make search-bazarr-missing` explicitly starts Bazarr's wanted searches for
 movies and episodes still missing Spanish. It is intentionally not part of
@@ -1154,10 +1165,13 @@ BTArg progress does not change for over two hours, the scheduled monitor stops
 the worker control group while retaining its torrent and temporary files.
 
 Before changing containers, full deployments verify Docker responsiveness,
-normalized NAS load, available capacity, and volume usage. Run the same check
-directly with `make check-nas-preflight`. All `make` SSH connections have
-bounded connection and keepalive behavior, and standalone Docker commands have
-explicit deadlines.
+normalized NAS load, current disk I/O wait, available capacity, and volume
+usage. Sustained I/O wait of 50% or more postpones deployment even if Docker
+still answers; this prevents antivirus or storage scans from competing with
+image pulls and container recreation. Run the same check directly with
+`make check-nas-preflight`. All `make` SSH connections have bounded connection
+and keepalive behavior, and standalone Docker commands have explicit
+deadlines.
 
 Observability, audio verification, preflight, and task-deadline changes can be
 installed without a full container deployment using:

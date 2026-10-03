@@ -143,14 +143,24 @@ configure-servarr:
 	   sudo python3 ./configure-servarr.py"
 
 configure-seerr:
-	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
-	  "cd /volume1/docker/media-stack && \
+	@tmp_script="/tmp/configure-seerr-$$$$.py"; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" < scripts/configure-seerr.py; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "sudo -n install -m 0755 '$$tmp_script' \
+	     /volume1/docker/media-stack/configure-seerr.py && \
+	   rm -f '$$tmp_script' && \
+	   cd /volume1/docker/media-stack && \
 	   sudo -n python3 ./configure-seerr.py"
 
 dry-run-seerr:
-	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
-	  "cd /volume1/docker/media-stack && \
-	   sudo -n python3 ./configure-seerr.py --dry-run"
+	@tmp_script="/tmp/configure-seerr-$$$$.py"; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cat > '$$tmp_script'" < scripts/configure-seerr.py; \
+	$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
+	  "cd /volume1/docker/media-stack; \
+	   sudo -n python3 '$$tmp_script' --dry-run; \
+	   status=\$$?; rm -f '$$tmp_script'; exit \$$status"
 
 configure-bazarr:
 	@tmp_script="/tmp/configure-bazarr-$$$$.py"; \
