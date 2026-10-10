@@ -119,6 +119,31 @@ class DominicanIptvTest(unittest.TestCase):
         self.assertNotIn("dominican-exit", playlist)
         self.assertEqual(extra, 0)
 
+    def test_official_direct_source_is_preferred_in_playlist(self):
+        org = (
+            '#EXTM3U\n#EXTINF:-1 tvg-id="Digital15.do",Digital 15 (1080p)\n'
+            "https://community.example/digital15.m3u8\n"
+        )
+        catalog = [{
+            "id": "digital15",
+            "name": "Digital 15",
+            "url": "https://official.example/digital15/playlist.m3u8",
+            "tvg_id": "Digital15.do",
+            "requires_dominican_exit": False,
+        }]
+        with mock.patch.object(
+            MODULE, "fetch_text", side_effect=[org, ""]
+        ), mock.patch.object(
+            MODULE, "load_catalog", return_value=catalog
+        ):
+            playlist, _, extra = MODULE.build_playlist()
+
+        official = playlist.index("https://official.example/digital15/playlist.m3u8")
+        community = playlist.index("https://community.example/digital15.m3u8")
+        self.assertLess(official, community)
+        self.assertIn('x-source="official"', playlist)
+        self.assertEqual(extra, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

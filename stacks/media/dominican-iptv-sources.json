@@ -2,6 +2,16 @@
   "channels": [
     {
       "enabled": true,
+      "id": "digital15",
+      "name": "Digital 15",
+      "origin": "https://telemicro.com.do",
+      "referer": "https://telemicro.com.do/digital-15/",
+      "requires_dominican_exit": false,
+      "tvg_id": "Digital15.do",
+      "url": "https://live4.telemicro.com.do/live/digital15cast_1080p/playlist.m3u8"
+    },
+    {
+      "enabled": true,
       "epg_aliases": [
         "Canal 7 de Antena Latina (República Dominicana)",
         "Canal 7 de Antena Latina",
