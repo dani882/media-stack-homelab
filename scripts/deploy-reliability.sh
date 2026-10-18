@@ -32,19 +32,24 @@ LOCAL_FILES=(
   "scripts/audit-imported-audio.py"
   "scripts/build-health-dashboard.py"
   "scripts/check-nas-preflight.py"
+  "scripts/check-system-pressure.py"
   "scripts/check-media-live.py"
   "scripts/monitor-media-stack.sh"
+  "scripts/run-background-task.sh"
   "stacks/media/systemd/media-stack-archive-spanish-dispatch.service"
   "stacks/media/systemd/media-stack-btarg-series.service"
   "stacks/media/systemd/media-stack-hardlink-audit.service"
   "stacks/media/systemd/media-stack-healthcheck.service"
   "stacks/media/systemd/media-stack-imported-audio-audit.service"
   "stacks/media/systemd/media-stack-imported-audio-audit.timer"
+  "stacks/media/systemd/media-stack-language-repair-audit.service"
   "stacks/media/systemd/media-stack-private-dispatch.service"
   "stacks/media/systemd/media-stack-public-cleanup.service"
   "stacks/media/systemd/media-stack-stalled-public-cleanup.service"
   "stacks/media/systemd/media-stack-torrent-notifications.service"
   "stacks/media/systemd/media-stack-watchdog.service"
+  "stacks/media/systemd/media-stack-docspedia-learning.service"
+  "stacks/media/systemd/media-stack-series-fallback.service"
 )
 
 "${SSH[@]}" "$REMOTE" "mkdir -p '${STAGING}'"
@@ -59,8 +64,10 @@ done
   sudo install -m 0755 '${STAGING}/audit-imported-audio.py' '${NAS_STACK_DIR}/audit-imported-audio.py'
   sudo install -m 0755 '${STAGING}/build-health-dashboard.py' '${NAS_STACK_DIR}/build-health-dashboard.py'
   sudo install -m 0755 '${STAGING}/check-nas-preflight.py' '${NAS_STACK_DIR}/check-nas-preflight.py'
+  sudo install -m 0755 '${STAGING}/check-system-pressure.py' '${NAS_STACK_DIR}/check-system-pressure.py'
   sudo install -m 0755 '${STAGING}/check-media-live.py' '${NAS_STACK_DIR}/check-media-live.py'
   sudo install -m 0755 '${STAGING}/monitor-media-stack.sh' '${NAS_STACK_DIR}/monitor-media-stack.sh'
+  sudo install -m 0755 '${STAGING}/run-background-task.sh' '${NAS_STACK_DIR}/run-background-task.sh'
   for unit in '${STAGING}'/*.service '${STAGING}'/*.timer; do
     sudo install -m 0644 \"\${unit}\" \"/etc/systemd/system/\$(basename \"\${unit}\")\"
   done

@@ -7,4 +7,5 @@ Type=oneshot
 TimeoutStartSec=15min
 Nice=15
 IOSchedulingClass=idle
+ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
 ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/import-docspedia-learning.py

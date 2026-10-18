@@ -5,4 +5,7 @@ After=network.target docker.service
 [Service]
 Type=oneshot
 TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
+ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
 ExecStart=/volume1/docker/media-stack/cleanup-public-imported.py --max-delete 10

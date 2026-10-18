@@ -5,7 +5,9 @@ After=network.target docker.service
 [Service]
 Type=oneshot
 TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
+ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
 # The worker ranks language before source, inspects the torrent while stopped,
 # and starts at most one new episode download per run.
 ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/dispatch-series-fallback.py --apply
-

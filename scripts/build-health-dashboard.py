@@ -34,6 +34,7 @@ REPORTS = (
     ("Imported audio", "imported-audio-audit.json", 2),
     ("Language repairs", "language-repair-candidates.txt", 30),
 )
+PRESSURE_REPORT_MAXIMUM_AGE_MINUTES = 15
 
 
 class DashboardError(RuntimeError):
@@ -99,6 +100,38 @@ def audio_counts(state_dir: Path) -> dict[str, int]:
     return {str(key): int(value) for key, value in counts.items() if isinstance(value, int)}
 
 
+def pressure_component(state_dir: Path, now: float) -> tuple[Component, bool, str]:
+    path = state_dir / "system-pressure.json"
+    try:
+        payload: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return (
+            Component("System pressure", "attention", "pressure report not created yet; do not deploy until checked"),
+            False,
+            "Run the NAS pressure check before deploying.",
+        )
+    age = age_hours(path, now)
+    if age is None or age * 60 > PRESSURE_REPORT_MAXIMUM_AGE_MINUTES:
+        return (
+            Component("System pressure", "attention", "pressure report is stale; do not deploy until refreshed"),
+            False,
+            "Refresh the NAS pressure report before deploying.",
+        )
+    allowed = payload.get("deployment_allowed") is True
+    metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+    metric_text = (
+        f"I/O wait {float(metrics.get('io_wait_percent', 0)):.1f}%; "
+        f"disk pressure {float(metrics.get('io_full_avg10', 0)):.1f}%; "
+        f"memory pressure {float(metrics.get('memory_full_avg10', 0)):.1f}%"
+    )
+    action = str(payload.get("recommended_action") or "Wait for NAS pressure to settle.")
+    if not allowed:
+        reasons = payload.get("reasons") if isinstance(payload.get("reasons"), list) else []
+        reason_text = "; ".join(str(item) for item in reasons) or metric_text
+        return Component("System pressure", "failed", reason_text), False, action
+    return Component("System pressure", "ok", metric_text), True, action
+
+
 def btarg_progress_component(state_dir: Path, now: float) -> tuple[Component, bool]:
     path = state_dir / "btarg-series-progress.json"
     try:
@@ -136,7 +169,12 @@ def stop_stalled_btarg(timeout: int) -> bool:
         raise DashboardError("unable to stop stalled BTArg work safely") from error
 
 
-def write_dashboard(stack_dir: Path, components: list[Component]) -> tuple[Path, Path]:
+def write_dashboard(
+    stack_dir: Path,
+    components: list[Component],
+    deployment_allowed: bool = True,
+    recommended_action: str = "Normal operation; deployment is allowed.",
+) -> tuple[Path, Path]:
     state_dir = stack_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
@@ -146,6 +184,8 @@ def write_dashboard(stack_dir: Path, components: list[Component]) -> tuple[Path,
     payload = {
         "updated": now.isoformat(),
         "overall": overall,
+        "deployment_allowed": deployment_allowed,
+        "recommended_action": recommended_action,
         "disk": {"free_gib": round(disk.free / 1024**3, 1), "used_percent": round(disk.used / disk.total * 100, 1)},
         "audio_counts": counts,
         "components": [asdict(item) for item in components],
@@ -166,6 +206,7 @@ def write_dashboard(stack_dir: Path, components: list[Component]) -> tuple[Path,
         "th{text-align:left;background:#eee}</style>"
         f"<h1>Estado del media stack: {html.escape(overall)}</h1>"
         f"<p>Actualizado: {html.escape(now.isoformat())}</p>"
+        f"<h2>Acción recomendada</h2><p>{html.escape(recommended_action)}</p>"
         f"<p>Espacio libre: {payload['disk']['free_gib']} GiB; audio: {count_text}</p>"
         f"<table><thead><tr><th>Componente</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>{rows}</tbody></table>"
     )
@@ -189,6 +230,10 @@ def main() -> int:
     state_dir = args.stack_dir / "state"
     components = unit_components(args.timeout)
     components.extend(report_components(state_dir, datetime.datetime.now().timestamp()))
+    pressure, deployment_allowed, recommended_action = pressure_component(
+        state_dir, datetime.datetime.now().timestamp()
+    )
+    components.append(pressure)
     btarg, stalled = btarg_progress_component(state_dir, datetime.datetime.now().timestamp())
     components.append(btarg)
     if stalled and args.stop_stalled_btarg:
@@ -205,7 +250,12 @@ def main() -> int:
                 "attention",
                 "stale progress report; worker is already inactive",
             )
-    json_path, html_path = write_dashboard(args.stack_dir, components)
+    json_path, html_path = write_dashboard(
+        args.stack_dir,
+        components,
+        deployment_allowed=deployment_allowed,
+        recommended_action=recommended_action,
+    )
     print(f"MEDIA HEALTH DASHBOARD: {json_path} {html_path}")
     return 0
 

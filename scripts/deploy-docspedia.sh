@@ -10,6 +10,7 @@ AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-private-trackers.py"
 LEARNING_SCRIPT="${ROOT_DIR}/scripts/import-docspedia-learning.py"
 LEARNING_SERVICE="${STACK_DIR}/systemd/media-stack-docspedia-learning.service"
 LEARNING_TIMER="${STACK_DIR}/systemd/media-stack-docspedia-learning.timer"
+PRESSURE_SCRIPT="${ROOT_DIR}/scripts/check-system-pressure.py"
 
 for required_file in \
   "$ENV_FILE" \
@@ -17,7 +18,8 @@ for required_file in \
   "$AUDIT_SCRIPT" \
   "$LEARNING_SCRIPT" \
   "$LEARNING_SERVICE" \
-  "$LEARNING_TIMER"; do
+  "$LEARNING_TIMER" \
+  "$PRESSURE_SCRIPT"; do
   if [[ ! -f "$required_file" ]]; then
     echo "ERROR: Missing required file: ${required_file}"
     exit 1
@@ -39,6 +41,7 @@ REMOTE_AUDIT="${REMOTE_STAGING}/audit-private-trackers-${USER}-$$.py"
 REMOTE_LEARNING="${REMOTE_STAGING}/import-docspedia-learning-${USER}-$$.py"
 REMOTE_LEARNING_SERVICE="${REMOTE_STAGING}/media-stack-docspedia-learning-${USER}-$$.service"
 REMOTE_LEARNING_TIMER="${REMOTE_STAGING}/media-stack-docspedia-learning-${USER}-$$.timer"
+REMOTE_PRESSURE="${REMOTE_STAGING}/check-system-pressure-${USER}-$$.py"
 SSH=(
   ssh
   -o ControlMaster=auto
@@ -54,6 +57,7 @@ SSH=(
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LEARNING}'" < "$LEARNING_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LEARNING_SERVICE}'" < "$LEARNING_SERVICE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LEARNING_TIMER}'" < "$LEARNING_TIMER"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRESSURE}'" < "$PRESSURE_SCRIPT"
 
 "${SSH[@]}" "$REMOTE" "
   set -e
@@ -66,6 +70,9 @@ SSH=(
   sudo -n install -m 0755 \
     '${REMOTE_LEARNING}' \
     /volume1/docker/media-stack/import-docspedia-learning.py
+  sudo -n install -m 0755 \
+    '${REMOTE_PRESSURE}' \
+    /volume1/docker/media-stack/check-system-pressure.py
   sudo -n install -m 0644 \
     '${REMOTE_LEARNING_SERVICE}' \
     /etc/systemd/system/media-stack-docspedia-learning.service
@@ -76,6 +83,7 @@ SSH=(
     '${REMOTE_PROWLARR}' \
     '${REMOTE_AUDIT}' \
     '${REMOTE_LEARNING}' \
+    '${REMOTE_PRESSURE}' \
     '${REMOTE_LEARNING_SERVICE}' \
     '${REMOTE_LEARNING_TIMER}'
   sudo -n systemctl daemon-reload

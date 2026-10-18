@@ -30,6 +30,8 @@ LANGUAGE_REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
 IMPORTED_AUDIO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-imported-audio.py"
 NAS_PREFLIGHT_SCRIPT="${ROOT_DIR}/scripts/check-nas-preflight.py"
 HEALTH_DASHBOARD_SCRIPT="${ROOT_DIR}/scripts/build-health-dashboard.py"
+SYSTEM_PRESSURE_SCRIPT="${ROOT_DIR}/scripts/check-system-pressure.py"
+BACKGROUND_TASK_SCRIPT="${ROOT_DIR}/scripts/run-background-task.sh"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 DOCSPEDIA_LEARNING_SCRIPT="${ROOT_DIR}/scripts/import-docspedia-learning.py"
 LEARNING_LIBRARIES_SCRIPT="${ROOT_DIR}/scripts/configure-learning-libraries.py"
@@ -193,6 +195,8 @@ for required_file in \
   "$IMPORTED_AUDIO_AUDIT_TIMER" \
   "$NAS_PREFLIGHT_SCRIPT" \
   "$HEALTH_DASHBOARD_SCRIPT" \
+  "$SYSTEM_PRESSURE_SCRIPT" \
+  "$BACKGROUND_TASK_SCRIPT" \
   "$ARCHIVE_DISPATCH_SERVICE" \
   "$ARCHIVE_DISPATCH_TIMER" \
   "$DOCSPEDIA_LEARNING_SERVICE" \
@@ -296,6 +300,8 @@ REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP="${REMOTE_STAGING}/audit-language-repairs-${US
 REMOTE_IMPORTED_AUDIO_AUDIT_TEMP="${REMOTE_STAGING}/audit-imported-audio-${USER}-$$.py"
 REMOTE_NAS_PREFLIGHT_TEMP="${REMOTE_STAGING}/check-nas-preflight-${USER}-$$.py"
 REMOTE_HEALTH_DASHBOARD_TEMP="${REMOTE_STAGING}/build-health-dashboard-${USER}-$$.py"
+REMOTE_SYSTEM_PRESSURE_TEMP="${REMOTE_STAGING}/check-system-pressure-${USER}-$$.py"
+REMOTE_BACKGROUND_TASK_TEMP="${REMOTE_STAGING}/run-background-task-${USER}-$$.sh"
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 REMOTE_DOCSPEDIA_LEARNING_TEMP="${REMOTE_STAGING}/import-docspedia-learning-${USER}-$$.py"
 REMOTE_LEARNING_LIBRARIES_TEMP="${REMOTE_STAGING}/configure-learning-libraries-${USER}-$$.py"
@@ -610,6 +616,8 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}'" < "$IMPORTED_AUDIO_AUDIT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_NAS_PREFLIGHT_TEMP}'" < "$NAS_PREFLIGHT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_HEALTH_DASHBOARD_TEMP}'" < "$HEALTH_DASHBOARD_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_SYSTEM_PRESSURE_TEMP}'" < "$SYSTEM_PRESSURE_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BACKGROUND_TASK_TEMP}'" < "$BACKGROUND_TASK_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_ARCHIVE_DISPATCH_TEMP}'" < "$ARCHIVE_DISPATCH_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_DOCSPEDIA_LEARNING_TEMP}'" < "$DOCSPEDIA_LEARNING_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LEARNING_LIBRARIES_TEMP}'" < "$LEARNING_LIBRARIES_SCRIPT"
@@ -970,6 +978,8 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-imported-audio.py'
   sudo install -m 0755 '${REMOTE_NAS_PREFLIGHT_TEMP}' '${NAS_STACK_DIR}/check-nas-preflight.py'
   sudo install -m 0755 '${REMOTE_HEALTH_DASHBOARD_TEMP}' '${NAS_STACK_DIR}/build-health-dashboard.py'
+  sudo install -m 0755 '${REMOTE_SYSTEM_PRESSURE_TEMP}' '${NAS_STACK_DIR}/check-system-pressure.py'
+  sudo install -m 0755 '${REMOTE_BACKGROUND_TASK_TEMP}' '${NAS_STACK_DIR}/run-background-task.sh'
   sudo install -m 0755 '${REMOTE_ARCHIVE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-archive-spanish.py'
   sudo install -m 0755 '${REMOTE_DOCSPEDIA_LEARNING_TEMP}' '${NAS_STACK_DIR}/import-docspedia-learning.py'
   sudo install -m 0755 '${REMOTE_LEARNING_LIBRARIES_TEMP}' '${NAS_STACK_DIR}/configure-learning-libraries.py'
@@ -1406,6 +1416,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' \
     '${REMOTE_NAS_PREFLIGHT_TEMP}' \
     '${REMOTE_HEALTH_DASHBOARD_TEMP}' \
+    '${REMOTE_SYSTEM_PRESSURE_TEMP}' \
+    '${REMOTE_BACKGROUND_TASK_TEMP}' \
     '${REMOTE_ARCHIVE_DISPATCH_TEMP}'
 
   cd '${NAS_STACK_DIR}'

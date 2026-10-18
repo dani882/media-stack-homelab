@@ -140,6 +140,29 @@ The deployment workflow is:
 Runtime configuration and secrets remain on the NAS and are not committed
 to Git.
 
+### DuckDNS
+
+The NAS can keep a DuckDNS hostname synchronized with its public IPv4
+address. The updater runs through a hardened systemd timer every five minutes,
+matching DuckDNS's recommended interval. Its domain and token are stored only
+on the NAS in `/volume1/docker/duckdns/duckdns.env` with root-only permissions.
+The token is sent to `curl` through standard input so it is not exposed in the
+process list or service logs.
+
+Install or update the service files:
+
+```bash
+make deploy-duckdns
+```
+
+Enter the DuckDNS domain and token through a hidden interactive prompt, then
+verify the timer:
+
+```bash
+make configure-duckdns
+make status-duckdns
+```
+
 ### Runtime Recovery
 
 The media stack includes a systemd watchdog timer that checks the desired

@@ -1160,9 +1160,19 @@ torrent, and leaves undefined audio for review. Results are written to
 
 Build the combined secret-free health summary with `make health-dashboard`.
 The resulting `state/media-health.json` and `.html` combine timer state, report
-freshness, free space, imported-audio counts, and BTArg progress. If active
+freshness, free space, imported-audio counts, BTArg progress, and current disk
+and memory pressure. The summary exposes `deployment_allowed` and a plain
+language recommended action. During elevated pressure it explicitly says not
+to deploy until the NAS settles. If active
 BTArg progress does not change for over two hours, the scheduled monitor stops
 the worker control group while retaining its torrent and temporary files.
+
+Every scheduled background service checks the same pressure report before it
+starts. Expensive health, hardlink, language-repair, and imported-audio audits
+also share one non-blocking lock, so they cannot scan the library at the same
+time. Deferred work exits cleanly and is reconsidered by its next timer run;
+running torrents, imports, and conversions are never deleted or interrupted by
+this guard.
 
 Before changing containers, full deployments verify Docker responsiveness,
 normalized NAS load, current disk I/O wait, available capacity, and volume

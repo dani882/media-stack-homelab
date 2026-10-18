@@ -14,7 +14,7 @@ require_command() {
   fi
 }
 
-for command in docker flock grep; do
+for command in docker flock grep python3 timeout; do
   require_command "$command"
 done
 
@@ -35,7 +35,25 @@ if ! flock -n 9; then
   exit 0
 fi
 
-if ! docker info >/dev/null 2>&1; then
+set +e
+python3 "${STACK_DIR}/check-system-pressure.py" \
+  --guard \
+  --state-file "${STACK_DIR}/state/system-pressure.json"
+pressure_status=$?
+set -e
+
+if [[ "${pressure_status}" -eq 1 ]]; then
+  python3 "${STACK_DIR}/build-health-dashboard.py" || true
+  echo "SKIPPED: NAS pressure is elevated. Do not deploy; background recovery was postponed."
+  exit 0
+fi
+
+if [[ "${pressure_status}" -ne 0 ]]; then
+  echo "ERROR: Unable to verify NAS pressure safely." >&2
+  exit "${pressure_status}"
+fi
+
+if ! timeout -k 3s 20s docker info >/dev/null 2>&1; then
   echo "ERROR: Docker is not available." >&2
   exit 1
 fi

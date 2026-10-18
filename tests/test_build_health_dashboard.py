@@ -53,6 +53,40 @@ class DashboardTest(unittest.TestCase):
         self.assertTrue(stalled)
         self.assertEqual(component.status, "failed")
 
+    def test_pressure_report_blocks_deploy_and_gives_action(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            path = state / "system-pressure.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "deployment_allowed": False,
+                        "recommended_action": "Do not deploy; wait for disk pressure to settle.",
+                        "reasons": ["disk I/O wait is 89.0%"],
+                        "metrics": {"io_wait_percent": 89.0},
+                    }
+                )
+            )
+            component, allowed, action = MODULE.pressure_component(state, time.time())
+        self.assertEqual(component.status, "failed")
+        self.assertFalse(allowed)
+        self.assertIn("Do not deploy", action)
+
+    def test_dashboard_exposes_deployment_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            json_path, html_path = MODULE.write_dashboard(
+                root,
+                [MODULE.Component("System pressure", "failed", "disk busy")],
+                deployment_allowed=False,
+                recommended_action="Do not deploy.",
+            )
+            payload = json.loads(json_path.read_text())
+            document = html_path.read_text()
+        self.assertFalse(payload["deployment_allowed"])
+        self.assertEqual(payload["recommended_action"], "Do not deploy.")
+        self.assertIn("Acción recomendada", document)
+
     def test_does_not_claim_to_stop_inactive_btarg_worker(self) -> None:
         completed = mock.Mock(returncode=3)
         with mock.patch.object(MODULE.subprocess, "run", return_value=completed) as run:

@@ -26,6 +26,7 @@ SSH=(
 )
 
 FILES=(
+  "scripts/check-system-pressure.py"
   "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
   "scripts/notify-torrent-completions.py"
@@ -48,6 +49,9 @@ done
 "${SSH[@]}" "$REMOTE" "
   set -e
   sudo -n install -d -m 0755 /volume1/docker/media-stack/scripts/common
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/check-system-pressure.py' \
+    /volume1/docker/media-stack/check-system-pressure.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/dispatch-series-fallback.py' \
     /volume1/docker/media-stack/dispatch-series-fallback.py

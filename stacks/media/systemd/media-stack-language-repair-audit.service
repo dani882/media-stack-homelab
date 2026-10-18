@@ -7,5 +7,5 @@ Type=oneshot
 TimeoutStartSec=8h
 Nice=15
 IOSchedulingClass=idle
-ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/audit-language-repairs.py
-
+ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
+ExecStart=/volume1/docker/media-stack/run-background-task.sh --serialize -- /usr/bin/python3 -u /volume1/docker/media-stack/audit-language-repairs.py

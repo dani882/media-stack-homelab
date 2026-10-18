@@ -17,6 +17,7 @@ class OperationalScriptsTest(unittest.TestCase):
             ROOT / "scripts/backup.sh",
             ROOT / "scripts/restore.sh",
             ROOT / "scripts/monitor-media-stack.sh",
+            ROOT / "scripts/run-background-task.sh",
             ROOT / "scripts/deploy-reliability.sh",
             ROOT / "scripts/deploy-download-reliability.sh",
             ROOT / "scripts/deploy-series-fallback.sh",
@@ -43,6 +44,24 @@ class OperationalScriptsTest(unittest.TestCase):
         self.assertIn("sudo timeout -k 30s", script)
         for operation in ("pull --ignore-buildable", "build dominican-iptv", "up -d", "restart prowlarr"):
             self.assertIn(operation, script)
+
+    def test_watchdog_defers_recovery_during_resource_pressure(self) -> None:
+        script = self.read("scripts/watchdog.sh")
+        self.assertIn("check-system-pressure.py", script)
+        self.assertIn("Do not deploy", script)
+        self.assertIn("timeout -k 3s 20s docker info", script)
+
+    def test_heavy_audits_are_guarded_and_serialized(self) -> None:
+        units = (
+            "media-stack-healthcheck.service",
+            "media-stack-hardlink-audit.service",
+            "media-stack-imported-audio-audit.service",
+            "media-stack-language-repair-audit.service",
+        )
+        for unit in units:
+            content = self.read(f"stacks/media/systemd/{unit}")
+            self.assertIn("check-system-pressure.py --guard", content)
+            self.assertIn("run-background-task.sh --serialize", content)
 
     def test_backup_stops_only_previously_running_services(self) -> None:
         script = self.read("scripts/backup.sh")

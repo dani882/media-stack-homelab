@@ -26,6 +26,7 @@ SSH=(
 )
 
 FILES=(
+  "scripts/check-system-pressure.py"
   "scripts/cleanup-stalled-public.py"
   "scripts/dispatch-private-seerr.py"
   "scripts/dispatch-series-fallback.py"
@@ -65,6 +66,9 @@ done
     /volume1/docker/media-stack/scripts/common \
     /volume1/docker/media-stack/servarr_config \
     /volume1/docker/media-stack/servarr/custom-formats
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/check-system-pressure.py' \
+    /volume1/docker/media-stack/check-system-pressure.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/cleanup-stalled-public.py' \
     /volume1/docker/media-stack/cleanup-stalled-public.py

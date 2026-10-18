@@ -21,6 +21,8 @@ NOTIFICATION_SCRIPT="${ROOT_DIR}/scripts/notify-torrent-completions.py"
 REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
 REPAIR_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-language-repair-audit.service"
 REPAIR_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-language-repair-audit.timer"
+PRESSURE_SCRIPT="${ROOT_DIR}/scripts/check-system-pressure.py"
+BACKGROUND_TASK_SCRIPT="${ROOT_DIR}/scripts/run-background-task.sh"
 
 for required_file in \
   "$ENV_FILE" \
@@ -39,7 +41,9 @@ for required_file in \
   "$NOTIFICATION_SCRIPT" \
   "$REPAIR_AUDIT_SCRIPT" \
   "$REPAIR_AUDIT_SERVICE" \
-  "$REPAIR_AUDIT_TIMER"
+  "$REPAIR_AUDIT_TIMER" \
+  "$PRESSURE_SCRIPT" \
+  "$BACKGROUND_TASK_SCRIPT"
 do
   if [[ ! -f "$required_file" ]]; then
     echo "ERROR: Missing required file: ${required_file}"
@@ -73,6 +77,8 @@ REMOTE_NOTIFICATION="${REMOTE_STAGING}/notify-torrents-${USER}-$$.py"
 REMOTE_REPAIR_AUDIT="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
 REMOTE_REPAIR_SERVICE="${REMOTE_STAGING}/media-stack-language-repair-${USER}-$$.service"
 REMOTE_REPAIR_TIMER="${REMOTE_STAGING}/media-stack-language-repair-${USER}-$$.timer"
+REMOTE_PRESSURE="${REMOTE_STAGING}/check-system-pressure-${USER}-$$.py"
+REMOTE_BACKGROUND_TASK="${REMOTE_STAGING}/run-background-task-${USER}-$$.sh"
 SSH=(
   ssh
   -o ControlMaster=auto
@@ -99,6 +105,8 @@ SSH=(
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_REPAIR_AUDIT}'" < "$REPAIR_AUDIT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_REPAIR_SERVICE}'" < "$REPAIR_AUDIT_SERVICE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_REPAIR_TIMER}'" < "$REPAIR_AUDIT_TIMER"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRESSURE}'" < "$PRESSURE_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BACKGROUND_TASK}'" < "$BACKGROUND_TASK_SCRIPT"
 
 "${SSH[@]}" "$REMOTE" "
   set -e
@@ -132,6 +140,12 @@ SSH=(
   sudo -n install -m 0755 \
     '${REMOTE_REPAIR_AUDIT}' \
     /volume1/docker/media-stack/audit-language-repairs.py
+  sudo -n install -m 0755 \
+    '${REMOTE_PRESSURE}' \
+    /volume1/docker/media-stack/check-system-pressure.py
+  sudo -n install -m 0755 \
+    '${REMOTE_BACKGROUND_TASK}' \
+    /volume1/docker/media-stack/run-background-task.sh
   sudo -n install -m 0644 \
     '${REMOTE_BTARG_SERIES_SERVICE}' \
     /etc/systemd/system/media-stack-btarg-series.service
@@ -150,7 +164,8 @@ SSH=(
     '${REMOTE_BTARG_COMMON}' '${REMOTE_SONARR_UPGRADE}' \
     '${REMOTE_RADARR_UPGRADE}' '${REMOTE_NOTIFICATION}' \
     '${REMOTE_SONARR_LANGUAGE_AUDIT}' '${REMOTE_RADARR_LANGUAGE_AUDIT}' \
-    '${REMOTE_REPAIR_AUDIT}' '${REMOTE_REPAIR_SERVICE}' '${REMOTE_REPAIR_TIMER}'
+    '${REMOTE_REPAIR_AUDIT}' '${REMOTE_REPAIR_SERVICE}' '${REMOTE_REPAIR_TIMER}' \
+    '${REMOTE_PRESSURE}' '${REMOTE_BACKGROUND_TASK}'
   cd /volume1/docker/media-stack
   sudo -n python3 ./configure-prowlarr.py --only-indexer btarg
   sudo -n python3 ./audit-private-trackers.py
