@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STACK_DIR="${ROOT_DIR}/stacks/media"
 ENV_FILE="${STACK_DIR}/env/.env"
 COMPOSE_FILE="${STACK_DIR}/compose.yaml"
+CADDYFILE="${STACK_DIR}/caddy/Caddyfile"
 PROWLARR_SCRIPT="${ROOT_DIR}/scripts/configure-prowlarr.py"
 PROWLARR_DREADVAULT_DEFINITION="${STACK_DIR}/prowlarr/definitions/dreadvault-api.yml"
 QBITTORRENT_SCRIPT="${ROOT_DIR}/scripts/configure-qbittorrent.py"
@@ -35,6 +36,7 @@ BACKGROUND_TASK_SCRIPT="${ROOT_DIR}/scripts/run-background-task.sh"
 ARCHIVE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-archive-spanish.py"
 DOCSPEDIA_LEARNING_SCRIPT="${ROOT_DIR}/scripts/import-docspedia-learning.py"
 LEARNING_LIBRARIES_SCRIPT="${ROOT_DIR}/scripts/configure-learning-libraries.py"
+PUBLIC_ACCESS_SCRIPT="${ROOT_DIR}/scripts/configure-public-access.py"
 
 MEDIA_COMMON_DIR="${ROOT_DIR}/scripts/media/common"
 MEDIA_COMMON_INIT="${MEDIA_COMMON_DIR}/__init__.py"
@@ -139,6 +141,8 @@ for required_file in \
   "$ARCHIVE_DISPATCH_SCRIPT" \
   "$DOCSPEDIA_LEARNING_SCRIPT" \
   "$LEARNING_LIBRARIES_SCRIPT" \
+  "$PUBLIC_ACCESS_SCRIPT" \
+  "$CADDYFILE" \
   "$MEDIA_COMMON_INIT" \
   "$MEDIA_COMMON_ARR" \
   "$MEDIA_COMMON_QBITTORRENT" \
@@ -305,6 +309,8 @@ REMOTE_BACKGROUND_TASK_TEMP="${REMOTE_STAGING}/run-background-task-${USER}-$$.sh
 REMOTE_ARCHIVE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-archive-spanish-${USER}-$$.py"
 REMOTE_DOCSPEDIA_LEARNING_TEMP="${REMOTE_STAGING}/import-docspedia-learning-${USER}-$$.py"
 REMOTE_LEARNING_LIBRARIES_TEMP="${REMOTE_STAGING}/configure-learning-libraries-${USER}-$$.py"
+REMOTE_PUBLIC_ACCESS_TEMP="${REMOTE_STAGING}/configure-public-access-${USER}-$$.py"
+REMOTE_CADDYFILE_TEMP="${REMOTE_STAGING}/Caddyfile-${USER}-$$"
 
 REMOTE_MEDIA_COMMON_INIT_TEMP="${REMOTE_STAGING}/media-common-init-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_ARR_TEMP="${REMOTE_STAGING}/media-common-arr-${USER}-$$.py"
@@ -394,6 +400,14 @@ echo "Uploading Compose file through SSH..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_TEMP}'" \
   < "$COMPOSE_FILE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_CADDYFILE_TEMP}'" \
+  < "$CADDYFILE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_PUBLIC_ACCESS_TEMP}'" \
+  < "$PUBLIC_ACCESS_SCRIPT"
 
 echo "Uploading Prowlarr configuration script through SSH..."
 
@@ -906,6 +920,13 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0644 \
     '${REMOTE_TEMP}' \
     '${NAS_STACK_DIR}/compose.yaml'
+  sudo install -d -m 0755 '${NAS_STACK_DIR}/caddy'
+  sudo install -m 0644 \
+    '${REMOTE_CADDYFILE_TEMP}' \
+    '${NAS_STACK_DIR}/caddy/Caddyfile'
+  sudo install -m 0755 \
+    '${REMOTE_PUBLIC_ACCESS_TEMP}' \
+    '${NAS_STACK_DIR}/configure-public-access.py'
   sudo install -m 0755 \
     '${REMOTE_PROWLARR_TEMP}' \
     '${NAS_STACK_DIR}/configure-prowlarr.py'
@@ -1386,6 +1407,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_ARCHIVE_DISPATCH_TIMER_TEMP}' \
     '${REMOTE_DOCSPEDIA_LEARNING_TEMP}' \
     '${REMOTE_LEARNING_LIBRARIES_TEMP}' \
+    '${REMOTE_PUBLIC_ACCESS_TEMP}' \
+    '${REMOTE_CADDYFILE_TEMP}' \
     '${REMOTE_DOCSPEDIA_LEARNING_SERVICE_TEMP}' \
     '${REMOTE_DOCSPEDIA_LEARNING_TIMER_TEMP}' \
     '${REMOTE_SERVARR_COMMON_TEMP}' \
@@ -1488,6 +1511,13 @@ echo "Pulling images and applying the stack..."
   echo
   echo "Configuring Seerr..."
   sudo python3 '${NAS_STACK_DIR}/configure-seerr.py'
+
+  if sudo grep -Eq '^PUBLIC_MEDIA_DOMAIN=[a-z0-9][a-z0-9-]*$' .env; then
+    echo
+    echo "Configuring public HTTPS access..."
+    sudo python3 '${NAS_STACK_DIR}/configure-public-access.py' --apply
+    run_docker_step 'Restarting Jellyfin proxy trust' 3m restart jellyfin
+  fi
 
   echo
   echo "Configuring Bazarr Spanish subtitles..."

@@ -163,6 +163,22 @@ make configure-duckdns
 make status-duckdns
 ```
 
+Jellyfin and Seerr can be published through Caddy with automatic HTTPS. The
+focused deployment reads the existing DuckDNS domain on the NAS, enables the
+required proxy settings without exposing credentials, and leaves the NAS web
+administration ports unchanged:
+
+```bash
+make deploy-public-access
+make status-public-access
+```
+
+Caddy has its own LAN address (`10.0.0.254`) because the NAS administration
+interface already owns ports 80 and 443. The router must forward public TCP
+port 80 to `10.0.0.254:80` and public TCP port 443 to `10.0.0.254:443`. Do not
+forward Jellyfin port 8899, Seerr port 5055, or the NAS administration ports
+directly to the Internet.
+
 ### Runtime Recovery
 
 The media stack includes a systemd watchdog timer that checks the desired

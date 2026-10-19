@@ -70,6 +70,29 @@ Runtime secrets are stored under:
 /volume1/docker/media-stack/secrets
 ```
 
+## Public HTTPS access
+
+Caddy provides the only public entry point for Jellyfin and Seerr. DuckDNS
+wildcard names route `jellyfin.<domain>.duckdns.org` and
+`seerr.<domain>.duckdns.org` to their corresponding containers. The DuckDNS
+token is never passed to Caddy.
+
+The UGREEN administration interface already owns NAS ports 80 and 443, so
+Caddy receives the dedicated LAN address `10.0.0.254` through a Docker macvlan
+network. This address is outside the router's DHCP range. Configure the router
+with these mappings:
+
+- public TCP 80 to `10.0.0.254` TCP 80
+- public TCP 443 to `10.0.0.254` TCP 443
+
+Never forward Jellyfin 8899, Seerr 5055, qBittorrent, Arr, or NAS
+administration ports to the Internet. Deploy or audit the proxy with:
+
+```bash
+make deploy-public-access
+make status-public-access
+```
+
 ## Prowlarr
 
 Prowlarr indexers are configured automatically by:

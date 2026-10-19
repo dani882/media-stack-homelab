@@ -22,6 +22,7 @@ class OperationalScriptsTest(unittest.TestCase):
             ROOT / "scripts/deploy-download-reliability.sh",
             ROOT / "scripts/deploy-series-fallback.sh",
             ROOT / "scripts/deploy-docspedia.sh",
+            ROOT / "scripts/deploy-public-access.sh",
         ]
         result = subprocess.run(
             ["bash", "-n", *map(str, scripts)], capture_output=True, text=True
@@ -44,6 +45,11 @@ class OperationalScriptsTest(unittest.TestCase):
         self.assertIn("sudo timeout -k 30s", script)
         for operation in ("pull --ignore-buildable", "build dominican-iptv", "up -d", "restart prowlarr"):
             self.assertIn(operation, script)
+
+    def test_public_access_restart_applies_seerr_network_settings(self) -> None:
+        script = self.read("scripts/deploy-public-access.sh")
+        self.assertIn("docker compose restart jellyfin seerr", script)
+        self.assertIn("http://127.0.0.1:5055/api/v1/status", script)
 
     def test_watchdog_defers_recovery_during_resource_pressure(self) -> None:
         script = self.read("scripts/watchdog.sh")

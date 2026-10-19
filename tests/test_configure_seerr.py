@@ -693,6 +693,23 @@ class SeerrInitializationTest(unittest.TestCase):
 
 
 class SeerrJellyfinExternalUrlTest(unittest.TestCase):
+    def test_external_url_prefers_public_duckdns_domain(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            stack_dir = Path(directory)
+            (stack_dir / ".env").write_text(
+                "PUBLIC_MEDIA_DOMAIN=example-home\n",
+                encoding="utf-8",
+            )
+
+            detected = MODULE.detect_jellyfin_external_hostname(stack_dir)
+
+        self.assertEqual(
+            detected,
+            "https://jellyfin.example-home.duckdns.org",
+        )
+
     def test_external_url_is_discovered_from_hostname_and_port(self):
         with (
             patch.object(

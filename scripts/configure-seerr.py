@@ -462,7 +462,41 @@ def detect_published_external_url(
     raise SeerrError(f"{container} has no published TCP port.")
 
 
-def detect_jellyfin_external_hostname() -> str:
+def read_public_media_domain(stack_dir: Path) -> str | None:
+    env_file = stack_dir / ".env"
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise SeerrError(
+            f"Unable to read public media configuration: {error}"
+        ) from error
+
+    values = [
+        line.split("=", 1)[1].strip().lower()
+        for line in lines
+        if line.startswith("PUBLIC_MEDIA_DOMAIN=")
+    ]
+    if len(values) > 1:
+        raise SeerrError("Duplicate PUBLIC_MEDIA_DOMAIN setting.")
+    if not values or not values[0]:
+        return None
+    domain = values[0]
+    if not re.fullmatch(
+        r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?",
+        domain,
+    ):
+        raise SeerrError("Invalid PUBLIC_MEDIA_DOMAIN setting.")
+    return domain
+
+
+def detect_jellyfin_external_hostname(
+    stack_dir: Path = DEFAULT_STACK_DIR,
+) -> str:
+    public_domain = read_public_media_domain(stack_dir)
+    if public_domain:
+        return f"https://jellyfin.{public_domain}.duckdns.org"
     return detect_published_external_url(
         JELLYFIN_CONTAINER,
         JELLYFIN_CONTAINER_PORT,
@@ -864,7 +898,7 @@ def main() -> int:
         configure_jellyfin_external_hostname(
             client,
             arguments.dry_run,
-            detect_jellyfin_external_hostname(),
+            detect_jellyfin_external_hostname(arguments.stack_dir),
         )
 
         sonarr_probe = test_arr(

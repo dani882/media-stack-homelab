@@ -48,7 +48,32 @@ def detect_published_external_url(container: str, container_port: str) -> str:
     raise SeerrAuditError(f"{container} has no published TCP port.")
 
 
-def detect_jellyfin_external_hostname() -> str:
+def detect_jellyfin_external_hostname(
+    stack_dir: Path = DEFAULT_STACK_DIR,
+) -> str:
+    env_file = stack_dir / ".env"
+    try:
+        values = [
+            line.split("=", 1)[1].strip().lower()
+            for line in env_file.read_text(encoding="utf-8").splitlines()
+            if line.startswith("PUBLIC_MEDIA_DOMAIN=")
+        ]
+    except FileNotFoundError:
+        values = []
+    except OSError as error:
+        raise SeerrAuditError(
+            f"Unable to read public media configuration: {error}"
+        ) from error
+    if len(values) > 1:
+        raise SeerrAuditError("Duplicate PUBLIC_MEDIA_DOMAIN setting.")
+    if values and values[0]:
+        domain = values[0]
+        if not re.fullmatch(
+            r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?",
+            domain,
+        ):
+            raise SeerrAuditError("Invalid PUBLIC_MEDIA_DOMAIN setting.")
+        return f"https://jellyfin.{domain}.duckdns.org"
     return detect_published_external_url("jellyfin", "8096/tcp")
 
 
@@ -157,6 +182,7 @@ class SeerrClient:
 
 def validate_libraries(
     client: SeerrClient,
+    stack_dir: Path = DEFAULT_STACK_DIR,
 ) -> None:
     jellyfin = client.get("/settings/jellyfin")
     libraries = jellyfin.get("libraries")
@@ -185,7 +211,7 @@ def validate_libraries(
     external_hostname = str(
         jellyfin.get("externalHostname", "")
     ).rstrip("/")
-    expected_hostname = detect_jellyfin_external_hostname()
+    expected_hostname = detect_jellyfin_external_hostname(stack_dir)
     if external_hostname != expected_hostname:
         raise SeerrAuditError(
             "Unexpected Seerr Jellyfin external URL: "
@@ -326,7 +352,7 @@ def main() -> int:
         read_seerr_api_key(args.stack_dir),
     )
     validate_public(client)
-    validate_libraries(client)
+    validate_libraries(client, args.stack_dir)
     validate_services(
         client,
         read_arr_api_key(args.stack_dir, "sonarr"),

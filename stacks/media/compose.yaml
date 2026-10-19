@@ -84,6 +84,30 @@ services:
     networks:
       - media
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: media-caddy
+    restart: unless-stopped
+    environment:
+      PUBLIC_MEDIA_DOMAIN: ${PUBLIC_MEDIA_DOMAIN:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CONFIG_DIR}/caddy/data:/data
+      - ${CONFIG_DIR}/caddy/config:/config
+    depends_on:
+      - jellyfin
+      - seerr
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 1m
+      timeout: 15s
+      retries: 3
+      start_period: 15s
+    networks:
+      media:
+      public_lan:
+        ipv4_address: ${PUBLIC_LAN_IP:-10.0.0.254}
+
   profilarr:
     profiles: ["profilarr"]
     image: ghcr.io/dictionarry-hub/profilarr:${PROFILARR_TAG:-latest}
@@ -343,3 +367,13 @@ networks:
   media:
     name: media-stack
     driver: bridge
+  public_lan:
+    name: media-public-lan
+    driver: macvlan
+    driver_opts:
+      parent: ${PUBLIC_LAN_PARENT:-eth0}
+    ipam:
+      config:
+        - subnet: ${PUBLIC_LAN_SUBNET:-10.0.0.0/24}
+          gateway: ${PUBLIC_LAN_GATEWAY:-10.0.0.1}
+          ip_range: ${PUBLIC_LAN_IP_RANGE:-10.0.0.254/32}

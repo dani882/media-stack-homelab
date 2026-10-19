@@ -21,6 +21,21 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AuditSeerrTest(unittest.TestCase):
+    def test_public_jellyfin_url_uses_duckdns_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stack_dir = Path(temp_dir)
+            (stack_dir / ".env").write_text(
+                "PUBLIC_MEDIA_DOMAIN=example-home\n",
+                encoding="utf-8",
+            )
+
+            url = MODULE.detect_jellyfin_external_hostname(stack_dir)
+
+        self.assertEqual(
+            url,
+            "https://jellyfin.example-home.duckdns.org",
+        )
+
     def test_read_json_loads_object(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "settings.json"

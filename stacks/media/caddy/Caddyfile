@@ -1,0 +1,25 @@
+{
+	admin off
+}
+
+jellyfin.{$PUBLIC_MEDIA_DOMAIN}.duckdns.org {
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+
+	reverse_proxy jellyfin:8096
+}
+
+seerr.{$PUBLIC_MEDIA_DOMAIN}.duckdns.org {
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+
+	reverse_proxy seerr:5055
+}
