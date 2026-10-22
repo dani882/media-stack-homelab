@@ -29,6 +29,31 @@ from common.btarg import BTArgCache, BTArgClient, enrich_releases
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 
 
+def queued_movie_ids(client: RadarrClient) -> set[int]:
+    query = urllib.parse.urlencode(
+        {
+            "page": 1,
+            "pageSize": 1000,
+            "includeUnknownMovieItems": "true",
+        }
+    )
+    queue = client.get(f"/queue?{query}")
+    return {
+        int(record["movieId"])
+        for record in queue.get("records", [])
+        if record.get("movieId") is not None
+    }
+
+
+def is_qbittorrent_duplicate(error: UpgradeError) -> bool:
+    message = str(error)
+    return (
+        "qBittorrent" in message
+        and "409:Conflict" in message
+        and "/api/v2/torrents/add" in message
+    )
+
+
 def movie_matches(
     movie: dict[str, Any],
     title: str,
@@ -122,11 +147,22 @@ def main() -> int:
 
     actionable = 0
     grabbed = 0
+    already_queued = 0
+    queued_ids = queued_movie_ids(client)
 
     for movie in selected:
         movie_id = int(movie["id"])
         title = movie.get("title", "")
         year = int(movie.get("year", 0) or 0)
+
+        if movie_id in queued_ids:
+            already_queued += 1
+            print(
+                f"ALREADY QUEUED: {title} ({year})",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
 
         movie_file = (
             movie.get("movieFile")
@@ -247,16 +283,36 @@ def main() -> int:
                 "guid or indexerId."
             )
 
-        client.request(
-            "POST",
-            "/release",
-            {
-                "guid": guid,
-                "indexerId": indexer_id,
-            },
-        )
+        try:
+            client.request(
+                "POST",
+                "/release",
+                {
+                    "guid": guid,
+                    "indexerId": indexer_id,
+                },
+            )
+        except UpgradeError as error:
+            # Radarr can report qBittorrent's duplicate-torrent
+            # response as a generic HTTP 500. Confirm the movie is
+            # queued, or require the exact qBittorrent conflict, before
+            # treating that response as safe.
+            queued_ids = queued_movie_ids(client)
+            if (
+                movie_id not in queued_ids
+                and not is_qbittorrent_duplicate(error)
+            ):
+                raise
+            already_queued += 1
+            print(
+                f"ALREADY QUEUED: {title} ({year})",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
 
         grabbed += 1
+        queued_ids.add(movie_id)
 
     print()
     print("=== Summary ===")
@@ -275,6 +331,9 @@ def main() -> int:
     else:
         print(
             f"Releases grabbed: {grabbed}"
+        )
+        print(
+            f"Movies already queued: {already_queued}"
         )
 
     return 0
