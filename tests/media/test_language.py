@@ -24,6 +24,9 @@ class LanguageUpgradeTest(unittest.TestCase):
 
     def test_private_indexer_detection(self) -> None:
         self.assertTrue(
+            release_is_private({"indexer": "Lat-Team (API) (Prowlarr)"})
+        )
+        self.assertTrue(
             release_is_private({"indexer": "BTArg (Prowlarr)"})
         )
         self.assertTrue(
@@ -66,6 +69,12 @@ class LanguageUpgradeTest(unittest.TestCase):
             language_rank({"relativePath": "Show S01E01 [CASTELLANO] 1080p.mkv"}),
             LanguageRank.CASTILIAN,
         )
+        self.assertEqual(
+            language_rank(
+                {"relativePath": "Movie.2026.1080p-dual-lat-source.mkv"}
+            ),
+            LanguageRank.LATINO,
+        )
 
     def test_title_markers_are_token_aware(self) -> None:
         self.assertEqual(
@@ -85,6 +94,84 @@ class LanguageUpgradeTest(unittest.TestCase):
         release = {
             "title": "Show S02E01 720p Ita Eng Spa SubS",
             "languages": [{"name": "Spanish"}, {"name": "English"}],
+        }
+
+        self.assertEqual(
+            language_rank(release),
+            LanguageRank.ENGLISH,
+        )
+
+    def test_lat_team_generic_spanish_is_latino(self) -> None:
+        release = {
+            "indexer": "Lat-Team (API) (Prowlarr)",
+            "title": "Movie.2026.1080p.WEB-DL SPANiSH",
+            "languages": [{"name": "Spanish"}],
+            "customFormats": [{"name": "CASTELLANO"}],
+        }
+
+        self.assertEqual(
+            language_rank(release),
+            LanguageRank.LATINO,
+        )
+
+    def test_lat_team_generic_spanish_upgrades_english(self) -> None:
+        installed = {
+            "languages": [{"name": "English"}],
+        }
+        release = {
+            "indexer": "Lat-Team (API) (Prowlarr)",
+            "title": "Movie.2026.1080p.WEB-DL SPANiSH",
+            "languages": [{"name": "Spanish"}],
+            "customFormats": [{"name": "CASTELLANO"}],
+            "downloadAllowed": True,
+            "rejected": False,
+        }
+
+        self.assertTrue(
+            release_is_safe_language_upgrade(installed, release)
+        )
+
+    def test_lat_team_does_not_replace_existing_dual_latino(self) -> None:
+        installed = {
+            "relativePath": "Movie.2026.1080p-dual-lat-source.mkv",
+            "languages": [
+                {"name": "Spanish"},
+                {"name": "English"},
+            ],
+        }
+        release = {
+            "indexer": "Lat-Team (API) (Prowlarr)",
+            "title": "Movie.2026.1080p.WEB-DL SPANiSH",
+            "languages": [{"name": "Spanish"}],
+            "downloadAllowed": True,
+            "rejected": False,
+        }
+
+        self.assertFalse(
+            release_is_safe_language_upgrade(installed, release)
+        )
+
+    def test_lat_team_cast_tag_is_castilian(self) -> None:
+        release = {
+            "indexer": "Lat-Team (API) (Prowlarr)",
+            "title": "Movie.2026.1080p.WEB-DL [CAST] SPANiSH",
+            "languages": [{"name": "Spanish"}],
+        }
+
+        self.assertEqual(
+            language_rank(release),
+            LanguageRank.CASTILIAN,
+        )
+
+    def test_lat_team_subs_tag_is_not_spanish_audio(self) -> None:
+        release = {
+            "indexer": "Lat-Team (API) (Prowlarr)",
+            "title": "Movie.2026.1080p.WEB-DL [SUBS] SPANiSH",
+            "languages": [
+                {"name": "Spanish"},
+                {"name": "English"},
+            ],
+            "customFormats": [{"name": "CASTELLANO"}],
         }
 
         self.assertEqual(
