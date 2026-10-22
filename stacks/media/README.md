@@ -381,6 +381,14 @@ excluded. A season pack is accepted only when both Sonarr's release metadata
 and the paused torrent members cover exactly every currently missing episode
 in that season; partial, extra, or ambiguous packs are rejected.
 
+The same timer also upgrades a complete monitored season whose existing files
+are below Latino when Sonarr approves a private Latino season pack. Lat-Team is
+priority 1, followed by BTArg at priority 2 and Milnueve at priority 4. The
+candidate is added stopped and must contain exactly one safe video for every
+aired monitored episode before it starts. Existing Latino seasons are never
+replaced by this path, and private source torrents remain protected for their
+tracker-specific obligation after the library files are upgraded.
+
 The selected torrent is added stopped. Private sources must remain explicitly
 private. A public-source torrent that carries the private bit is accepted only
 when none of its announce hosts belongs to a known private tracker. Its member
@@ -401,6 +409,11 @@ Telegram sends the availability message only after that successful import and
 audio verification. Secret-free status is refreshed at
 `/volume1/docker/media-stack/state/series-fallback-status.json` and
 `/volume1/docker/media-stack/state/series-fallback-status.html`.
+
+Public fallback payloads are re-inspected while they remain managed by the
+worker. Any executable-like member is deleted with its data and its stable
+release fingerprint is blocked so the same unsafe release is not selected
+again. Private torrents are never deleted by this public cleanup path.
 
 ### Private tracker dashboard and controlled repairs
 

@@ -54,7 +54,11 @@ for module_dir in (SCRIPT_ROOT / "media", STACK / "scripts"):
 from common.btarg import BTArgCache, BTArgClient, BTArgError, enrich_release
 from common.language import LanguageRank, language_rank
 from common.qbittorrent import QBittorrentClient, read_credentials
-from common.release_safety import dangerous_release_title, unacceptable_source_title
+from common.release_safety import (
+    dangerous_release_title,
+    dangerous_torrent_paths,
+    unacceptable_source_title,
+)
 
 
 SPEC = importlib.util.spec_from_file_location(
@@ -80,6 +84,7 @@ class SourcePolicy:
 
 
 PRIVATE_SOURCES = (
+    SourcePolicy("lat-team", True, 1, 1, 4920),
     SourcePolicy("btarg", True, 2, 1, -2, 1.0),
     SourcePolicy("milnueve", True, 4, 1, 6360),
     SourcePolicy("retrotoon", True, 8, 1, 4920),
@@ -373,6 +378,17 @@ def active_episode_tags(torrents: list[dict[str, Any]]) -> set[str]:
     }
 
 
+def inflight_episode_tags(torrents: list[dict[str, Any]]) -> set[str]:
+    return {
+        tag
+        for torrent in torrents
+        if "language-mismatch" not in torrent_tags(torrent)
+        and "series-fallback-import-verified" not in torrent_tags(torrent)
+        for tag in torrent_tags(torrent)
+        if tag.startswith("sonarr-episode-")
+    }
+
+
 def blocked_release_tags(torrents: list[dict[str, Any]]) -> set[str]:
     return {
         tag
@@ -469,6 +485,42 @@ def remove_stalled_public(
             f"{'REMOVE' if apply else 'WOULD REMOVE'} STALLED PUBLIC: "
             f"progress={float(torrent.get('progress', 0) or 0) * 100:.1f}% "
             f"state={torrent.get('state')}"
+        )
+        if not apply:
+            continue
+        if fingerprint:
+            rejected.add(fingerprint)
+        qbit.post_form(
+            "/api/v2/torrents/delete",
+            {"hashes": str(torrent["hash"]), "deleteFiles": "true"},
+        )
+    return len(candidates)
+
+
+def remove_unsafe_public(
+    qbit: QBittorrentClient,
+    torrents: list[dict[str, Any]],
+    rejected: set[str],
+    apply: bool,
+) -> int:
+    candidates: list[dict[str, Any]] = []
+    for torrent in fallback_torrents(torrents):
+        tags = torrent_tags(torrent)
+        if "public" not in tags or "private" in tags:
+            continue
+        query = urllib.parse.urlencode({"hash": str(torrent["hash"])})
+        files = qbit.get_json(f"/api/v2/torrents/files?{query}")
+        unsafe = dangerous_torrent_paths(
+            str(item.get("name", "")) for item in files
+        )
+        if unsafe:
+            candidates.append(torrent)
+
+    for torrent in candidates:
+        fingerprint = release_fingerprint_from_torrent(torrent)
+        print(
+            f"{'REMOVE' if apply else 'WOULD REMOVE'} UNSAFE PUBLIC: "
+            "executable-like payload"
         )
         if not apply:
             continue
@@ -744,6 +796,82 @@ def missing_episodes(
     )
 
 
+def upgradeable_seasons(
+    episodes: list[dict[str, Any]],
+    seasons: set[int],
+    files_by_id: dict[int, dict[str, Any]],
+    queued: set[int],
+    inflight_tags: set[str],
+    now: datetime,
+) -> dict[int, list[dict[str, Any]]]:
+    by_season: dict[int, list[dict[str, Any]]] = {}
+    for episode in episodes:
+        season = int(episode.get("seasonNumber", 0) or 0)
+        if (
+            season not in seasons
+            or episode.get("monitored") is not True
+            or not aired(episode.get("airDateUtc"), now)
+        ):
+            continue
+        by_season.setdefault(season, []).append(episode)
+
+    result: dict[int, list[dict[str, Any]]] = {}
+    for season, season_episodes in by_season.items():
+        if not season_episodes:
+            continue
+        safe = True
+        for episode in season_episodes:
+            episode_id = int(episode["id"])
+            file_id = int(episode.get("episodeFileId", 0) or 0)
+            episode_file = files_by_id.get(file_id)
+            if (
+                not episode.get("hasFile")
+                or episode_file is None
+                or episode_id in queued
+                or f"sonarr-episode-{episode_id}" in inflight_tags
+                or language_rank(episode_file) >= LanguageRank.LATINO
+            ):
+                safe = False
+                break
+        if safe:
+            result[season] = sorted(
+                season_episodes,
+                key=lambda item: int(item.get("episodeNumber", 0)),
+            )
+    return result
+
+
+def latino_season_pack_candidates(
+    releases: list[dict[str, Any]],
+    season: int,
+    policy: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates = []
+    for release in releases:
+        source = source_policy(release, policy)
+        title = str(release.get("title") or "")
+        if not (
+            source
+            and source.private
+            and release.get("fullSeason") is True
+            and int(release.get("seasonNumber", -1) or -1) == season
+            and release.get("approved") is True
+            and not release.get("rejected", False)
+            and release.get("downloadAllowed", True) is not False
+            and release.get("protocol") == "torrent"
+            and release.get("downloadUrl")
+            and language_rank(release) >= LanguageRank.LATINO
+            and not dangerous_release_title(title)
+            and not unacceptable_source_title(title)
+            and GRAB.title_resolution(release) >= policy["minimum_resolution"]
+            and int(release.get("seeders", 0) or 0) >= source.minimum_seeders
+        ):
+            continue
+        candidates.append(release)
+    candidates.sort(key=lambda item: candidate_sort_key(item, policy))
+    return candidates
+
+
 def rotate_after(items: list[dict[str, Any]], last_id: int | None) -> list[dict[str, Any]]:
     if not items or last_id is None:
         return items
@@ -851,6 +979,20 @@ def main() -> int:
 
     state_path = stack / "state/series-fallback.json"
     cursors, inspection_rejected, last_request_id = load_state(state_path)
+    unsafe_removed = remove_unsafe_public(
+        qbit,
+        torrents,
+        inspection_rejected,
+        args.apply,
+    )
+    if args.apply and unsafe_removed:
+        save_state(
+            state_path,
+            cursors,
+            inspection_rejected,
+            last_request_id,
+        )
+        torrents = qbit.get_json("/api/v2/torrents/info")
     verified, mismatches = reconcile_imports(
         qbit, torrents, sonarr_key, args.apply
     )
@@ -861,7 +1003,7 @@ def main() -> int:
         policy,
         args.apply,
     )
-    if args.apply and (verified or mismatches or removed):
+    if args.apply and (verified or mismatches or removed or unsafe_removed):
         save_state(
             state_path,
             cursors,
@@ -871,6 +1013,7 @@ def main() -> int:
         torrents = qbit.get_json("/api/v2/torrents/info")
     write_status(stack, status_payload(torrents, series_by_id, policy))
     existing_tags = active_episode_tags(torrents)
+    inflight_tags = inflight_episode_tags(torrents)
     blocked_tags = blocked_release_tags(torrents)
     active_downloads = len(active_fallback_torrents(torrents))
     if active_downloads >= int(policy["max_active_downloads"]):
@@ -908,6 +1051,180 @@ def main() -> int:
             "/api/v3/episode?" + urllib.parse.urlencode({"seriesId": series["id"]}),
             sonarr_key,
         )
+        episode_files = get_json(
+            SONARR_URL,
+            "/api/v3/episodefile?"
+            + urllib.parse.urlencode({"seriesId": series["id"]}),
+            sonarr_key,
+        )
+        files_by_id = {
+            int(item["id"]): item
+            for item in episode_files
+            if int(item.get("id", 0) or 0) > 0
+        }
+        season_upgrades = upgradeable_seasons(
+            episodes,
+            seasons,
+            files_by_id,
+            queued,
+            inflight_tags,
+            now,
+        )
+        for season, covered_episodes in sorted(season_upgrades.items()):
+            if searches >= max_searches:
+                if args.apply:
+                    save_state(
+                        state_path,
+                        cursors,
+                        inspection_rejected,
+                        last_request_id,
+                    )
+                print(
+                    f"SERIES FALLBACK LIMIT: searched={searches} dispatched=0"
+                )
+                return 0
+            searches += 1
+            print(
+                f"UPGRADE SEARCH: request={request['id']} "
+                f"series={series['title']} season=S{season:02d} "
+                "language-floor=latino"
+            )
+            try:
+                releases = get_json(
+                    SONARR_URL,
+                    "/api/v3/release?"
+                    + urllib.parse.urlencode(
+                        {
+                            "seriesId": series["id"],
+                            "seasonNumber": season,
+                        }
+                    ),
+                    sonarr_key,
+                    timeout=180,
+                )
+            except SeriesFallbackError as error:
+                print(
+                    f"UPGRADE SEARCH SKIP: season=S{season:02d} "
+                    f"reason={error}"
+                )
+                continue
+            releases = enrich_btarg(
+                releases,
+                str(series.get("imdbId") or "") or None,
+                btarg,
+            )
+            releases = [
+                item
+                for item in releases
+                if release_tag(item) not in (blocked_tags | inspection_rejected)
+            ]
+            candidates = latino_season_pack_candidates(
+                releases,
+                season,
+                policy,
+            )
+            expected_numbers = {
+                int(item["episodeNumber"])
+                for item in covered_episodes
+            }
+            if not candidates:
+                print(f"NO SAFE LATINO PACK: season=S{season:02d}")
+                continue
+
+            for selected in candidates[:5]:
+                source = source_policy(selected, policy)
+                assert source is not None and source.private
+                fingerprint = release_tag(selected)
+                tag_values = [
+                    "private",
+                    source.name,
+                    "series-fallback",
+                    "series-language-upgrade",
+                    "series-fallback-season-pack",
+                    "fallback-language-latino",
+                    f"seerr-request-{request['id']}",
+                    f"sonarr-series-{series['id']}",
+                    fingerprint,
+                ]
+                tag_values.extend(
+                    f"sonarr-episode-{item['id']}"
+                    for item in covered_episodes
+                )
+                tags = ",".join(tag_values)
+                print(
+                    f"{'UPGRADE' if args.apply else 'WOULD UPGRADE'}: "
+                    f"series={series['title']} season=S{season:02d} "
+                    f"episodes={len(covered_episodes)} language=latino "
+                    f"source={source.name} title={selected['title']}"
+                )
+                if not args.apply:
+                    return 0
+                if not free_space_allows(
+                    Path("/volume1/Family/Downloads"),
+                    int(selected.get("size", 0) or 0),
+                    int(policy["minimum_free_space_gib"]),
+                ):
+                    print(
+                        "SPACE GUARD: selected release would reduce free "
+                        f"space below {policy['minimum_free_space_gib']} GiB"
+                    )
+                    save_state(
+                        state_path,
+                        cursors,
+                        inspection_rejected,
+                        last_request_id,
+                    )
+                    return 0
+                display_name = f"{selected['title']} [LATINO]"
+                try:
+                    GRAB.add_to_qbittorrent(
+                        qbit,
+                        selected,
+                        "tv",
+                        tags,
+                        source.seed_minutes,
+                        False,
+                        ratio_limit=source.ratio_limit,
+                        display_name=display_name,
+                        require_private=True,
+                        policy_label="PRIVATE LANGUAGE UPGRADE",
+                        member_validator=(
+                            lambda paths,
+                            season=season,
+                            numbers=set(expected_numbers): validate_pack_members(
+                                paths,
+                                season,
+                                numbers,
+                            )
+                        ),
+                    )
+                except GRAB.GrabError as error:
+                    inspection_rejected.add(fingerprint)
+                    save_state(
+                        state_path,
+                        cursors,
+                        inspection_rejected,
+                        last_request_id,
+                    )
+                    print(
+                        f"UPGRADE INSPECTION REJECTED: season=S{season:02d} "
+                        f"release={fingerprint} reason={error}"
+                    )
+                    continue
+                save_state(
+                    state_path,
+                    cursors,
+                    inspection_rejected,
+                    last_request_id,
+                )
+                refreshed = qbit.get_json("/api/v2/torrents/info")
+                write_status(
+                    stack,
+                    status_payload(refreshed, series_by_id, policy),
+                )
+                return 0
+            print(f"NO LATINO PACK PASSED INSPECTION: season=S{season:02d}")
+
         missing = missing_episodes(episodes, seasons, queued, existing_tags, now)
         request_key = str(request["id"])
         missing = rotate_after(missing, cursors.get(request_key))

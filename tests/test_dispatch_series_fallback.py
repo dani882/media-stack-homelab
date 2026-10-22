@@ -93,6 +93,20 @@ class SeriesFallbackTests(unittest.TestCase):
         )
         self.assertIs(selected, private)
 
+    def test_lat_team_is_first_private_source(self) -> None:
+        source = MODULE.source_policy(
+            self.release(
+                "Example.S02E01.SPANiSH.1080p.WEB-DL",
+                "Lat-Team (API) (Prowlarr)",
+                language="Spanish",
+            ),
+            self.policy,
+        )
+        self.assertIsNotNone(source)
+        self.assertEqual(source.name, "lat-team")
+        self.assertEqual(source.priority, 1)
+        self.assertEqual(source.seed_minutes, 4920)
+
     def test_bare_dual_with_unknown_language_is_rejected(self) -> None:
         candidate = self.release(
             "Example.S02E01.Dual.Audio.1080p.WEB-DL",
@@ -276,6 +290,101 @@ class SeriesFallbackTests(unittest.TestCase):
         )
         self.assertEqual([item["id"] for item in missing], [3])
 
+    def test_complete_english_season_is_upgradeable(self) -> None:
+        now = datetime(2026, 9, 27, tzinfo=UTC)
+        episodes = [
+            {
+                "id": number,
+                "seasonNumber": 1,
+                "episodeNumber": number,
+                "monitored": True,
+                "hasFile": True,
+                "episodeFileId": 100 + number,
+                "airDateUtc": "2026-01-01T00:00:00Z",
+            }
+            for number in (1, 2)
+        ]
+        files = {
+            101: {"languages": [{"name": "English"}]},
+            102: {"languages": [{"name": "English"}]},
+        }
+        upgrades = MODULE.upgradeable_seasons(
+            episodes,
+            {1},
+            files,
+            set(),
+            set(),
+            now,
+        )
+        self.assertEqual(
+            [item["id"] for item in upgrades[1]],
+            [1, 2],
+        )
+
+    def test_season_with_latino_file_is_not_replaced(self) -> None:
+        now = datetime(2026, 9, 27, tzinfo=UTC)
+        episodes = [
+            {
+                "id": 1,
+                "seasonNumber": 1,
+                "episodeNumber": 1,
+                "monitored": True,
+                "hasFile": True,
+                "episodeFileId": 101,
+                "airDateUtc": "2026-01-01T00:00:00Z",
+            }
+        ]
+        files = {
+            101: {"customFormats": [{"name": "LATINO"}]},
+        }
+        self.assertEqual(
+            MODULE.upgradeable_seasons(
+                episodes,
+                {1},
+                files,
+                set(),
+                set(),
+                now,
+            ),
+            {},
+        )
+
+    def test_only_approved_private_latino_season_pack_is_selected(self) -> None:
+        good = self.release(
+            "Carrie.2026.S01.1080p.H264.SPANiSH",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish",
+            seasonNumber=1,
+            episodeNumbers=[],
+            fullSeason=True,
+        )
+        rejected_h265 = self.release(
+            "Carrie.2026.S01.1080p.H265.SPANiSH",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish",
+            seasonNumber=1,
+            episodeNumbers=[],
+            fullSeason=True,
+            approved=False,
+            rejected=True,
+        )
+        public = self.release(
+            "Carrie.2026.S01.1080p.H264.Spanish.Latino",
+            "Public (Prowlarr)",
+            language="Spanish (Latino)",
+            seasonNumber=1,
+            episodeNumbers=[],
+            fullSeason=True,
+        )
+        self.assertEqual(
+            MODULE.latino_season_pack_candidates(
+                [rejected_h265, public, good],
+                1,
+                self.policy,
+            ),
+            [good],
+        )
+
     def test_audio_rank_uses_imported_media_metadata(self) -> None:
         self.assertEqual(
             MODULE.detected_audio_rank(
@@ -379,6 +488,50 @@ class SeriesFallbackTests(unittest.TestCase):
             MODULE.stalled_public_torrents(torrents, now, 12),
             [torrents[0]],
         )
+
+    def test_unsafe_public_payload_is_removed_and_blocked(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "tags": "public,series-fallback,release-series-danger",
+        }
+        qbit = mock.Mock()
+        qbit.get_json.return_value = [
+            {"name": "Example.S01E01.1080p.WEB-DL.exe"}
+        ]
+        rejected: set[str] = set()
+
+        self.assertEqual(
+            MODULE.remove_unsafe_public(
+                qbit,
+                [torrent],
+                rejected,
+                True,
+            ),
+            1,
+        )
+        self.assertEqual(rejected, {"release-series-danger"})
+        qbit.post_form.assert_called_once_with(
+            "/api/v2/torrents/delete",
+            {"hashes": "abc", "deleteFiles": "true"},
+        )
+
+    def test_unsafe_private_payload_is_never_deleted_by_public_cleanup(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "tags": "private,series-fallback,release-series-private",
+        }
+        qbit = mock.Mock()
+        self.assertEqual(
+            MODULE.remove_unsafe_public(
+                qbit,
+                [torrent],
+                set(),
+                True,
+            ),
+            0,
+        )
+        qbit.get_json.assert_not_called()
+        qbit.post_form.assert_not_called()
 
     def test_free_space_reserves_candidate_and_safety_floor(self) -> None:
         usage = mock.Mock(free=100 * 1024**3)
