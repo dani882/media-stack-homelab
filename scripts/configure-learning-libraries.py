@@ -35,7 +35,10 @@ def read_api_key(settings_file: Path) -> str:
 class JellyfinClient:
     def __init__(self, base_url: str, api_key: str) -> None:
         self.base_url = base_url.rstrip("/")
-        self.headers = {"X-Emby-Token": api_key, "Content-Type": "application/json"}
+        self.headers = {
+            "Authorization": f'MediaBrowser Token="{api_key}"',
+            "Content-Type": "application/json",
+        }
 
     def request(
         self,

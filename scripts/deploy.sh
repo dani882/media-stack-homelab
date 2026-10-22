@@ -1469,7 +1469,14 @@ echo "Pulling images and applying the stack..."
 
   run_docker_step 'Pulling container images' 20m pull --ignore-buildable
   run_docker_step 'Building the Dominican IPTV helper' 10m build dominican-iptv
-  run_docker_step 'Applying the media stack' 10m up -d
+  run_docker_step 'Applying the media stack' 15m up -d --wait --wait-timeout 600
+
+  if sudo docker ps --format '{{.Names}}' | grep -Fxq profilarr; then
+    run_docker_step 'Refreshing the active Profilarr profile' 10m \
+      --profile profilarr up -d --wait --wait-timeout 300 \
+      profilarr profilarr-parser
+  fi
+
   run_docker_step 'Restarting Prowlarr' 3m restart prowlarr
   run_docker_step 'Reading container status' 2m ps
 

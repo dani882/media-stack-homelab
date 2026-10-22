@@ -1,7 +1,9 @@
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path("scripts/import-docspedia-learning.py")
@@ -12,6 +14,27 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DocsPediaLearningImportTest(unittest.TestCase):
+    @mock.patch.object(MODULE.urllib.request, "urlopen")
+    def test_refresh_uses_jellyfin_12_authorization_header(self, urlopen) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            stack = Path(directory)
+            settings = stack / "config/jellyseerr/settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(
+                json.dumps({"jellyfin": {"apiKey": "local-key"}}),
+                encoding="utf-8",
+            )
+            urlopen.return_value.__enter__.return_value = mock.MagicMock()
+
+            MODULE.refresh_jellyfin(stack)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(
+            request.get_header("Authorization"),
+            'MediaBrowser Token="local-key"',
+        )
+        self.assertIsNone(request.get_header("X-emby-token"))
+
     def test_uses_existing_qbittorrent_secret(self) -> None:
         self.assertEqual(
             MODULE.QBITTORRENT_SECRET,

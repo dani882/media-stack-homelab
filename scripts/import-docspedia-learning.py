@@ -182,7 +182,7 @@ def refresh_jellyfin(stack: Path) -> None:
         return
     request = urllib.request.Request(
         "http://127.0.0.1:8899/Library/Refresh",
-        headers={"X-Emby-Token": api_key},
+        headers={"Authorization": f'MediaBrowser Token="{api_key}"'},
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=30):

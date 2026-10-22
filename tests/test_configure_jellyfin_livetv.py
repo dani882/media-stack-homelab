@@ -19,6 +19,26 @@ SPEC.loader.exec_module(MODULE)
 
 
 class JellyfinLiveTvConfigurationTest(unittest.TestCase):
+    @mock.patch.object(MODULE.urllib.request, "urlopen")
+    def test_uses_jellyfin_12_authorization_header(self, urlopen):
+        response = mock.MagicMock()
+        response.read.return_value = b"{}"
+        urlopen.return_value.__enter__.return_value = response
+
+        MODULE.jellyfin_request(
+            "http://jellyfin",
+            "local-key",
+            "GET",
+            "/System/Info",
+        )
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(
+            request.get_header("Authorization"),
+            'MediaBrowser Token="local-key"',
+        )
+        self.assertIsNone(request.get_header("X-emby-token"))
+
     def test_update_tree_is_idempotent_and_preserves_other_tuners(self):
         root = ET.fromstring(
             """

@@ -581,9 +581,16 @@ Preview the configuration without applying changes with
 
 The Sonarr and Radarr configuration is reconciled idempotently.
 
-Seerr defaults to the reviewed `v3.5.0` image through `SEERR_TAG`. Update that
-value deliberately after reviewing release notes and API changes instead of
-allowing a full deployment to adopt an incompatible `latest` image silently.
+Seerr and the other managed media services use reviewed, explicit image
+versions in `compose.yaml`. Update those pins deliberately after reviewing
+release notes and API changes instead of allowing a full deployment to adopt
+an incompatible `latest` image silently.
+
+Jellyfin 12 upgrades its database on first start. Before changing its image
+pin, create and verify a full media-stack backup. After the first successful
+start, allow its migration and required full library scan to finish before
+judging library health or attempting a rollback. A rollback requires restoring
+the pre-upgrade backup rather than only changing the image tag.
 
 Jellyfin library selection is also configured automatically. The managed
 script uses Seerr 3.5's read-only settings endpoint to inspect state, the
@@ -737,15 +744,15 @@ docker compose \
   --profile profilarr up -d
 ```
 
-Default pilot image channel:
+Reviewed pilot images:
 
 ```text
-ghcr.io/dictionarry-hub/profilarr:latest
-ghcr.io/dictionarry-hub/profilarr-parser:latest
+ghcr.io/dictionarry-hub/profilarr:2.2.0
+ghcr.io/dictionarry-hub/profilarr-parser:2.2.0
 ```
 
-If you want to test a specific release, override `PROFILARR_TAG` in
-`stacks/media/env/.env`.
+Change the Compose image pins on a feature branch when evaluating a newer
+release. This keeps the tested production versions visible in Git.
 
 
 This keeps the evaluation reversible and isolated from the production

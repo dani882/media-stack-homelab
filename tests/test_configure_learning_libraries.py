@@ -23,6 +23,15 @@ class FakeClient:
 
 
 class LearningLibraryTest(unittest.TestCase):
+    def test_uses_jellyfin_12_authorization_header(self) -> None:
+        client = MODULE.JellyfinClient("http://jellyfin", "local-key")
+
+        self.assertEqual(
+            client.headers["Authorization"],
+            'MediaBrowser Token="local-key"',
+        )
+        self.assertNotIn("X-Emby-Token", client.headers)
+
     def test_existing_courses_library_is_idempotent(self) -> None:
         client = FakeClient(
             [{

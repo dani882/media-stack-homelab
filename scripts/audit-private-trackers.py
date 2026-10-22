@@ -357,6 +357,7 @@ def run_audit(
                     "seedingTimeLimit": policy.minimum_seed_minutes,
                     "inactiveSeedingTimeLimit": -2,
                     "shareLimitAction": "Default",
+                    "shareLimitsMode": "Default",
                 },
             )
             print(
@@ -379,6 +380,7 @@ def run_audit(
                     "seedingTimeLimit": -1,
                     "inactiveSeedingTimeLimit": -1,
                     "shareLimitAction": "Default",
+                    "shareLimitsMode": "Default",
                 },
             )
             print(

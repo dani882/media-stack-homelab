@@ -57,7 +57,7 @@ def jellyfin_request(
 ) -> object | None:
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}{path}",
-        headers={"X-Emby-Token": api_key},
+        headers={"Authorization": f'MediaBrowser Token="{api_key}"'},
         method=method,
     )
     try:

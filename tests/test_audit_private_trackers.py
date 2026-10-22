@@ -23,6 +23,46 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PrivateTrackerAuditTest(unittest.TestCase):
+    def test_enforcement_sends_qbittorrent_53_share_limit_mode(self) -> None:
+        class FakeClient:
+            def __init__(self):
+                self.posts = []
+
+            def get_json(self, path):
+                if path == "/api/v2/torrents/info":
+                    return [
+                        {
+                            "hash": "p" * 40,
+                            "private": True,
+                            "progress": 1,
+                            "seeding_time_limit": -1,
+                            "seeding_time": 0,
+                            "uploaded": 0,
+                            "downloaded": 1,
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/trackers?"):
+                    return [{"url": "https://announce.lat-team.com/example"}]
+                if path.startswith("/api/v2/torrents/files?"):
+                    return [{"name": "video.mkv", "priority": 1}]
+                raise AssertionError(f"unexpected request: {path}")
+
+            def post_form(self, path, payload):
+                self.posts.append((path, payload))
+
+        client = FakeClient()
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                MODULE.run_audit(client, enforce_limits=True),
+                0,
+            )
+
+        self.assertEqual(len(client.posts), 1)
+        path, payload = client.posts[0]
+        self.assertEqual(path, "/api/v2/torrents/setShareLimits")
+        self.assertEqual(payload["shareLimitsMode"], "Default")
+        self.assertEqual(payload["shareLimitAction"], "Default")
+
     def test_lat_team_uses_72_hour_policy_plus_margin(self) -> None:
         safe, message = MODULE.audit_torrent(
             {
