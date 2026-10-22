@@ -111,12 +111,13 @@ Private Prowlarr credentials, when configured, are loaded from:
 /volume1/docker/media-stack/secrets/prowlarr-private-indexers.json
 ```
 
-This file currently supports Milnueve, RetroToon World, TorrentHaven,
-DreadVault, BTArg, and DocsPedia credentials. Managed tracker limits use each
-published minimum plus ten hours: Milnueve 106 hours, RetroToon 82 hours,
-TorrentHaven 82 hours, DreadVault 130 hours, and DocsPedia 58 hours. BTArg uses
-ratio 1.0 instead. RetroToon uses Generic Torznab; credentials, cookies, and
-passkeys remain NAS-local.
+This file currently supports Lat-Team, Milnueve, RetroToon World,
+TorrentHaven, DreadVault, BTArg, and DocsPedia credentials. Managed tracker
+limits use each published minimum plus ten hours: Lat-Team 82 hours, Milnueve
+106 hours, RetroToon 82 hours, TorrentHaven 82 hours, DreadVault 130 hours,
+and DocsPedia 58 hours. BTArg uses ratio 1.0 instead. Lat-Team also prohibits
+partial torrent selections. RetroToon uses Generic Torznab; credentials,
+cookies, and passkeys remain NAS-local.
 
 DocsPedia learning content bypasses Seerr and the Arr applications. Prowlarr
 provides interactive search, qBittorrent retains the private torrent, and a

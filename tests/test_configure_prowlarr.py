@@ -118,8 +118,17 @@ class PrivateIndexerLoaderTest(unittest.TestCase):
         )
         self.assertEqual(
             result[0]["minimum_seeders"],
-            5,
+            1,
         )
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.seedTime"],
+            4920,
+        )
+        self.assertEqual(
+            result[0]["fields"]["torrentBaseSettings.packSeedTime"],
+            4920,
+        )
+        self.assertFalse(result[0]["fields"]["freeleech"])
         self.assertEqual(
             result[0]["fields"]["apikey"],
             "test-only",

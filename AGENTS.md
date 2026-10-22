@@ -37,7 +37,11 @@ repository, terminal output, documentation, commits, or chat responses.
 
 ## Tracker priority and retention
 
-- Lat-Team priority 1 is reserved for a future account and is not active.
+- Lat-Team is priority 1 and uses an 82-hour seed-time policy: its 72-hour
+  minimum plus a 10-hour accounting margin. Partial torrent downloads are
+  prohibited. Keep the account ratio at or above 0.25, do not leave completed
+  torrents unseeded for more than five days, and log in to the site at least
+  once every 90 days.
 - BTArg is priority 2 and is the first active Latin-oriented tracker.
 - Milnueve is priority 4 with a 106-hour seed-time policy.
 - RetroToon World is priority 8 with an 82-hour seed-time policy.

@@ -1,8 +1,10 @@
 
 import importlib.util
+import io
 import tempfile
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 
@@ -21,6 +23,62 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PrivateTrackerAuditTest(unittest.TestCase):
+    def test_lat_team_uses_72_hour_policy_plus_margin(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "m" * 40,
+                "progress": 1,
+                "seeding_time_limit": 4920,
+                "seeding_time": 60,
+            },
+            {"announce.lat-team.com"},
+        )
+
+        self.assertTrue(safe)
+        self.assertIn("Lat-Team", message)
+        self.assertIn("remaining=4919m", message)
+
+    def test_lat_team_partial_selection_is_at_risk(self) -> None:
+        safe, message = MODULE.audit_torrent(
+            {
+                "hash": "n" * 40,
+                "progress": 0.5,
+                "seeding_time_limit": 4920,
+                "seeding_time": 0,
+            },
+            {"lat-team.com"},
+            has_skipped_files=True,
+        )
+
+        self.assertFalse(safe)
+        self.assertIn("partial torrent selection", message)
+
+    def test_run_audit_inspects_lat_team_file_selection(self) -> None:
+        class FakeClient:
+            def get_json(self, path):
+                if path == "/api/v2/torrents/info":
+                    return [
+                        {
+                            "hash": "o" * 40,
+                            "private": True,
+                            "progress": 0.5,
+                            "seeding_time_limit": 4920,
+                            "seeding_time": 0,
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/trackers?"):
+                    return [{"url": "https://announce.lat-team.com/example"}]
+                if path.startswith("/api/v2/torrents/files?"):
+                    return [
+                        {"name": "video.mkv", "priority": 1},
+                        {"name": "sample.mkv", "priority": 0},
+                    ]
+                raise AssertionError(f"unexpected request: {path}")
+
+        with redirect_stdout(io.StringIO()):
+            with self.assertRaises(MODULE.PrivateTrackerAuditError):
+                MODULE.run_audit(FakeClient())
+
     def test_matches_known_tracker_subdomain(self) -> None:
         policy = MODULE.matching_policy({"tracker.milnueve.cc"})
 

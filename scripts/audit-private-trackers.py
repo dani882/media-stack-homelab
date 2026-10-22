@@ -37,9 +37,18 @@ class TrackerPolicy:
     minimum_seed_minutes: int | None = None
     minimum_ratio: float | None = None
     completion_window_minutes: int | None = None
+    require_all_files: bool = False
 
 
 TRACKER_POLICIES = (
+    TrackerPolicy(
+        name="Lat-Team",
+        host_suffixes=("lat-team.com",),
+        # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
+        minimum_seed_minutes=4920,
+        # Lat-Team explicitly prohibits partial torrent downloads.
+        require_all_files=True,
+    ),
     TrackerPolicy(
         name="Milnueve",
         host_suffixes=("milnueve.cc",),
@@ -191,6 +200,7 @@ def audit_torrent(
     hosts: set[str],
     *,
     now: float | None = None,
+    has_skipped_files: bool = False,
 ) -> tuple[bool, str]:
     torrent_hash = str(torrent.get("hash", ""))[:12].upper()
     policy = matching_policy(hosts)
@@ -206,6 +216,11 @@ def audit_torrent(
     seeded_minutes = int(torrent.get("seeding_time", 0) or 0) / 60
     complete = float(torrent.get("progress", 0) or 0) >= 1
     prefix = f"{policy.name} hash={torrent_hash}"
+
+    if policy.require_all_files and has_skipped_files:
+        return False, (
+            f"AT RISK {prefix}: partial torrent selection is prohibited"
+        )
 
     if policy.minimum_ratio is not None:
         ratio_limit = float(torrent.get("ratio_limit", -1) or -1)
@@ -316,6 +331,16 @@ def run_audit(
     for torrent in private_torrents:
         hosts = torrent_hosts(client, str(torrent.get("hash", "")))
         policy = matching_policy(hosts)
+        has_skipped_files = False
+        if policy is not None and policy.require_all_files:
+            files = client.get_json(
+                "/api/v2/torrents/files?"
+                + urllib.parse.urlencode({"hash": torrent["hash"]})
+            )
+            has_skipped_files = any(
+                int(file.get("priority", 0) or 0) == 0
+                for file in files
+            )
         limit = int(torrent.get("seeding_time_limit", -1) or -1)
         ratio_limit = float(torrent.get("ratio_limit", -1) or -1)
         if (
@@ -362,7 +387,11 @@ def run_audit(
             )
             torrent = dict(torrent)
             torrent["ratio_limit"] = policy.minimum_ratio
-        safe, message = audit_torrent(torrent, hosts)
+        safe, message = audit_torrent(
+            torrent,
+            hosts,
+            has_skipped_files=has_skipped_files,
+        )
         print(message)
         if not safe:
             failures += 1

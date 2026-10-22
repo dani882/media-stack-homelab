@@ -105,9 +105,10 @@ make dry-run-prowlarr
 
 The stack supports optional private Prowlarr indexers.
 
-Milnueve, BTArg, RetroToon World, Torrent Haven, DreadVault, and DocsPedia are
-production private trackers integrated with the stack. Their credentials remain
-NAS-local and are loaded from the private indexer secret file.
+Lat-Team, Milnueve, BTArg, RetroToon World, Torrent Haven, DreadVault, and
+DocsPedia are production private trackers integrated with the stack. Their
+credentials remain NAS-local and are loaded from the private indexer secret
+file.
 
 All managed private-indexer priorities are numerically ahead of every public
 indexer (lower is preferred by Sonarr/Radarr). This prioritizes a private
@@ -137,6 +138,21 @@ Managed Milnueve policy includes:
 - qBittorrent per-torrent seeding limits
 - cleanup protection that honors tracker-provided seeding limits
 
+Managed Lat-Team policy includes:
+
+- Prowlarr priority `1`, used only after language and acceptable quality
+- minimum seeders `1`
+- 82-hour (`4920` minute) per-torrent seeding requirement: its documented
+  72-hour minimum plus a 10-hour safety margin
+- rejection alerts for partial torrent selections
+- cleanup protection until the complete retention obligation is satisfied
+
+Lat-Team also requires the account ratio to remain at or above `0.25`, limits the
+account to five simultaneous downloads, and does not permit completed torrents
+to remain unseeded for more than five days. Log in to the site at least once
+every 90 days. The always-on NAS and its global three-download qBittorrent
+limit remain within those account rules.
+
 All production private trackers are additionally covered by the periodic
 private-tracker audit. It checks qBittorrent's reported tracker host and
 retention limit without logging announce URLs or passkeys, and treats any
@@ -154,11 +170,16 @@ protected indefinitely. The audit recognizes both the current
 limits users to six simultaneous downloads and eight simultaneous uploads;
 these account-level limits must be respected when scheduling grabs.
 
-Priority `1` is reserved for Lat-Team when credentials become available, and
-BTArg is the second tracker preference among releases that have already passed
-the language and quality policy. Tracker priority never allows an English-only
-release to outrank an acceptable Latino or Castellano release; the language
-order remains `Latino > Castellano > English/original`.
+Lat-Team uses priority `1`, and BTArg is the second tracker preference among
+releases that have already passed the language and quality policy. Tracker
+priority never allows an English-only release to outrank an acceptable Latino
+or Castellano release; the language order remains
+`Latino > Castellano > English/original`.
+
+Install or refresh only the Lat-Team integration with
+`make configure-latteam`. The command deploys the retention and partial-file
+audit, configures the native Prowlarr indexer from the NAS-local API key, and
+runs the private-tracker audit without restarting the media stack.
 
 Install or refresh only this integration with `make configure-btarg`. This
 scoped operation updates the BTArg retention policy, configures and tests the
@@ -399,9 +420,9 @@ affected episode or series so the rest of the daily report can finish.
 
 Time-based private-retention values include a 10-hour accounting margin above
 each tracker's stated rule, because qBittorrent's local timer can run ahead of
-the tracker's credited seeding time. The managed values are 106 hours for
-Milnueve, 82 hours for RetroToon and Torrent Haven, and 130 hours for
-DreadVault, and 58 hours for DocsPedia. BTArg instead uses a 1.0 ratio target. Run
+the tracker's credited seeding time. The managed values are 82 hours for
+Lat-Team, 106 hours for Milnueve, 82 hours for RetroToon and Torrent Haven,
+130 hours for DreadVault, and 58 hours for DocsPedia. BTArg instead uses a 1.0 ratio target. Run
 `make enforce-private-tracker-limits` after a policy change to update existing
 managed torrents as well.
 

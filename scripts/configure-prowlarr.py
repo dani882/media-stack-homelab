@@ -33,10 +33,16 @@ PRIVATE_INDEXERS = {
     "lat-team-api": {
         "definition": "lat-team-api",
         "enabled": True,
-        # Reserved as the primary Latino source when credentials are added.
+        # Primary Latino-oriented tracker. Language/quality acceptance still
+        # runs before this numerical tracker tiebreaker.
         "priority": 1,
-        "minimum_seeders": 5,
-        "fields": {},
+        "minimum_seeders": 1,
+        "fields": {
+            # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
+            "torrentBaseSettings.seedTime": 4920,
+            "torrentBaseSettings.packSeedTime": 4920,
+            "freeleech": False,
+        },
     },
     "chilebt-api": {
         "definition": "chilebt-api",
