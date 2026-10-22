@@ -20,6 +20,51 @@ def quality(quality_id: int, name: str) -> dict:
 
 
 class LanguageFirstQualityGroupTests(unittest.TestCase):
+    def test_custom_format_comparison_ignores_api_help_text(self) -> None:
+        expected = {
+            "name": "LATINO",
+            "specifications": [
+                {
+                    "infoLink": "https://wiki.servarr.com/settings",
+                    "fields": [
+                        {
+                            "name": "value",
+                            "value": "LATINO",
+                        }
+                    ]
+                }
+            ],
+        }
+        current = {
+            "id": 139,
+            "name": "LATINO",
+            "specifications": [
+                {
+                    "infoLink": "https://wiki.servarr.com/radarr/settings",
+                    "fields": [
+                        {
+                            "name": "value",
+                            "value": "LATINO",
+                            "helpText": (
+                                "Custom Format RegEx is Case Insensitive"
+                            ),
+                            "selectOptions": [
+                                {
+                                    "name": "Latino",
+                                    "value": 37,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ],
+        }
+
+        self.assertEqual(
+            CUSTOM_FORMATS.comparable_custom_format(current),
+            CUSTOM_FORMATS.comparable_custom_format(expected),
+        )
+
     def test_language_scores_do_not_override_hard_rejections(self) -> None:
         latino_total = (
             CUSTOM_FORMATS.SCORES["LATINO"]

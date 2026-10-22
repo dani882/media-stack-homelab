@@ -41,6 +41,7 @@ LATINO_TITLE_PATTERN = re.compile(
     + r"LAT(?:INO)?|AUDIO"
     + SEPARATOR
     + r"LAT(?:INO)?|YERISAN710|USERHEVC|URBIN4HD|DAV1NCI|"
+    + r"DUAL[ ._-]*(?:AUDIO[ ._-]*)?LAT(?:INO)?|"
     + r"DUAL[ ._-]*(?:AUDIO[ ._-]*)?"
     + r"(?:SPA[ ._-]*ENG|ENG[ ._-]*SPA|"
     + r"ESP[ ._-]*ENG|ENG[ ._-]*ESP)"
@@ -74,6 +75,19 @@ SPANISH_SUBTITLE_ONLY_PATTERN = re.compile(
     + r"(?:SUBS?|SUBTITLES?)[ ._-]*"
     + r"(?:SPANISH|CASTELLANO|CASTILIAN|ESP(?:AÑOL|ANOL)?|SPA)"
     + TOKEN_END,
+    re.IGNORECASE,
+)
+
+LAT_TEAM_CASTILIAN_PATTERN = re.compile(
+    r"\[\s*CAST\s*\]|"
+    + TOKEN_START
+    + r"(?:CASTELLANO|CASTILIAN)"
+    + TOKEN_END,
+    re.IGNORECASE,
+)
+
+LAT_TEAM_SUBTITLE_ONLY_PATTERN = re.compile(
+    r"\[\s*SUBS?\s*\]",
     re.IGNORECASE,
 )
 
@@ -138,6 +152,48 @@ def language_rank(
     if verified_language == "english":
         return LanguageRank.ENGLISH
 
+    title = str(
+        payload.get("title")
+        or payload.get("relativePath")
+        or ""
+    )
+    indexer = str(payload.get("indexer") or "").casefold()
+    languages = {
+        item.get("name", "")
+        for item in payload.get(
+            "languages",
+            [],
+        )
+    }
+    subtitle_only_spanish = bool(
+        SPANISH_SUBTITLE_ONLY_PATTERN.search(title)
+    )
+
+    # Lat-Team's tracker tags distinguish Castellano and subtitle-only
+    # releases explicitly. A generic Spanish marker from this indexer is
+    # therefore Latino unless [CAST] or [SUBS] says otherwise. Do this
+    # before Servarr custom formats because its generic SPANISH rule labels
+    # the same release as CASTELLANO.
+    if "lat-team" in indexer:
+        if LAT_TEAM_CASTILIAN_PATTERN.search(title):
+            return LanguageRank.CASTILIAN
+
+        if (
+            subtitle_only_spanish
+            or LAT_TEAM_SUBTITLE_ONLY_PATTERN.search(title)
+        ):
+            if "English" in languages:
+                return LanguageRank.ENGLISH
+            return LanguageRank.UNKNOWN
+
+        if (
+            LATINO_TITLE_PATTERN.search(title)
+            or "Spanish (Latino)" in languages
+            or "Spanish" in languages
+            or CASTILIAN_TITLE_PATTERN.search(title)
+        ):
+            return LanguageRank.LATINO
+
     if _has_prefix(
         payload,
         LATINO_FORMAT_PREFIXES,
@@ -150,28 +206,10 @@ def language_rank(
     ):
         return LanguageRank.CASTILIAN
 
-    title = str(
-        payload.get("title")
-        or payload.get("relativePath")
-        or ""
-    )
-
     # A specific Latino title marker is more informative than
     # generic "Spanish" metadata returned by Servarr/indexers.
     if LATINO_TITLE_PATTERN.search(title):
         return LanguageRank.LATINO
-
-    subtitle_only_spanish = bool(
-        SPANISH_SUBTITLE_ONLY_PATTERN.search(title)
-    )
-
-    languages = {
-        item.get("name", "")
-        for item in payload.get(
-            "languages",
-            [],
-        )
-    }
 
     if "Spanish (Latino)" in languages:
         return LanguageRank.LATINO

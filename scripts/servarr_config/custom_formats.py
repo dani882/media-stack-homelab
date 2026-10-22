@@ -85,8 +85,19 @@ def load_definitions(path: Path) -> list[dict[str, Any]]:
 def comparable_custom_format(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    comparable = dict(payload)
+    comparable = json.loads(json.dumps(payload))
     comparable.pop("id", None)
+
+    for specification in comparable.get("specifications", []):
+        # Servarr rewrites documentation links per application/version.
+        # They do not affect matching behavior.
+        specification.pop("infoLink", None)
+        for field in specification.get("fields", []):
+            # Servarr adds this presentation-only value to API responses.
+            # It is not accepted as part of the source definition and must
+            # not make every reconciliation look different.
+            field.pop("helpText", None)
+            field.pop("selectOptions", None)
 
     return comparable
 
