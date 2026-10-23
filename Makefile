@@ -350,8 +350,7 @@ grab-prowlarr-release:
 
 dispatch-private-seerr:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \
-	  "sudo -n python3 -u - $(if $(APPLY),--apply)" \
-	  < scripts/dispatch-private-seerr.py
+	  "sudo -n python3 -u /volume1/docker/media-stack/dispatch-private-seerr.py $(if $(REQUEST_ID),--request-id '$(REQUEST_ID)') $(if $(APPLY),--apply)"
 
 dispatch-series-fallback:
 	@$(SSH) "$${NAS_USER:-jrivera}@$${NAS_HOST:-ugreen-nas}" \

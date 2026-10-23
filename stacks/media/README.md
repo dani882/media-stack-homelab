@@ -302,14 +302,18 @@ uploaded bytes, downloaded bytes, seeding status, and any compliance risk in
 Torrent Haven's web UI because its API integration does not expose a stable
 account-statistics endpoint.
 
-### Scheduled private-request dispatcher
+### Scheduled monitored-movie dispatcher
 
-`media-stack-private-dispatch.timer` evaluates outstanding Seerr movie
-requests every 30 minutes. It uses only known private indexers, requires an
-exact TMDB match, one or more seeders, and at least 720p. Candidates are ranked
-by language first (`Latino > Castellano > English/original`) and only then by
-tracker priority. New requests wait 14 days for Spanish before an English
-private fallback becomes eligible. Public releases are never dispatched.
+`media-stack-private-dispatch.timer` evaluates every monitored Radarr movie
+every 30 minutes, including titles that no longer have an active Seerr request.
+It uses only known private indexers, requires an exact TMDB match, one or more
+seeders, and at least 720p. Candidates are ranked by language first
+(`Latino > Castellano > English/original`) and only then by tracker priority:
+Lat-Team is priority 1, followed by BTArg at 2 and Milnueve at 4. New missing
+movies wait 14 days for Spanish before an English private fallback becomes
+eligible. An existing file is replaced only by a higher-ranked language, and
+audio metadata protects files that already contain Spanish. Public releases
+are never dispatched.
 If an imported file is later removed as incorrect, its completed Seerr request
 becomes eligible again. Each dispatched release has a stable fingerprint, so a
 `language-mismatch` torrent blocks only that bad release while other private
@@ -323,7 +327,10 @@ incorrectly classified the release as Spanish audio.
 
 Use `make dispatch-private-seerr` to run the same evaluation on demand. The
 explicit `APPLY=1 make dispatch-private-seerr` path is idempotent: it refuses a
-request that already has a `seerr-request-<id>` qBittorrent tag.
+movie that already has a `radarr-movie-<id>` qBittorrent tag. Each run searches
+at most eight movies and starts at most one download; no more than two managed
+movie downloads may be active concurrently. A persistent cursor rotates
+through the monitored library so one unavailable title cannot starve the rest.
 
 ### Stalled public download cleanup
 
@@ -371,18 +378,21 @@ tagged `btarg-import-review` and retained for investigation.
 
 ### Guarded series fallback
 
-`media-stack-series-fallback.timer` fills missing episodes from approved Seerr
-series requests without enabling unrestricted public automatic search. It
+`media-stack-series-fallback.timer` fills or upgrades aired episodes across
+every monitored Sonarr series, whether or not it still has an active Seerr
+request, without enabling unrestricted public automatic search. It
 checks exact episode coverage accepted by Sonarr, ranks language first
 (`Latino > Castellano > English/original`), then prefers private trackers over
 public trackers for an equal language. Bare `Dual Audio`, unknown language,
 x265/AV1 bans, unsafe titles, rejected qualities, and weak public swarms are
 excluded. A season pack is accepted only when both Sonarr's release metadata
-and the paused torrent members cover exactly every currently missing episode
-in that season; partial, extra, or ambiguous packs are rejected.
+and the paused torrent members cover exactly every aired monitored episode in
+that season; partial, extra, or ambiguous packs are rejected. The pack may
+fill a partially available season, but only missing or non-Spanish episodes
+receive upgrade tracking tags; existing Spanish audio remains protected.
 
-The same timer also upgrades a complete monitored season whose existing files
-are below Latino when Sonarr approves a private Latino season pack. Lat-Team is
+The same timer also upgrades monitored English/original episodes when Sonarr
+approves a private Latino season pack. Lat-Team is
 priority 1, followed by BTArg at priority 2 and Milnueve at priority 4. The
 candidate is added stopped and must contain exactly one safe video for every
 aired monitored episode before it starts. Existing Latino seasons are never

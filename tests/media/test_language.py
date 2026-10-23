@@ -11,6 +11,18 @@ from scripts.media.common.language import (
 
 
 class LanguageUpgradeTest(unittest.TestCase):
+    def test_audio_metadata_protects_existing_spanish(self) -> None:
+        self.assertEqual(
+            language_rank({"mediaInfo": {"audioLanguages": "spa/eng"}}),
+            LanguageRank.CASTILIAN,
+        )
+
+    def test_audio_metadata_recognizes_english(self) -> None:
+        self.assertEqual(
+            language_rank({"mediaInfo": {"audioLanguages": "eng"}}),
+            LanguageRank.ENGLISH,
+        )
+
     def test_btarg_verified_language_is_authoritative(self) -> None:
         self.assertEqual(
             language_rank(

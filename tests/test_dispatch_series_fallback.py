@@ -321,6 +321,71 @@ class SeriesFallbackTests(unittest.TestCase):
             [1, 2],
         )
 
+    def test_partial_season_targets_missing_and_english_only_episodes(self) -> None:
+        now = datetime(2026, 9, 27, tzinfo=UTC)
+        episodes = [
+            {
+                "id": 1,
+                "seasonNumber": 1,
+                "episodeNumber": 1,
+                "monitored": True,
+                "hasFile": True,
+                "episodeFileId": 101,
+                "airDateUtc": "2026-01-01T00:00:00Z",
+            },
+            {
+                "id": 2,
+                "seasonNumber": 1,
+                "episodeNumber": 2,
+                "monitored": True,
+                "hasFile": True,
+                "episodeFileId": 102,
+                "airDateUtc": "2026-01-02T00:00:00Z",
+            },
+            {
+                "id": 3,
+                "seasonNumber": 1,
+                "episodeNumber": 3,
+                "monitored": True,
+                "hasFile": False,
+                "episodeFileId": 0,
+                "airDateUtc": "2026-01-03T00:00:00Z",
+            },
+        ]
+        files = {
+            101: {"languages": [{"name": "English"}]},
+            102: {"languages": [{"name": "Spanish"}]},
+        }
+        upgrades = MODULE.upgradeable_seasons(
+            episodes, {1}, files, set(), set(), now
+        )
+        self.assertEqual([item["id"] for item in upgrades[1]], [1, 3])
+
+    def test_monitored_series_without_seerr_request_is_targeted(self) -> None:
+        targets = MODULE.monitored_series_targets(
+            [
+                {
+                    "id": 7,
+                    "tvdbId": 451098,
+                    "monitored": True,
+                    "added": "2026-01-01T00:00:00Z",
+                    "seasons": [
+                        {"seasonNumber": 0, "monitored": True},
+                        {"seasonNumber": 1, "monitored": True},
+                        {"seasonNumber": 2, "monitored": False},
+                    ],
+                }
+            ],
+            [],
+        )
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0]["id"], -7)
+        self.assertEqual(MODULE.requested_seasons(targets[0]), {1})
+        self.assertEqual(
+            MODULE.target_tags(targets[0], {"id": 7}),
+            ["monitored-series-7"],
+        )
+
     def test_season_with_latino_file_is_not_replaced(self) -> None:
         now = datetime(2026, 9, 27, tzinfo=UTC)
         episodes = [
@@ -383,6 +448,25 @@ class SeriesFallbackTests(unittest.TestCase):
                 self.policy,
             ),
             [good],
+        )
+
+    def test_equal_revision_rejection_does_not_hide_missing_pack_episodes(self) -> None:
+        release = self.release(
+            "Ranma.1.2.2024.S01.1080p.H264.SPANiSH",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish",
+            seasonNumber=1,
+            episodeNumbers=[],
+            fullSeason=True,
+            approved=False,
+            rejected=True,
+        )
+        release["rejections"] = [
+            "Existing file on disk is of equal or higher preference: v2"
+        ]
+        self.assertEqual(
+            MODULE.latino_season_pack_candidates([release], 1, self.policy),
+            [release],
         )
 
     def test_audio_rank_uses_imported_media_metadata(self) -> None:
@@ -464,6 +548,21 @@ class SeriesFallbackTests(unittest.TestCase):
             )
         get_json.assert_not_called()
         qbit.post_form.assert_not_called()
+
+    def test_manually_stopped_download_does_not_consume_active_cap(self) -> None:
+        active = MODULE.active_fallback_torrents(
+            [
+                {
+                    "tags": "private,series-fallback",
+                    "state": "stoppedDL",
+                },
+                {
+                    "tags": "private,series-fallback",
+                    "state": "downloading",
+                },
+            ]
+        )
+        self.assertEqual(len(active), 1)
 
     def test_only_old_stalled_public_fallback_is_removable(self) -> None:
         now = 1_000_000

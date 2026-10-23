@@ -93,6 +93,7 @@ LAT_TEAM_SUBTITLE_ONLY_PATTERN = re.compile(
 
 OVERRIDABLE_REJECTION_PREFIXES = (
     "Existing file on disk is of equal or higher preference",
+    "Existing file on disk is of equal or higher revision",
 )
 
 PRIVATE_INDEXER_MARKERS = (
@@ -165,6 +166,18 @@ def language_rank(
             [],
         )
     }
+    audio_values = {
+        value.strip().casefold()
+        for value in re.split(
+            r"[,/;|]+",
+            str(
+                payload.get("audioLanguages")
+                or (payload.get("mediaInfo") or {}).get("audioLanguages")
+                or ""
+            ),
+        )
+        if value.strip()
+    }
     subtitle_only_spanish = bool(
         SPANISH_SUBTITLE_ONLY_PATTERN.search(title)
     )
@@ -218,10 +231,16 @@ def language_rank(
         "Spanish" in languages
         or "Spanish (Spain)" in languages
         or "Castilian" in languages
+        or bool(
+            audio_values
+            & {"es", "esl", "spa", "spanish", "castilian", "latino"}
+        )
     ):
         return LanguageRank.CASTILIAN
 
-    if "English" in languages:
+    if "English" in languages or bool(
+        audio_values & {"en", "eng", "english"}
+    ):
         return LanguageRank.ENGLISH
 
     if (

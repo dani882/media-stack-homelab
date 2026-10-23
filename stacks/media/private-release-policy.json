@@ -2,7 +2,9 @@
   "automaticPrivateGrab": {
     "minimumLanguage": "castilian",
     "minimumTitleResolution": 720,
-    "englishFallbackAfterDays": 14
+    "englishFallbackAfterDays": 14,
+    "maxMovieSearchesPerRun": 8,
+    "maxActiveDownloads": 2
   },
   "automaticSeriesFallback": {
     "minimumTitleResolution": 720,

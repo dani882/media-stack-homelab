@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodically evaluate eligible private Seerr movie candidates
+Description=Periodically evaluate monitored movie language candidates
 
 [Timer]
 OnBootSec=15min

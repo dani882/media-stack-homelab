@@ -15,6 +15,11 @@ SPEC.loader.exec_module(MODULE)
 class PrivateDispatcherTests(unittest.TestCase):
     def setUp(self) -> None:
         self.indexers = {
+            12: {
+                "tracker": "lat-team",
+                "priority": 1,
+                "minimum_seeders": 1,
+            },
             11: {
                 "tracker": "btarg",
                 "priority": 2,
@@ -64,6 +69,83 @@ class PrivateDispatcherTests(unittest.TestCase):
         )
         self.assertEqual(selected["indexerId"], 11)
 
+    def test_lat_team_wins_equal_language_tie(self) -> None:
+        selected = MODULE.select_candidate(
+            [
+                self.release(11, "Example Spanish Latino 1080p"),
+                self.release(12, "Example Spanish Latino 1080p"),
+            ],
+            123,
+            self.indexers,
+            "latino",
+            720,
+        )
+        self.assertEqual(selected["indexerId"], 12)
+
+    def test_existing_movie_requires_real_language_upgrade(self) -> None:
+        selected = MODULE.select_candidate(
+            [self.release(12, "Example English 1080p")],
+            123,
+            self.indexers,
+            "english",
+            720,
+            {"languages": [{"name": "English"}]},
+        )
+        self.assertIsNone(selected)
+
+    def test_all_monitored_non_latino_movies_are_targets(self) -> None:
+        movies = [
+            {
+                "id": 1,
+                "tmdbId": 101,
+                "monitored": True,
+                "hasFile": True,
+                "movieFile": {"languages": [{"name": "English"}]},
+            },
+            {
+                "id": 2,
+                "tmdbId": 102,
+                "monitored": True,
+                "hasFile": True,
+                "movieFile": {"customFormats": [{"name": "LATINO"}]},
+            },
+            {
+                "id": 5,
+                "tmdbId": 105,
+                "monitored": True,
+                "hasFile": True,
+                "movieFile": {"mediaInfo": {"audioLanguages": "spa/eng"}},
+            },
+            {"id": 3, "tmdbId": 103, "monitored": True, "hasFile": False},
+            {"id": 4, "tmdbId": 104, "monitored": False, "hasFile": False},
+        ]
+        targets = MODULE.monitored_movie_targets(movies, [])
+        self.assertEqual([item["movie"]["id"] for item in targets], [1, 3])
+
+    def test_movie_rotation_continues_after_last_checked_item(self) -> None:
+        targets = [
+            {"movie": {"id": 1}},
+            {"movie": {"id": 2}},
+            {"movie": {"id": 3}},
+        ]
+        rotated = MODULE.rotate_movie_targets(targets, 2)
+        self.assertEqual([item["movie"]["id"] for item in rotated], [3, 1, 2])
+
+    def test_active_private_dispatch_cap_ignores_completed_items(self) -> None:
+        self.assertEqual(
+            MODULE.active_private_dispatches(
+                [
+                    {"tags": "private-dispatch", "progress": 0.5},
+                    {"tags": "private-dispatch", "progress": 1},
+                    {
+                        "tags": "private-dispatch,language-mismatch",
+                        "progress": 0.2,
+                    },
+                ]
+            ),
+            1,
+        )
+
     def test_dangerous_release_is_never_selected(self) -> None:
         selected = MODULE.select_candidate(
             [self.release(11, "Example Spanish Latino 1080p zipx")],
@@ -101,6 +183,24 @@ class PrivateDispatcherTests(unittest.TestCase):
         self.assertTrue(
             MODULE.matches_policy(
                 {"id": 99, "name": "BTArg", "definitionName": "btarg"},
+                policy,
+            )
+        )
+
+    def test_lat_team_policy_is_priority_one(self) -> None:
+        policy = next(
+            item
+            for item in MODULE.PRIVATE_INDEXER_POLICIES
+            if item["tracker"] == "lat-team"
+        )
+        self.assertEqual(policy["priority"], 1)
+        self.assertTrue(
+            MODULE.matches_policy(
+                {
+                    "id": 12,
+                    "name": "Lat-Team (API)",
+                    "definitionName": "lat-team-api",
+                },
                 policy,
             )
         )

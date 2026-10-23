@@ -1,5 +1,5 @@
 [Unit]
-Description=Evaluate safe private releases for outstanding Seerr movie requests
+Description=Evaluate safe private releases for all monitored Radarr movies
 After=network.target docker.service
 
 [Service]

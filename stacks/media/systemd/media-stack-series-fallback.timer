@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodically fill missing requested TV episodes with guarded fallbacks
+Description=Periodically fill or upgrade monitored TV episodes
 
 [Timer]
 OnBootSec=25min

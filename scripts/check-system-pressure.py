@@ -7,6 +7,7 @@ import argparse
 import datetime
 import json
 import os
+import os
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -121,9 +122,15 @@ def write_state(path: Path, current: PressureSnapshot, reasons: list[str]) -> No
         "reasons": reasons,
         "metrics": asdict(current),
     }
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main() -> int:

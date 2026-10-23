@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Dispatch the best safe private release for outstanding Seerr movies.
+"""Dispatch the best safe private release for monitored Radarr movies.
 
-Language is ranked before tracker priority. New requests wait for Spanish;
+Language is ranked before tracker priority. Missing movies wait for Spanish;
 after the configured grace period an English/original private fallback may be
-used. Public indexers are never queried by this dispatcher.
+used. Existing files are only replaced by a higher-ranked language. Public
+indexers are never queried by this dispatcher.
 """
 
 import argparse
@@ -38,6 +39,14 @@ SPEC.loader.exec_module(GRAB)
 
 
 PRIVATE_INDEXER_POLICIES: tuple[dict[str, Any], ...] = (
+    {
+        "definition": "lat-team-api",
+        "tracker": "lat-team",
+        "priority": 1,
+        "minimum_seeders": 1,
+        "seed_minutes": 4920,
+        "ratio_limit": None,
+    },
     {
         "definition": "btarg",
         "tracker": "btarg",
@@ -135,6 +144,16 @@ def existing_request_tags(qbit: QBittorrentClient) -> set[str]:
     }
 
 
+def active_dispatch_tags(qbit: QBittorrentClient) -> set[str]:
+    return {
+        tag
+        for torrent in qbit.get_json("/api/v2/torrents/info")
+        if "language-mismatch" not in torrent_tag_set(torrent)
+        for tag in torrent_tag_set(torrent)
+        if tag.startswith(("seerr-request-", "radarr-movie-"))
+    }
+
+
 def blocked_release_tags(qbit: QBittorrentClient) -> set[str]:
     return {
         tag
@@ -198,16 +217,25 @@ def read_dispatch_policy(policy_file: Path) -> dict[str, Any]:
     minimum_language = str(automatic["minimumLanguage"])
     minimum_resolution = int(automatic["minimumTitleResolution"])
     fallback_days = automatic.get("englishFallbackAfterDays")
+    max_searches = int(automatic.get("maxMovieSearchesPerRun", 8))
+    max_active = int(automatic.get("maxActiveDownloads", 2))
     if fallback_days is not None:
         fallback_days = int(fallback_days)
         if fallback_days < 1:
             raise GRAB.GrabError("englishFallbackAfterDays must be positive")
-    if minimum_language not in GRAB.LANGUAGE_FLOORS or minimum_resolution < 0:
+    if (
+        minimum_language not in GRAB.LANGUAGE_FLOORS
+        or minimum_resolution < 0
+        or max_searches < 1
+        or max_active < 1
+    ):
         raise GRAB.GrabError("Invalid automatic private-grab policy")
     return {
         "minimum_language": minimum_language,
         "minimum_resolution": minimum_resolution,
         "english_fallback_days": fallback_days,
+        "max_searches": max_searches,
+        "max_active_downloads": max_active,
     }
 
 
@@ -255,6 +283,7 @@ def select_candidate(
     indexers: dict[int, dict[str, Any]],
     minimum_language: str,
     minimum_resolution: int,
+    installed: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     candidates = [
         release
@@ -270,11 +299,92 @@ def select_candidate(
             minimum_language,
             minimum_resolution,
         )
+        and (
+            installed is None
+            or language_rank(release) > language_rank(installed)
+        )
     ]
     if not candidates:
         return None
     candidates.sort(key=lambda item: candidate_sort_key(item, indexers))
     return candidates[0]
+
+
+def monitored_movie_targets(
+    movies: list[dict[str, Any]],
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    requests_by_tmdb = {
+        int(item["media"]["tmdbId"]): item
+        for item in requests
+        if isinstance(item.get("media"), dict)
+        and int(item["media"].get("tmdbId", 0) or 0) > 0
+    }
+    targets: list[dict[str, Any]] = []
+    for movie in movies:
+        tmdb_id = int(movie.get("tmdbId", 0) or 0)
+        if not movie.get("monitored") or tmdb_id <= 0:
+            continue
+        movie_file = movie.get("movieFile") if movie.get("hasFile") else None
+        if movie_file and language_rank(movie_file) >= GRAB.LanguageRank.CASTILIAN:
+            continue
+        request = requests_by_tmdb.get(tmdb_id)
+        targets.append(
+            {
+                "movie": movie,
+                "request": request,
+                "createdAt": (
+                    str(request.get("createdAt") or "")
+                    if request
+                    else str(movie.get("added") or "")
+                ),
+            }
+        )
+    return sorted(
+        targets,
+        key=lambda item: int(item["movie"].get("id", 0) or 0),
+    )
+
+
+def rotate_movie_targets(
+    targets: list[dict[str, Any]], last_movie_id: int | None
+) -> list[dict[str, Any]]:
+    if last_movie_id is None:
+        return targets
+    for index, target in enumerate(targets):
+        if int(target["movie"]["id"]) == last_movie_id:
+            return targets[index + 1 :] + targets[: index + 1]
+    return targets
+
+
+def read_last_movie_id(path: Path) -> int | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        value = payload.get("lastMovieId")
+        return int(value) if value is not None else None
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def write_last_movie_id(path: Path, movie_id: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps({"lastMovieId": movie_id}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def active_private_dispatches(torrents: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for torrent in torrents
+        if "private-dispatch" in torrent_tag_set(torrent)
+        and "language-mismatch" not in torrent_tag_set(torrent)
+        and float(torrent.get("progress", 0) or 0) < 1
+    )
 
 
 def enrich_btarg_candidates(
@@ -333,11 +443,14 @@ def main() -> int:
         stack / "secrets/prowlarr-private-indexers.json",
         BTArgCache(stack / "state/btarg-language-cache.json"),
     )
-    pending = requests_to_dispatch(stack)
+    requests = requests_to_dispatch(stack)
     if args.request_id is not None:
-        pending = [item for item in pending if int(item.get("id", -1)) == args.request_id]
+        requests = [item for item in requests if int(item.get("id", -1)) == args.request_id]
+    pending = monitored_movie_targets(radarr_movies, requests)
+    if args.request_id is not None:
+        pending = [item for item in pending if item["request"] is not None]
     if not pending:
-        print("PRIVATE DISPATCH OK: no eligible outstanding movie requests")
+        print("PRIVATE DISPATCH OK: no monitored movies need language attention")
         return 0
     if not indexers:
         print("PRIVATE DISPATCH OK: no supported private indexers are active")
@@ -346,19 +459,39 @@ def main() -> int:
     username, password = read_credentials(stack / "secrets/qbittorrent.json")
     qbit = QBittorrentClient("http://127.0.0.1:8888", username, password)
     qbit.login()
-    dispatched_tags = existing_request_tags(qbit)
+    torrents = qbit.get_json("/api/v2/torrents/info")
+    active = active_private_dispatches(torrents)
+    if args.apply and active >= int(policy["max_active_downloads"]):
+        print(
+            "PRIVATE DISPATCH CAP: "
+            f"active={active} max={policy['max_active_downloads']}"
+        )
+        return 0
+    dispatched_tags = active_dispatch_tags(qbit)
     blocked_tags = blocked_release_tags(qbit)
 
     now = datetime.now(UTC)
-    for request in pending:
-        media = request["media"]
-        tmdb_id = int(media["tmdbId"])
-        movie = movie_by_tmdb.get(tmdb_id, {})
-        title = str(movie.get("title") or media.get("title") or tmdb_id)
-        request_tag = f"seerr-request-{request['id']}"
-        if request_tag in dispatched_tags:
-            print(f"ALREADY DISPATCHED: request={request['id']} tmdb={tmdb_id}")
+    state_path = stack / "state/private-dispatch.json"
+    last_movie_id = read_last_movie_id(state_path)
+    searches = 0
+    for target in rotate_movie_targets(pending, last_movie_id):
+        movie = target["movie"]
+        request = target["request"]
+        tmdb_id = int(movie["tmdbId"])
+        movie_id = int(movie["id"])
+        title = str(movie.get("title") or tmdb_id)
+        movie_tag = f"radarr-movie-{movie_id}"
+        request_tag = f"seerr-request-{request['id']}" if request else None
+        if movie_tag in dispatched_tags or (
+            request_tag is not None and request_tag in dispatched_tags
+        ):
+            print(f"ALREADY DISPATCHED: movie={movie_id} tmdb={tmdb_id}")
             continue
+
+        if searches >= int(policy["max_searches"]):
+            break
+        searches += 1
+        last_movie_id = movie_id
 
         releases: list[dict[str, Any]] = []
         for indexer_id in indexers:
@@ -374,11 +507,16 @@ def main() -> int:
                 )
             except GRAB.GrabError as error:
                 print(
-                    f"INDEXER SKIP: request={request['id']} "
+                    f"INDEXER SKIP: movie={movie_id} "
                     f"indexer={indexer_id} reason={error}"
                 )
 
-        minimum_language = language_floor_for_request(request, policy, now)
+        movie_file = movie.get("movieFile") if movie.get("hasFile") else None
+        minimum_language = (
+            "latino"
+            if movie_file
+            else language_floor_for_request(target, policy, now)
+        )
         releases = enrich_btarg_candidates(
             releases,
             tmdb_id,
@@ -397,10 +535,11 @@ def main() -> int:
             indexers,
             minimum_language,
             int(policy["minimum_resolution"]),
+            movie_file,
         )
         if release is None:
             print(
-                f"NO PRIVATE CANDIDATE: request={request['id']} tmdb={tmdb_id} "
+                f"NO PRIVATE CANDIDATE: movie={movie_id} tmdb={tmdb_id} "
                 f"language-floor={minimum_language}"
             )
             continue
@@ -408,11 +547,22 @@ def main() -> int:
         indexer_id = int(release["indexerId"])
         indexer = indexers[indexer_id]
         fingerprint_tag = release_tag(release, indexers)
-        tags = f"private,{indexer['tracker']},{request_tag},{fingerprint_tag}"
+        tag_values = [
+            "private",
+            str(indexer["tracker"]),
+            "private-dispatch",
+            movie_tag,
+            fingerprint_tag,
+        ]
+        if request_tag:
+            tag_values.append(request_tag)
+        if movie_file:
+            tag_values.append("movie-language-upgrade")
+        tags = ",".join(tag_values)
         actual_language = language_rank(release).name.lower()
         print(
             f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'} "
-            f"request={request['id']} tmdb={tmdb_id} indexer={indexer_id} "
+            f"movie={movie_id} tmdb={tmdb_id} indexer={indexer_id} "
             f"language={actual_language} release={fingerprint_tag} "
             f"title={release['title']}"
         )
@@ -435,7 +585,12 @@ def main() -> int:
                 ratio_limit=indexer["ratio_limit"],
                 display_name=display_name,
             )
-            dispatched_tags.add(request_tag)
+            dispatched_tags.add(movie_tag)
+            write_last_movie_id(state_path, movie_id)
+            return 0
+    if args.apply and last_movie_id is not None:
+        write_last_movie_id(state_path, last_movie_id)
+    print(f"PRIVATE DISPATCH OK: searched={searches} dispatched=0")
     return 0
 
 

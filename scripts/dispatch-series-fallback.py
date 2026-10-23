@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dispatch one guarded fallback for a missing requested TV episode.
+"""Dispatch one guarded fallback or upgrade for monitored TV episodes.
 
 Candidates are ranked by language first, then by private/public source and
 tracker priority.  Only exact single-episode torrents accepted by Sonarr are
@@ -52,7 +52,12 @@ for module_dir in (SCRIPT_ROOT / "media", STACK / "scripts"):
         sys.path.insert(0, str(module_dir))
 
 from common.btarg import BTArgCache, BTArgClient, BTArgError, enrich_release
-from common.language import LanguageRank, language_rank
+from common.language import (
+    LanguageRank,
+    language_rank,
+    rejection_is_overridable,
+    rejection_reasons,
+)
 from common.qbittorrent import QBittorrentClient, read_credentials
 from common.release_safety import (
     dangerous_release_title,
@@ -149,6 +154,74 @@ def requested_seasons(request: dict[str, Any]) -> set[int]:
         if int(item.get("seasonNumber", 0) or 0) > 0
         and item.get("status") in {2, 5}
     }
+
+
+def monitored_seasons(series: dict[str, Any]) -> set[int]:
+    return {
+        int(item["seasonNumber"])
+        for item in series.get("seasons", [])
+        if int(item.get("seasonNumber", 0) or 0) > 0
+        and item.get("monitored") is True
+    }
+
+
+def monitored_series_targets(
+    series_items: list[dict[str, Any]],
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    requests_by_tvdb = {
+        int(item["media"]["tvdbId"]): dict(item)
+        for item in requests
+        if isinstance(item.get("media"), dict)
+        and int(item["media"].get("tvdbId", 0) or 0) > 0
+    }
+    targets: list[dict[str, Any]] = []
+    for series in series_items:
+        tvdb_id = int(series.get("tvdbId", 0) or 0)
+        seasons = monitored_seasons(series)
+        if not series.get("monitored") or tvdb_id <= 0 or not seasons:
+            continue
+        request = requests_by_tvdb.get(tvdb_id)
+        requested = requested_seasons(request) if request else set()
+        target = dict(request or {})
+        target.update(
+            {
+                "id": (
+                    int(request["id"])
+                    if request
+                    else -int(series["id"])
+                ),
+                "createdAt": (
+                    str(request.get("createdAt") or "")
+                    if request
+                    else str(series.get("added") or "")
+                ),
+                "media": {"tvdbId": tvdb_id},
+                "seasons": [
+                    {"seasonNumber": number, "status": 2}
+                    for number in sorted(seasons | requested)
+                ],
+                "monitoredSeriesId": int(series["id"]),
+            }
+        )
+        targets.append(target)
+    return sorted(targets, key=lambda item: int(item["monitoredSeriesId"]))
+
+
+def target_tags(request: dict[str, Any], series: dict[str, Any]) -> list[str]:
+    tags = [f"monitored-series-{int(series['id'])}"]
+    if int(request.get("id", 0) or 0) > 0:
+        tags.append(f"seerr-request-{int(request['id'])}")
+    return tags
+
+
+def target_label(request: dict[str, Any]) -> str:
+    request_id = int(request.get("id", 0) or 0)
+    return (
+        f"request={request_id}"
+        if request_id > 0
+        else f"monitored-series={int(request['monitoredSeriesId'])}"
+    )
 
 
 def read_policy(path: Path) -> dict[str, Any]:
@@ -433,6 +506,7 @@ def active_fallback_torrents(torrents: list[dict[str, Any]]) -> list[dict[str, A
         if (
             "series-fallback-import-verified" not in tags
             and "language-mismatch" not in tags
+            and str(torrent.get("state") or "") not in {"stoppedDL", "pausedDL"}
         ):
             active.append(torrent)
     return active
@@ -819,23 +893,29 @@ def upgradeable_seasons(
     for season, season_episodes in by_season.items():
         if not season_episodes:
             continue
-        safe = True
+        targets: list[dict[str, Any]] = []
         for episode in season_episodes:
             episode_id = int(episode["id"])
             file_id = int(episode.get("episodeFileId", 0) or 0)
             episode_file = files_by_id.get(file_id)
-            if (
+            current_rank = language_rank(episode_file)
+            needs_latino = (
                 not episode.get("hasFile")
                 or episode_file is None
-                or episode_id in queued
+                or current_rank < LanguageRank.CASTILIAN
+            )
+            if not needs_latino:
+                continue
+            if (
+                episode_id in queued
                 or f"sonarr-episode-{episode_id}" in inflight_tags
-                or language_rank(episode_file) >= LanguageRank.LATINO
             ):
-                safe = False
+                targets = []
                 break
-        if safe:
+            targets.append(episode)
+        if targets:
             result[season] = sorted(
-                season_episodes,
+                targets,
                 key=lambda item: int(item.get("episodeNumber", 0)),
             )
     return result
@@ -855,8 +935,17 @@ def latino_season_pack_candidates(
             and source.private
             and release.get("fullSeason") is True
             and int(release.get("seasonNumber", -1) or -1) == season
-            and release.get("approved") is True
-            and not release.get("rejected", False)
+            and (
+                release.get("approved") is True
+                or (
+                    release.get("rejected", False)
+                    and bool(rejection_reasons(release))
+                    and all(
+                        rejection_is_overridable(reason)
+                        for reason in rejection_reasons(release)
+                    )
+                )
+            )
             and release.get("downloadAllowed", True) is not False
             and release.get("protocol") == "torrent"
             and release.get("downloadUrl")
@@ -1016,16 +1105,20 @@ def main() -> int:
     inflight_tags = inflight_episode_tags(torrents)
     blocked_tags = blocked_release_tags(torrents)
     active_downloads = len(active_fallback_torrents(torrents))
-    if active_downloads >= int(policy["max_active_downloads"]):
+    if args.apply and active_downloads >= int(policy["max_active_downloads"]):
         print(
             "SERIES FALLBACK CAP: "
             f"active={active_downloads} max={policy['max_active_downloads']}"
         )
         return 0
 
-    requests = seerr_requests(stack)
+    requests = monitored_series_targets(series_items, seerr_requests(stack))
     if args.request_id is not None:
-        requests = [item for item in requests if int(item.get("id", -1)) == args.request_id]
+        requests = [
+            item
+            for item in requests
+            if int(item.get("id", -1)) == args.request_id
+        ]
 
     now = datetime.now(UTC)
     searches = 0
@@ -1039,7 +1132,7 @@ def main() -> int:
         tvdb_id = int(request["media"]["tvdbId"])
         series = series_by_tvdb.get(tvdb_id)
         if not series:
-            print(f"SERIES SKIP: request={request['id']} tvdb={tvdb_id} not found in Sonarr")
+            print(f"SERIES SKIP: {target_label(request)} tvdb={tvdb_id} not found in Sonarr")
             continue
         if args.series and args.series.casefold() not in str(series.get("title") or "").casefold():
             continue
@@ -1085,7 +1178,7 @@ def main() -> int:
                 return 0
             searches += 1
             print(
-                f"UPGRADE SEARCH: request={request['id']} "
+                f"UPGRADE SEARCH: {target_label(request)} "
                 f"series={series['title']} season=S{season:02d} "
                 "language-floor=latino"
             )
@@ -1125,7 +1218,10 @@ def main() -> int:
             )
             expected_numbers = {
                 int(item["episodeNumber"])
-                for item in covered_episodes
+                for item in episodes
+                if int(item.get("seasonNumber", 0) or 0) == season
+                and item.get("monitored") is True
+                and aired(item.get("airDateUtc"), now)
             }
             if not candidates:
                 print(f"NO SAFE LATINO PACK: season=S{season:02d}")
@@ -1142,10 +1238,10 @@ def main() -> int:
                     "series-language-upgrade",
                     "series-fallback-season-pack",
                     "fallback-language-latino",
-                    f"seerr-request-{request['id']}",
                     f"sonarr-series-{series['id']}",
                     fingerprint,
                 ]
+                tag_values.extend(target_tags(request, series))
                 tag_values.extend(
                     f"sonarr-episode-{item['id']}"
                     for item in covered_episodes
@@ -1244,7 +1340,7 @@ def main() -> int:
             searches += 1
             label = f"S{int(episode['seasonNumber']):02d}E{int(episode['episodeNumber']):02d}"
             print(
-                f"SEARCH: request={request['id']} series={series['title']} "
+                f"SEARCH: {target_label(request)} series={series['title']} "
                 f"episode={label} language-floor={floor.name.lower()}"
             )
             try:
@@ -1304,11 +1400,11 @@ def main() -> int:
                 tag_values.extend(
                     (
                         "series-fallback",
-                        f"seerr-request-{request['id']}",
                         f"sonarr-series-{series['id']}",
                         fingerprint,
                     )
                 )
+                tag_values.extend(target_tags(request, series))
                 tag_values.extend(
                     f"sonarr-episode-{item['id']}" for item in covered_episodes
                 )
