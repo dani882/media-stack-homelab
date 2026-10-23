@@ -28,9 +28,12 @@ SSH=(
 FILES=(
   "scripts/check-system-pressure.py"
   "scripts/cleanup-stalled-public.py"
+  "scripts/dispatch-archive-spanish.py"
+  "scripts/dispatch-btarg-series.py"
   "scripts/dispatch-private-seerr.py"
   "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
+  "scripts/import-docspedia-learning.py"
   "scripts/notify-torrent-completions.py"
   "scripts/configure-servarr.py"
   "scripts/media/common/arr.py"
@@ -73,6 +76,12 @@ done
     '${REMOTE_STAGING}/scripts/cleanup-stalled-public.py' \
     /volume1/docker/media-stack/cleanup-stalled-public.py
   sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/dispatch-archive-spanish.py' \
+    /volume1/docker/media-stack/dispatch-archive-spanish.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/dispatch-btarg-series.py' \
+    /volume1/docker/media-stack/dispatch-btarg-series.py
+  sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/dispatch-private-seerr.py' \
     /volume1/docker/media-stack/dispatch-private-seerr.py
   sudo -n install -m 0755 \
@@ -81,6 +90,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/grab-prowlarr-release.py' \
     /volume1/docker/media-stack/grab-prowlarr-release.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/import-docspedia-learning.py' \
+    /volume1/docker/media-stack/import-docspedia-learning.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/notify-torrent-completions.py' \
     /volume1/docker/media-stack/notify-torrent-completions.py

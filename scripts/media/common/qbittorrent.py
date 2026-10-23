@@ -4,6 +4,7 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -157,3 +158,61 @@ class QBittorrentClient:
             path,
             form,
         )
+
+    def post_multipart(
+        self,
+        path: str,
+        fields: dict[str, Any],
+        filename: str,
+        payload: bytes,
+        file_field: str = "torrents",
+    ) -> None:
+        """Post one in-memory file without putting a credentialed URL in qBit logs."""
+        boundary = f"----homelab-{uuid.uuid4().hex}"
+        chunks: list[bytes] = []
+        for key, value in fields.items():
+            chunks.extend(
+                [
+                    f"--{boundary}\r\n".encode(),
+                    (
+                        f'Content-Disposition: form-data; name="{key}"\r\n\r\n'
+                    ).encode(),
+                    str(value).encode("utf-8"),
+                    b"\r\n",
+                ]
+            )
+        safe_filename = filename.replace('"', "_").replace("\r", "_").replace("\n", "_")
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode(),
+                (
+                    f'Content-Disposition: form-data; name="{file_field}"; '
+                    f'filename="{safe_filename}"\r\n'
+                ).encode(),
+                b"Content-Type: application/x-bittorrent\r\n\r\n",
+                payload,
+                b"\r\n",
+                f"--{boundary}--\r\n".encode(),
+            ]
+        )
+        request = urllib.request.Request(
+            f"{self.base_url}{path}",
+            data=b"".join(chunks),
+            headers={
+                **self.headers,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            },
+            method="POST",
+        )
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                response.read()
+        except urllib.error.HTTPError as error:
+            body = error.read().decode("utf-8", errors="replace")
+            raise QBittorrentError(
+                f"POST {path} failed with HTTP {error.code}: {body}"
+            ) from error
+        except urllib.error.URLError as error:
+            raise QBittorrentError(
+                f"POST {path} failed: {error.reason}"
+            ) from error

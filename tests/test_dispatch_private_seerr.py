@@ -3,6 +3,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 MODULE_PATH = Path("scripts/dispatch-private-seerr.py")
@@ -93,6 +94,17 @@ class PrivateDispatcherTests(unittest.TestCase):
         )
         self.assertIsNone(selected)
 
+    def test_existing_english_movie_accepts_castilian_upgrade(self) -> None:
+        selected = MODULE.select_candidate(
+            [self.release(7, "Example Castellano 1080p")],
+            123,
+            self.indexers,
+            "castilian",
+            720,
+            {"languages": [{"name": "English"}]},
+        )
+        self.assertIsNotNone(selected)
+
     def test_all_monitored_non_latino_movies_are_targets(self) -> None:
         movies = [
             {
@@ -144,6 +156,77 @@ class PrivateDispatcherTests(unittest.TestCase):
                 ]
             ),
             1,
+        )
+
+    def test_movie_upgrade_waits_for_radarr_to_replace_original_file(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "private-dispatch,movie-language-upgrade,radarr-movie-7,"
+                "radarr-original-file-88,movie-expected-latino"
+            ),
+        }
+        qbit = mock.Mock()
+        movies = {
+            7: {
+                "movieFile": {
+                    "id": 88,
+                    "mediaInfo": {"audioLanguages": "eng"},
+                }
+            }
+        }
+        self.assertEqual(
+            MODULE.reconcile_movie_imports(qbit, [torrent], movies, True),
+            (0, 0),
+        )
+        qbit.post_form.assert_not_called()
+
+    def test_completed_direct_movie_requests_radarr_scan_once(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "content_path": "/data/Downloads/complete/radarr/Example",
+            "tags": "private-dispatch,radarr-movie-7",
+        }
+        qbit = mock.Mock()
+        with mock.patch.object(MODULE, "post_json", return_value={"id": 4}) as post:
+            self.assertEqual(
+                MODULE.request_completed_movie_imports(qbit, [torrent], "key", True),
+                1,
+            )
+        self.assertEqual(post.call_args.args[1]["name"], "DownloadedMoviesScan")
+        self.assertEqual(
+            post.call_args.args[1]["path"],
+            "/data/Downloads/complete/radarr/Example",
+        )
+        self.assertIn("private-dispatch-import-requested", torrent["tags"])
+
+    def test_movie_upgrade_is_verified_after_new_spanish_file_import(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "private-dispatch,movie-language-upgrade,radarr-movie-7,"
+                "radarr-original-file-88,movie-expected-latino"
+            ),
+        }
+        qbit = mock.Mock()
+        movies = {
+            7: {
+                "movieFile": {
+                    "id": 99,
+                    "mediaInfo": {"audioLanguages": "spa/eng"},
+                }
+            }
+        }
+        self.assertEqual(
+            MODULE.reconcile_movie_imports(qbit, [torrent], movies, True),
+            (1, 0),
+        )
+        qbit.post_form.assert_called_once_with(
+            "/api/v2/torrents/addTags",
+            {"hashes": "abc", "tags": "private-dispatch-import-verified"},
         )
 
     def test_dangerous_release_is_never_selected(self) -> None:
