@@ -58,6 +58,57 @@ class StalledPublicCleanupTests(unittest.TestCase):
             )
         )
 
+    def test_zero_progress_private_torrent_is_deferred_after_twelve_hours(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            added_on=self.NOW - 13 * 3600,
+            last_activity=self.NOW - 13 * 3600,
+        )
+        self.assertIn(
+            "private torrent has no available source",
+            MODULE.private_defer_reason(torrent, self.NOW),
+        )
+
+    def test_recent_private_torrent_is_not_deferred(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            added_on=self.NOW - 11 * 3600,
+        )
+        self.assertIsNone(MODULE.private_defer_reason(torrent, self.NOW))
+
+    def test_partial_private_torrent_is_never_deferred(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            progress=0.01,
+            added_on=self.NOW - 30 * 3600,
+        )
+        self.assertIsNone(MODULE.private_defer_reason(torrent, self.NOW))
+
+    def test_private_torrent_with_available_source_is_not_deferred(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            availability=1.0,
+            added_on=self.NOW - 30 * 3600,
+        )
+        self.assertIsNone(MODULE.private_defer_reason(torrent, self.NOW))
+
+    def test_deferred_private_torrent_can_retry_arr_detachment(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            state="stoppedDL",
+            tags="stalled-deferred",
+            added_on=self.NOW - 30 * 3600,
+        )
+        self.assertIsNotNone(MODULE.private_defer_reason(torrent, self.NOW))
+
+    def test_manually_stopped_private_torrent_is_not_deferred(self) -> None:
+        torrent = self.torrent(
+            private=True,
+            state="stoppedDL",
+            added_on=self.NOW - 30 * 3600,
+        )
+        self.assertIsNone(MODULE.private_defer_reason(torrent, self.NOW))
+
     def test_unknown_magnet_requires_public_history(self) -> None:
         torrent = self.torrent(private=None)
         self.assertFalse(MODULE.explicitly_public(torrent, None))

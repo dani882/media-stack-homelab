@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Blocklist stale incomplete public torrents and retry monitored media."""
+"""Move stalled media downloads aside and retry monitored media safely."""
 
 import argparse
 import sys
@@ -23,6 +23,7 @@ from common.qbittorrent import QBittorrentClient, QBittorrentError, read_credent
 METADATA_TIMEOUT_HOURS = 24
 UNAVAILABLE_TIMEOUT_HOURS = 72
 NO_CONNECTION_TIMEOUT_HOURS = 168
+PRIVATE_ZERO_PROGRESS_DEFER_HOURS = 12
 PUBLIC_INDEXER_PREFIXES = (
     "1337x",
     "eztv",
@@ -88,6 +89,47 @@ def explicitly_public(torrent: dict[str, Any], indexer: str | None) -> bool:
     if torrent.get("private") is False:
         return True
     return public_indexer(indexer)
+
+
+def explicitly_private(torrent: dict[str, Any]) -> bool:
+    tags = {
+        tag.strip().casefold()
+        for tag in str(torrent.get("tags", "")).split(",")
+        if tag.strip()
+    }
+    return torrent.get("private") is True or "private" in tags
+
+
+def private_defer_reason(torrent: dict[str, Any], now: float) -> str | None:
+    """Return a reason only for untouched private torrents with no swarm.
+
+    Partially downloaded private torrents remain active so this workflow can
+    never create a Hit & Run obligation and then silently abandon it.
+    """
+    if not explicitly_private(torrent):
+        return None
+    if torrent.get("force_start") is True:
+        return None
+    if float(torrent.get("progress", 0) or 0) != 0:
+        return None
+    tags = {
+        tag.strip().casefold()
+        for tag in str(torrent.get("tags", "")).split(",")
+        if tag.strip()
+    }
+    eligible_states = {"metaDL", "stalledDL", "unknownDL"}
+    if "stalled-deferred" in tags:
+        eligible_states.add("stoppedDL")
+    if str(torrent.get("state") or "") not in eligible_states:
+        return None
+    if int(torrent.get("num_seeds", 0) or 0) > 0:
+        return None
+    if float(torrent.get("availability", 0) or 0) > 0:
+        return None
+    added_hours = age_hours(torrent.get("added_on"), now)
+    if added_hours < PRIVATE_ZERO_PROGRESS_DEFER_HOURS:
+        return None
+    return f"private torrent has no available source after {added_hours:.1f} hours"
 
 
 def stalled_reason(torrent: dict[str, Any], now: float) -> str | None:
@@ -177,9 +219,10 @@ def main() -> int:
     parser.add_argument("--stack-dir", type=Path, default=DEFAULT_STACK_DIR)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--max-delete", type=int, default=10)
+    parser.add_argument("--max-defer", type=int, default=10)
     args = parser.parse_args()
-    if args.max_delete < 1:
-        raise StalledCleanupError("--max-delete must be positive")
+    if args.max_delete < 1 or args.max_defer < 1:
+        raise StalledCleanupError("--max-delete and --max-defer must be positive")
 
     stack = args.stack_dir
     username, password = read_credentials(stack / "secrets/qbittorrent.json")
@@ -191,6 +234,9 @@ def main() -> int:
     }
     now = time.time()
     candidates: list[tuple[ArrSource, ArrClient, dict[str, Any], dict[str, Any], str]] = []
+    private_deferrals: list[
+        tuple[ArrSource, ArrClient, dict[str, Any], dict[str, Any], str]
+    ] = []
 
     for source in SOURCES:
         client = ArrClient(
@@ -208,6 +254,12 @@ def main() -> int:
             torrent = torrents.get(download_id)
             if torrent is None or torrent.get("category") != source.category:
                 continue
+            defer_reason = private_defer_reason(torrent, now)
+            if defer_reason is not None:
+                private_deferrals.append(
+                    (source, client, item, torrent, defer_reason)
+                )
+                continue
             reason = stalled_reason(torrent, now)
             if reason is None:
                 continue
@@ -224,6 +276,50 @@ def main() -> int:
             f"Refusing to remove {len(candidates)} downloads; "
             f"--max-delete is {args.max_delete}."
         )
+    if args.apply and len(private_deferrals) > args.max_defer:
+        raise StalledCleanupError(
+            f"Refusing to defer {len(private_deferrals)} private downloads; "
+            f"--max-defer is {args.max_defer}."
+        )
+
+    deferred = 0
+    defer_searches = 0
+    for source, client, item, torrent, reason in private_deferrals:
+        prefix = "DEFERRING" if args.apply else "WOULD DEFER"
+        print(
+            f"{prefix}: {source.name} {item.get('title', '')}\n"
+            f"  hash={str(torrent.get('hash', ''))[:12].upper()} reason={reason}"
+        )
+        if not args.apply:
+            continue
+        download_id = str(torrent["hash"])
+        qbit.post_form(
+            "/api/v2/torrents/addTags",
+            {"hashes": download_id, "tags": "stalled-deferred"},
+        )
+        qbit.post_form("/api/v2/torrents/stop", {"hashes": download_id})
+        queue_id = int(item["id"])
+        client.delete(
+            f"/queue/{queue_id}?"
+            + urllib.parse.urlencode(
+                {
+                    "removeFromClient": "false",
+                    "blocklist": "true",
+                    "skipRedownload": "false",
+                    "changeCategory": "false",
+                }
+            )
+        )
+        qbit.post_form(
+            "/api/v2/torrents/setCategory",
+            {"hashes": download_id, "category": ""},
+        )
+        deferred += 1
+        if monitored_search(client, source, item):
+            defer_searches += 1
+            print("  retained and stopped; alternate automatic search started")
+        else:
+            print("  retained and stopped; item is not monitored")
 
     removed = 0
     searches = 0
@@ -255,8 +351,10 @@ def main() -> int:
             print("  blocklisted; no search because the item is not monitored")
 
     print(
-        f"STALLED PUBLIC CLEANUP: candidates={len(candidates)} "
-        f"removed={removed} searches={searches}"
+        f"STALLED DOWNLOAD CLEANUP: publicCandidates={len(candidates)} "
+        f"removed={removed} publicSearches={searches} "
+        f"privateDeferrals={len(private_deferrals)} deferred={deferred} "
+        f"privateSearches={defer_searches}"
     )
     return 0
 
