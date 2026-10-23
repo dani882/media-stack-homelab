@@ -27,9 +27,12 @@ SSH=(
 
 FILES=(
   "scripts/check-system-pressure.py"
+  "scripts/check-media-live.py"
+  "scripts/build-health-dashboard.py"
   "scripts/cleanup-stalled-public.py"
   "scripts/dispatch-archive-spanish.py"
   "scripts/dispatch-btarg-series.py"
+  "scripts/dispatch-latteam-transcode.py"
   "scripts/dispatch-private-seerr.py"
   "scripts/dispatch-series-fallback.py"
   "scripts/grab-prowlarr-release.py"
@@ -39,6 +42,7 @@ FILES=(
   "scripts/media/common/arr.py"
   "scripts/media/common/btarg.py"
   "scripts/media/common/language.py"
+  "scripts/media/common/latteam_transcode.py"
   "scripts/media/common/qbittorrent.py"
   "scripts/media/common/release_safety.py"
   "scripts/servarr_config/__init__.py"
@@ -52,6 +56,8 @@ FILES=(
   "stacks/media/systemd/media-stack-private-dispatch.timer"
   "stacks/media/systemd/media-stack-series-fallback.service"
   "stacks/media/systemd/media-stack-series-fallback.timer"
+  "stacks/media/systemd/media-stack-latteam-transcode.service"
+  "stacks/media/systemd/media-stack-latteam-transcode.timer"
   "stacks/media/systemd/media-stack-stalled-public-cleanup.service"
   "stacks/media/systemd/media-stack-stalled-public-cleanup.timer"
 )
@@ -73,6 +79,12 @@ done
     '${REMOTE_STAGING}/scripts/check-system-pressure.py' \
     /volume1/docker/media-stack/check-system-pressure.py
   sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/check-media-live.py' \
+    /volume1/docker/media-stack/check-media-live.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/build-health-dashboard.py' \
+    /volume1/docker/media-stack/build-health-dashboard.py
+  sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/cleanup-stalled-public.py' \
     /volume1/docker/media-stack/cleanup-stalled-public.py
   sudo -n install -m 0755 \
@@ -81,6 +93,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/dispatch-btarg-series.py' \
     /volume1/docker/media-stack/dispatch-btarg-series.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/dispatch-latteam-transcode.py' \
+    /volume1/docker/media-stack/dispatch-latteam-transcode.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/dispatch-private-seerr.py' \
     /volume1/docker/media-stack/dispatch-private-seerr.py
@@ -103,6 +118,7 @@ done
     '${REMOTE_STAGING}/scripts/media/common/arr.py' \
     '${REMOTE_STAGING}/scripts/media/common/btarg.py' \
     '${REMOTE_STAGING}/scripts/media/common/language.py' \
+    '${REMOTE_STAGING}/scripts/media/common/latteam_transcode.py' \
     '${REMOTE_STAGING}/scripts/media/common/qbittorrent.py' \
     '${REMOTE_STAGING}/scripts/media/common/release_safety.py' \
     /volume1/docker/media-stack/scripts/common/
@@ -134,6 +150,12 @@ done
     '${REMOTE_STAGING}/stacks/media/systemd/media-stack-series-fallback.timer' \
     /etc/systemd/system/media-stack-series-fallback.timer
   sudo -n install -m 0644 \
+    '${REMOTE_STAGING}/stacks/media/systemd/media-stack-latteam-transcode.service' \
+    /etc/systemd/system/media-stack-latteam-transcode.service
+  sudo -n install -m 0644 \
+    '${REMOTE_STAGING}/stacks/media/systemd/media-stack-latteam-transcode.timer' \
+    /etc/systemd/system/media-stack-latteam-transcode.timer
+  sudo -n install -m 0644 \
     '${REMOTE_STAGING}/stacks/media/systemd/media-stack-stalled-public-cleanup.service' \
     /etc/systemd/system/media-stack-stalled-public-cleanup.service
   sudo -n install -m 0644 \
@@ -143,6 +165,7 @@ done
   sudo -n systemctl enable --now \
     media-stack-private-dispatch.timer \
     media-stack-series-fallback.timer \
+    media-stack-latteam-transcode.timer \
     media-stack-stalled-public-cleanup.timer
   cd /volume1/docker/media-stack
   sudo -n python3 ./configure-servarr.py

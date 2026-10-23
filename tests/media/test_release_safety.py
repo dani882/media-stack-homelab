@@ -4,6 +4,8 @@ from common.release_safety import (
     dangerous_release_title,
     dangerous_torrent_paths,
     english_only_torrent_paths,
+    transcode_codec_title,
+    unacceptable_noncodec_source_title,
     unacceptable_source_title,
 )
 
@@ -41,6 +43,14 @@ class ReleaseSafetyTests(unittest.TestCase):
         ):
             with self.subTest(title=title):
                 self.assertTrue(unacceptable_source_title(title))
+                self.assertTrue(transcode_codec_title(title))
+                self.assertFalse(unacceptable_noncodec_source_title(title))
+
+    def test_capture_sources_remain_unacceptable_without_codec_policy(self) -> None:
+        title = "Movie.2026.HDCAM.x264"
+        self.assertTrue(unacceptable_noncodec_source_title(title))
+        self.assertTrue(unacceptable_source_title(title))
+        self.assertFalse(transcode_codec_title(title))
 
     def test_inspects_actual_torrent_members(self) -> None:
         self.assertEqual(

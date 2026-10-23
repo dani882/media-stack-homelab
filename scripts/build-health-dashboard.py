@@ -22,6 +22,7 @@ UNITS = (
     "media-stack-imported-audio-audit.timer",
     "media-stack-language-repair-audit.timer",
     "media-stack-private-dispatch.timer",
+    "media-stack-latteam-transcode.timer",
     "media-stack-public-cleanup.timer",
     "media-stack-stalled-public-cleanup.timer",
     "media-stack-btarg-series.timer",

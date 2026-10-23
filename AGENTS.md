@@ -174,6 +174,19 @@ repository, terminal output, documentation, commits, or chat responses.
   `/volume1/Family/Downloads/.transcode/btarg-series`, never in the media
   library. Before final placement, verify codec, dimensions, duration, audio
   and subtitle counts, audio-language tags, and decodability at the end.
+- Lat-Team selection prefers native H.264 at the same language rank. HEVC,
+  H.265, or AV1 is eligible only as a Lat-Team fallback when no equally ranked
+  H.264 candidate exists. Completed fallbacks are staged deterministically
+  under `/volume1/Family/Downloads/.transcode/latteam`, converted with the NAS
+  Rockchip H.264 encoder and a `libx264` fallback, then checked for dimensions,
+  duration, audio/subtitle streams, Spanish audio metadata, and end-of-file
+  decodability before Arr import. Keep the original Lat-Team torrent for its
+  82-hour obligation after the library file is replaced.
+- Avoid duplicate Lat-Team searches: Sonarr's normal Prowlarr response is used
+  first, and a direct Lat-Team query is only a fallback when that response has
+  no Lat-Team result. Movie automation is limited to two Lat-Team queries per
+  run with at least 15 seconds between them; stop using Lat-Team for the rest
+  of a run after its first search error so Prowlarr's cooldown can expire.
 - Rescan Sonarr after each completed season so finished seasons become visible
   while a large pack continues. Progress, ETA, encoder speed, hardware
   temperature, and fallback count are written without secrets to

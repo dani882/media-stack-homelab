@@ -17,6 +17,7 @@ DEFAULT_TIMEOUT = 15
 CRITICAL_TIMERS = (
     "media-stack-private-dispatch.timer",
     "media-stack-series-fallback.timer",
+    "media-stack-latteam-transcode.timer",
     "media-stack-stalled-public-cleanup.timer",
     "media-stack-public-cleanup.timer",
     "media-stack-btarg-series.timer",
