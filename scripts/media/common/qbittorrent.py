@@ -1,6 +1,7 @@
 
 import http.cookiejar
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,6 +12,55 @@ from typing import Any
 
 class QBittorrentError(RuntimeError):
     pass
+
+
+NON_DOWNLOADING_STATES = {
+    "error",
+    "missingFiles",
+    "pausedDL",
+    "queuedDL",
+    "stoppedDL",
+}
+BUSY_DOWNLOAD_STATES = {
+    "allocating",
+    "checkingDL",
+    "checkingResumeData",
+    "moving",
+}
+
+
+def torrent_consumes_download_slot(
+    torrent: dict[str, Any],
+    now_timestamp: float | None = None,
+    inactive_seconds: int = 60,
+    slow_rate_bytes: int = 2 * 1024,
+) -> bool:
+    """Mirror qBittorrent's inactive-download queue exception.
+
+    The global qBittorrent preference keeps three real transfers active while
+    excluding downloads that stay below 2 KiB/s for 60 seconds. Dispatchers
+    use this helper so their own safety caps do not re-count those torrents.
+    """
+    if float(torrent.get("progress", 0) or 0) >= 1:
+        return False
+    state = str(torrent.get("state") or "")
+    if state in NON_DOWNLOADING_STATES:
+        return False
+    if torrent.get("force_start") is True or state.startswith("forced"):
+        return True
+    if state in BUSY_DOWNLOAD_STATES:
+        return True
+    if int(torrent.get("dlspeed", 0) or 0) >= slow_rate_bytes:
+        return True
+
+    activity = max(
+        float(torrent.get("added_on", 0) or 0),
+        float(torrent.get("last_activity", 0) or 0),
+    )
+    if activity <= 0:
+        return True
+    now = time.time() if now_timestamp is None else now_timestamp
+    return now - activity < inactive_seconds
 
 
 def read_credentials(

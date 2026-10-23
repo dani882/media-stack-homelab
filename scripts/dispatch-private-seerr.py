@@ -27,7 +27,11 @@ for module_dir in (SCRIPT_ROOT / "media", STACK / "scripts"):
 
 from common.btarg import BTArgCache, BTArgClient, BTArgError, enrich_release
 from common.language import language_rank
-from common.qbittorrent import QBittorrentClient, read_credentials
+from common.qbittorrent import (
+    QBittorrentClient,
+    read_credentials,
+    torrent_consumes_download_slot,
+)
 
 
 SPEC = importlib.util.spec_from_file_location(
@@ -528,14 +532,43 @@ def write_last_movie_id(path: Path, movie_id: int) -> None:
     temporary.replace(path)
 
 
-def active_private_dispatches(torrents: list[dict[str, Any]]) -> int:
+def active_private_dispatches(
+    torrents: list[dict[str, Any]], now_timestamp: float | None = None
+) -> int:
     return sum(
         1
         for torrent in torrents
         if "private-dispatch" in torrent_tag_set(torrent)
         and "language-mismatch" not in torrent_tag_set(torrent)
-        and float(torrent.get("progress", 0) or 0) < 1
+        and torrent_consumes_download_slot(torrent, now_timestamp)
     )
+
+
+def add_selected_release(
+    qbit: QBittorrentClient,
+    release: dict[str, Any],
+    indexer: dict[str, Any],
+    tags: str,
+    display_name: str,
+) -> bool:
+    try:
+        GRAB.add_to_qbittorrent(
+            qbit,
+            release,
+            "radarr",
+            tags,
+            int(indexer["seed_minutes"]),
+            False,
+            ratio_limit=indexer["ratio_limit"],
+            display_name=display_name,
+        )
+    except GRAB.TorrentFetchError as error:
+        print(
+            "MOVIE DELIVERY DEFERRED: "
+            f"indexer={release.get('indexerId')} reason={error}"
+        )
+        return False
+    return True
 
 
 def enrich_btarg_candidates(
@@ -687,49 +720,47 @@ def main() -> int:
             for release in releases
             if release_tag(release, indexers) not in blocked_tags
         ]
-        release = select_candidate(
-            releases,
-            tmdb_id,
-            indexers,
-            minimum_language,
-            int(policy["minimum_resolution"]),
-            movie_file,
-        )
-        if release is None:
-            print(
-                f"NO PRIVATE CANDIDATE: movie={movie_id} tmdb={tmdb_id} "
-                f"language-floor={minimum_language}"
+        while releases:
+            release = select_candidate(
+                releases,
+                tmdb_id,
+                indexers,
+                minimum_language,
+                int(policy["minimum_resolution"]),
+                movie_file,
             )
-            continue
+            if release is None:
+                break
 
-        indexer_id = int(release["indexerId"])
-        indexer = indexers[indexer_id]
-        fingerprint_tag = release_tag(release, indexers)
-        actual_language = language_rank(release).name.lower()
-        tag_values = [
-            "private",
-            str(indexer["tracker"]),
-            "private-dispatch",
-            movie_tag,
-            fingerprint_tag,
-        ]
-        if request_tag:
-            tag_values.append(request_tag)
-        if movie_file:
-            tag_values.append("movie-language-upgrade")
-            if int(movie_file.get("id", 0) or 0) > 0:
-                tag_values.append(
-                    f"radarr-original-file-{int(movie_file['id'])}"
-                )
-        tag_values.append(f"movie-expected-{actual_language}")
-        tags = ",".join(tag_values)
-        print(
-            f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'} "
-            f"movie={movie_id} tmdb={tmdb_id} indexer={indexer_id} "
-            f"language={actual_language} release={fingerprint_tag} "
-            f"title={release['title']}"
-        )
-        if args.apply:
+            indexer_id = int(release["indexerId"])
+            indexer = indexers[indexer_id]
+            fingerprint_tag = release_tag(release, indexers)
+            actual_language = language_rank(release).name.lower()
+            tag_values = [
+                "private",
+                str(indexer["tracker"]),
+                "private-dispatch",
+                movie_tag,
+                fingerprint_tag,
+            ]
+            if request_tag:
+                tag_values.append(request_tag)
+            if movie_file:
+                tag_values.append("movie-language-upgrade")
+                if int(movie_file.get("id", 0) or 0) > 0:
+                    tag_values.append(
+                        f"radarr-original-file-{int(movie_file['id'])}"
+                    )
+            tag_values.append(f"movie-expected-{actual_language}")
+            tags = ",".join(tag_values)
+            print(
+                f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'} "
+                f"movie={movie_id} tmdb={tmdb_id} indexer={indexer_id} "
+                f"language={actual_language} release={fingerprint_tag} "
+                f"title={release['title']}"
+            )
+            if not args.apply:
+                break
             marker = {
                 "latino": "LATINO",
                 "castilian": "CASTELLANO",
@@ -738,19 +769,29 @@ def main() -> int:
             display_name = str(release["title"])
             if marker:
                 display_name = f"{display_name} [{marker}]"
-            GRAB.add_to_qbittorrent(
+            if not add_selected_release(
                 qbit,
                 release,
-                "radarr",
+                indexer,
                 tags,
-                int(indexer["seed_minutes"]),
-                False,
-                ratio_limit=indexer["ratio_limit"],
-                display_name=display_name,
-            )
+                display_name,
+            ):
+                releases = [
+                    item
+                    for item in releases
+                    if int(item.get("indexerId", -1)) != indexer_id
+                ]
+                continue
             dispatched_tags.add(movie_tag)
             write_last_movie_id(state_path, movie_id)
             return 0
+        else:
+            release = None
+        if release is None:
+            print(
+                f"NO DELIVERABLE PRIVATE CANDIDATE: movie={movie_id} "
+                f"tmdb={tmdb_id} language-floor={minimum_language}"
+            )
     if args.apply and last_movie_id is not None:
         write_last_movie_id(state_path, last_movie_id)
     print(f"PRIVATE DISPATCH OK: searched={searches} dispatched=0")

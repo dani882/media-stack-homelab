@@ -61,7 +61,11 @@ from common.language import (
     rejection_is_overridable,
     rejection_reasons,
 )
-from common.qbittorrent import QBittorrentClient, read_credentials
+from common.qbittorrent import (
+    QBittorrentClient,
+    read_credentials,
+    torrent_consumes_download_slot,
+)
 from common.release_safety import (
     dangerous_release_title,
     dangerous_torrent_paths,
@@ -614,14 +618,16 @@ def fallback_torrents(torrents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [item for item in torrents if "series-fallback" in torrent_tags(item)]
 
 
-def active_fallback_torrents(torrents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def active_fallback_torrents(
+    torrents: list[dict[str, Any]], now_timestamp: float | None = None
+) -> list[dict[str, Any]]:
     active: list[dict[str, Any]] = []
     for torrent in fallback_torrents(torrents):
         tags = torrent_tags(torrent)
         if (
             "series-fallback-import-verified" not in tags
             and "language-mismatch" not in tags
-            and str(torrent.get("state") or "") not in {"stoppedDL", "pausedDL"}
+            and torrent_consumes_download_slot(torrent, now_timestamp)
         ):
             active.append(torrent)
     return active
