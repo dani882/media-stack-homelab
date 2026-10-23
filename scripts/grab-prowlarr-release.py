@@ -42,6 +42,12 @@ class GrabError(RuntimeError):
     pass
 
 
+class TorrentFetchError(GrabError):
+    """A transient tracker/Prowlarr delivery failure, not a release rejection."""
+
+    pass
+
+
 LANGUAGE_FLOORS = {
     "unknown": LanguageRank.UNKNOWN,
     "english": LanguageRank.ENGLISH,
@@ -117,16 +123,29 @@ def prowlarr_search(
         headers={"X-Api-Key": api_key},
     )
 
-    try:
-        with urllib.request.urlopen(request, timeout=90) as response:
-            payload = json.loads(response.read())
-    except (OSError, json.JSONDecodeError) as error:
-        raise GrabError(f"Prowlarr search failed: {error}") from error
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                payload = json.loads(response.read())
+            if not isinstance(payload, list):
+                raise GrabError(
+                    "Prowlarr search returned an unexpected payload."
+                )
+            releases = [item for item in payload if isinstance(item, dict)]
+            if releases or attempt == 1:
+                return releases
+        except (OSError, json.JSONDecodeError, GrabError) as error:
+            last_error = error
+            if attempt == 1:
+                break
+        print(
+            f"PROWLARR SEARCH RETRY: indexer={indexer_id} "
+            f"media={media_type}"
+        )
+        time.sleep(2)
 
-    if not isinstance(payload, list):
-        raise GrabError("Prowlarr search returned an unexpected payload.")
-
-    return [item for item in payload if isinstance(item, dict)]
+    raise GrabError(f"Prowlarr search failed: {last_error}") from last_error
 
 
 def select_release(
@@ -208,6 +227,29 @@ def download_url_for_qbittorrent(
     )
 
 
+def fetch_torrent_payload(download_url: str) -> bytes:
+    """Resolve a Prowlarr download privately and reject login/error pages."""
+    request = urllib.request.Request(
+        download_url,
+        headers={"User-Agent": "homelab-release-grab/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            payload = response.read()
+            content_type = str(response.headers.get("Content-Type", "")).casefold()
+    except OSError as error:
+        raise TorrentFetchError(
+            "Prowlarr could not retrieve the selected torrent from its tracker."
+        ) from error
+    if not payload.startswith(b"d") or b"announce" not in payload[:4096]:
+        kind = "HTML" if "html" in content_type or payload.lstrip().startswith(b"<") else "non-torrent data"
+        raise TorrentFetchError(
+            "The tracker returned " + kind + " instead of a torrent; "
+            "nothing was sent to qBittorrent."
+        )
+    return payload
+
+
 def add_to_qbittorrent(
     client: QBittorrentClient,
     release: dict[str, Any],
@@ -269,9 +311,6 @@ def add_to_qbittorrent(
         )
 
     add_form = {
-        "urls": download_url_for_qbittorrent(
-            str(release["downloadUrl"])
-        ),
         "category": category,
         "tags": tags,
         "stopped": "true",
@@ -280,12 +319,15 @@ def add_to_qbittorrent(
     if display_name:
         add_form["rename"] = display_name
 
-    client.post_form(
+    torrent_payload = fetch_torrent_payload(str(release["downloadUrl"]))
+    client.post_multipart(
         "/api/v2/torrents/add",
         add_form,
+        "selected.torrent",
+        torrent_payload,
     )
 
-    for _ in range(15):
+    for _ in range(30):
         torrents = client.get_json("/api/v2/torrents/info")
         matches = [
             item
@@ -373,24 +415,35 @@ def add_to_qbittorrent(
                     {"hashes": torrent_hash, "deleteFiles": "true"},
                 )
                 raise
-            client.post_form(
-                "/api/v2/torrents/setShareLimits",
-                {
-                    "hashes": torrent_hash,
-                    "ratioLimit": (
-                        ratio_limit if ratio_limit is not None else -2
-                    ),
-                    "seedingTimeLimit": (
-                        seed_time_minutes if seed_time_minutes > 0 else -2
-                    ),
-                    "inactiveSeedingTimeLimit": -2,
-                    "shareLimitAction": "Default",
-                },
-            )
-            client.post_form(
-                "/api/v2/torrents/start",
-                {"hashes": torrent_hash},
-            )
+            try:
+                client.post_form(
+                    "/api/v2/torrents/setShareLimits",
+                    {
+                        "hashes": torrent_hash,
+                        "ratioLimit": (
+                            ratio_limit if ratio_limit is not None else -2
+                        ),
+                        "seedingTimeLimit": (
+                            seed_time_minutes if seed_time_minutes > 0 else -2
+                        ),
+                        "inactiveSeedingTimeLimit": -2,
+                        "shareLimitAction": "Default",
+                        "shareLimitsMode": "Default",
+                    },
+                )
+                client.post_form(
+                    "/api/v2/torrents/start",
+                    {"hashes": torrent_hash},
+                )
+            except QBittorrentError as error:
+                client.post_form(
+                    "/api/v2/torrents/delete",
+                    {"hashes": torrent_hash, "deleteFiles": "true"},
+                )
+                raise GrabError(
+                    "qBittorrent rejected the required share policy; "
+                    "the stopped torrent was removed."
+                ) from error
             print(
                 "ADDED: "
                 f"hash={torrent_hash[:12].upper()} "

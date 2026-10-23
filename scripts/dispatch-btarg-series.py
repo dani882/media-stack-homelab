@@ -411,6 +411,7 @@ def add_validated_pack(
             "seedingTimeLimit": -2,
             "inactiveSeedingTimeLimit": -2,
             "shareLimitAction": "Default",
+            "shareLimitsMode": "Default",
         },
     )
     start_torrent(qbit, torrent_hash)

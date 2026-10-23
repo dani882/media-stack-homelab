@@ -110,13 +110,15 @@ def add_release(
     release: dict[str, Any],
     tag: str,
 ) -> None:
-    qbit.post_form(
+    payload = GRAB.fetch_torrent_payload(str(release["downloadUrl"]))
+    qbit.post_multipart(
         "/api/v2/torrents/add",
         {
-            "urls": GRAB.download_url_for_qbittorrent(str(release["downloadUrl"])),
             "category": "radarr",
             "tags": f"archive-spanish,{tag}",
         },
+        "archive-spanish.torrent",
+        payload,
     )
     print(
         "ARCHIVE DISPATCHED: "

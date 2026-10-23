@@ -107,6 +107,54 @@ class SeriesFallbackTests(unittest.TestCase):
         self.assertEqual(source.priority, 1)
         self.assertEqual(source.seed_minutes, 4920)
 
+    def test_direct_latteam_season_pack_gets_missing_sonarr_scope(self) -> None:
+        normalized = MODULE.normalize_direct_latteam_release(
+            {
+                "title": (
+                    "The Last of Us 2023 S01 1080p AMZN WEB-DL "
+                    "DD+ 5.1 H.264-LatTeam SPANiSH"
+                ),
+                "indexer": "Lat-Team (API)",
+                "tvdbId": 392256,
+                "downloadAllowed": None,
+            },
+            392256,
+        )
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(normalized["seasonNumber"], 1)
+        self.assertTrue(normalized["fullSeason"])
+        self.assertEqual(normalized["episodeNumbers"], [])
+        self.assertTrue(normalized["approved"])
+        self.assertTrue(normalized["downloadAllowed"])
+
+    def test_direct_latteam_episode_gets_exact_episode_scope(self) -> None:
+        normalized = MODULE.normalize_direct_latteam_release(
+            {
+                "title": "Example S02E03 Spanish Latino 1080p WEB-DL",
+                "indexer": "Lat-Team (API)",
+                "tvdbId": 451098,
+            },
+            451098,
+        )
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(normalized["seasonNumber"], 2)
+        self.assertEqual(normalized["episodeNumbers"], [3])
+        self.assertFalse(normalized["fullSeason"])
+
+    def test_direct_latteam_release_requires_exact_tvdb_identity(self) -> None:
+        self.assertIsNone(
+            MODULE.normalize_direct_latteam_release(
+                {
+                    "title": "Example S01 Spanish Latino 1080p WEB-DL",
+                    "indexer": "Lat-Team (API)",
+                    "tvdbId": 123,
+                },
+                999,
+            )
+        )
+
     def test_bare_dual_with_unknown_language_is_rejected(self) -> None:
         candidate = self.release(
             "Example.S02E01.Dual.Audio.1080p.WEB-DL",
@@ -228,6 +276,18 @@ class SeriesFallbackTests(unittest.TestCase):
             [item["id"] for item in MODULE.rotate_after(items, 2)],
             [3, 1, 2],
         )
+
+    def test_empty_safe_candidate_search_is_retried_once(self) -> None:
+        fetch = mock.Mock(side_effect=[[], [{"title": "safe"}]])
+        with mock.patch.object(MODULE.time, "sleep") as sleep:
+            candidates = MODULE.candidates_with_retry(
+                fetch,
+                lambda releases: releases,
+                "series=Example season=S01",
+            )
+        self.assertEqual(candidates, [{"title": "safe"}])
+        self.assertEqual(fetch.call_count, 2)
+        sleep.assert_called_once_with(2)
 
     def test_inspection_rejections_are_persisted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -617,6 +677,42 @@ class SeriesFallbackTests(unittest.TestCase):
             {"hashes": "abc", "tags": "series-fallback-import-verified"},
         )
 
+    def test_completed_direct_pack_requests_sonarr_scan_once(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "content_path": "/data/Downloads/complete/tv/Example S01",
+            "tags": "series-fallback,sonarr-episode-1,sonarr-episode-2",
+        }
+        qbit = mock.Mock()
+        with mock.patch.object(MODULE, "post_json", return_value={"id": 3}) as post:
+            self.assertEqual(
+                MODULE.request_completed_imports(qbit, [torrent], "key", True),
+                1,
+            )
+        self.assertEqual(post.call_args.args[3]["name"], "DownloadedEpisodesScan")
+        self.assertEqual(
+            post.call_args.args[3]["path"],
+            "/data/Downloads/complete/tv/Example S01",
+        )
+        self.assertIn("series-fallback-import-requested", torrent["tags"])
+
+    def test_completed_pack_outside_downloads_is_not_scanned(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "content_path": "/data/Media/TV Shows/Example",
+            "tags": "series-fallback,sonarr-episode-1",
+        }
+        qbit = mock.Mock()
+        with mock.patch.object(MODULE, "post_json") as post:
+            self.assertEqual(
+                MODULE.request_completed_imports(qbit, [torrent], "key", True),
+                0,
+            )
+        post.assert_not_called()
+        qbit.post_form.assert_not_called()
+
     def test_english_only_import_is_marked_as_language_mismatch(self) -> None:
         torrent = {
             "hash": "abc",
@@ -639,6 +735,32 @@ class SeriesFallbackTests(unittest.TestCase):
                 (0, 1),
             )
         self.assertIn("language-mismatch", torrent["tags"])
+
+    def test_upgrade_waits_until_sonarr_replaces_original_file(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "series-fallback,series-language-upgrade,"
+                "sonarr-episode-4512,sonarr-original-file-88,"
+                "fallback-language-latino"
+            ),
+        }
+        qbit = mock.Mock()
+
+        def fake_get(_base: str, path: str, _key: str) -> dict:
+            if path == "/api/v3/episode/4512":
+                return {"hasFile": True, "episodeFileId": 88}
+            if path == "/api/v3/episodefile/88":
+                return {"mediaInfo": {"audioLanguages": "eng"}}
+            raise AssertionError(path)
+
+        with mock.patch.object(MODULE, "get_json", side_effect=fake_get):
+            self.assertEqual(
+                MODULE.reconcile_imports(qbit, [torrent], "key", True),
+                (0, 0),
+            )
+        qbit.post_form.assert_not_called()
 
     def test_incomplete_torrent_is_not_import_verified(self) -> None:
         torrent = {

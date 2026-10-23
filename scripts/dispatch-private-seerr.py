@@ -102,6 +102,17 @@ def get_json(url: str, headers: dict[str, str]) -> Any:
         return json.load(response)
 
 
+def post_json(url: str, payload: dict[str, Any], headers: dict[str, str]) -> Any:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={**headers, "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=90) as response:
+        return json.load(response)
+
+
 def requests_to_dispatch(stack: Path) -> list[dict[str, Any]]:
     key = api_key(stack / "config/jellyseerr/settings.json")
     payload = get_json(
@@ -131,6 +142,146 @@ def torrent_tag_set(torrent: dict[str, Any]) -> set[str]:
         for tag in str(torrent.get("tags", "")).split(",")
         if tag.strip()
     }
+
+
+def tag_number(tags: set[str], prefix: str) -> int | None:
+    for tag in tags:
+        if not tag.startswith(prefix):
+            continue
+        try:
+            value = int(tag[len(prefix) :])
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
+
+
+def expected_movie_language(tags: set[str]) -> Any:
+    mapping = {
+        "movie-expected-latino": GRAB.LanguageRank.LATINO,
+        "movie-expected-castilian": GRAB.LanguageRank.CASTILIAN,
+        "movie-expected-english": GRAB.LanguageRank.ENGLISH,
+    }
+    return next(
+        (rank for tag, rank in mapping.items() if tag in tags),
+        GRAB.LanguageRank.UNKNOWN,
+    )
+
+
+def request_completed_movie_imports(
+    qbit: QBittorrentClient,
+    torrents: list[dict[str, Any]],
+    radarr_key: str,
+    apply: bool,
+) -> int:
+    requested = 0
+    for torrent in torrents:
+        tags = torrent_tag_set(torrent)
+        if (
+            "private-dispatch" not in tags
+            or float(torrent.get("progress", 0) or 0) < 1
+            or "private-dispatch-import-requested" in tags
+            or "private-dispatch-import-verified" in tags
+            or "language-mismatch" in tags
+        ):
+            continue
+        content_path = str(torrent.get("content_path") or "")
+        if not content_path.startswith("/data/Downloads/"):
+            print("MOVIE IMPORT REVIEW: completed path is outside Downloads")
+            continue
+        movie_id = tag_number(tags, "radarr-movie-")
+        print(
+            f"{'REQUEST' if apply else 'WOULD REQUEST'} RADARR IMPORT: "
+            f"movie={movie_id}"
+        )
+        if not apply:
+            requested += 1
+            continue
+        post_json(
+            "http://127.0.0.1:7878/api/v3/command",
+            {
+                "name": "DownloadedMoviesScan",
+                "path": content_path,
+                "downloadClientId": str(torrent["hash"]),
+                "importMode": "Auto",
+            },
+            {"X-Api-Key": radarr_key},
+        )
+        qbit.post_form(
+            "/api/v2/torrents/addTags",
+            {
+                "hashes": str(torrent["hash"]),
+                "tags": "private-dispatch-import-requested",
+            },
+        )
+        torrent["tags"] = (
+            f"{torrent.get('tags', '')},private-dispatch-import-requested"
+        )
+        requested += 1
+    return requested
+
+
+def reconcile_movie_imports(
+    qbit: QBittorrentClient,
+    torrents: list[dict[str, Any]],
+    movies_by_id: dict[int, dict[str, Any]],
+    apply: bool,
+) -> tuple[int, int]:
+    verified = 0
+    mismatches = 0
+    for torrent in torrents:
+        tags = torrent_tag_set(torrent)
+        if (
+            "private-dispatch" not in tags
+            or "private-dispatch-import-verified" in tags
+            or "language-mismatch" in tags
+            or float(torrent.get("progress", 0) or 0) < 1
+        ):
+            continue
+        movie_id = tag_number(tags, "radarr-movie-")
+        movie = movies_by_id.get(movie_id or -1)
+        movie_file = movie.get("movieFile") if movie else None
+        if not isinstance(movie_file, dict):
+            continue
+        current_file_id = int(movie_file.get("id", 0) or 0)
+        original_file_id = tag_number(tags, "radarr-original-file-")
+        if original_file_id and current_file_id == original_file_id:
+            print(
+                f"MOVIE IMPORT PENDING: movie={movie_id} Radarr still "
+                "references the original file"
+            )
+            continue
+        expected = expected_movie_language(tags)
+        detected = language_rank(movie_file)
+        if detected == GRAB.LanguageRank.UNKNOWN:
+            print(f"MOVIE IMPORT REVIEW: movie={movie_id} audio is undefined")
+            continue
+        minimum = (
+            GRAB.LanguageRank.CASTILIAN
+            if expected >= GRAB.LanguageRank.CASTILIAN
+            else GRAB.LanguageRank.ENGLISH
+        )
+        result_tag = (
+            "private-dispatch-import-verified"
+            if detected >= minimum
+            else "language-mismatch"
+        )
+        print(
+            f"{'VERIFY' if result_tag.endswith('verified') else 'MISMATCH'} "
+            f"MOVIE IMPORT: movie={movie_id} audio={detected.name.lower()}"
+        )
+        if apply:
+            qbit.post_form(
+                "/api/v2/torrents/addTags",
+                {"hashes": str(torrent["hash"]), "tags": result_tag},
+            )
+            torrent["tags"] = f"{torrent.get('tags', '')},{result_tag}"
+        if result_tag.endswith("verified"):
+            verified += 1
+        else:
+            mismatches += 1
+    return verified, mismatches
 
 
 def existing_request_tags(qbit: QBittorrentClient) -> set[str]:
@@ -439,6 +590,11 @@ def main() -> int:
         for movie in radarr_movies
         if int(movie.get("tmdbId", 0) or 0) > 0
     }
+    movie_by_id = {
+        int(movie["id"]): movie
+        for movie in radarr_movies
+        if int(movie.get("id", 0) or 0) > 0
+    }
     btarg = BTArgClient(
         stack / "secrets/prowlarr-private-indexers.json",
         BTArgCache(stack / "state/btarg-language-cache.json"),
@@ -460,6 +616,8 @@ def main() -> int:
     qbit = QBittorrentClient("http://127.0.0.1:8888", username, password)
     qbit.login()
     torrents = qbit.get_json("/api/v2/torrents/info")
+    request_completed_movie_imports(qbit, torrents, radarr_key, args.apply)
+    reconcile_movie_imports(qbit, torrents, movie_by_id, args.apply)
     active = active_private_dispatches(torrents)
     if args.apply and active >= int(policy["max_active_downloads"]):
         print(
@@ -513,7 +671,7 @@ def main() -> int:
 
         movie_file = movie.get("movieFile") if movie.get("hasFile") else None
         minimum_language = (
-            "latino"
+            "castilian"
             if movie_file
             else language_floor_for_request(target, policy, now)
         )
@@ -547,6 +705,7 @@ def main() -> int:
         indexer_id = int(release["indexerId"])
         indexer = indexers[indexer_id]
         fingerprint_tag = release_tag(release, indexers)
+        actual_language = language_rank(release).name.lower()
         tag_values = [
             "private",
             str(indexer["tracker"]),
@@ -558,8 +717,12 @@ def main() -> int:
             tag_values.append(request_tag)
         if movie_file:
             tag_values.append("movie-language-upgrade")
+            if int(movie_file.get("id", 0) or 0) > 0:
+                tag_values.append(
+                    f"radarr-original-file-{int(movie_file['id'])}"
+                )
+        tag_values.append(f"movie-expected-{actual_language}")
         tags = ",".join(tag_values)
-        actual_language = language_rank(release).name.lower()
         print(
             f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'} "
             f"movie={movie_id} tmdb={tmdb_id} indexer={indexer_id} "

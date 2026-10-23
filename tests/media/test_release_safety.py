@@ -32,6 +32,16 @@ class ReleaseSafetyTests(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertTrue(unacceptable_source_title(title))
 
+    def test_rejects_banned_video_codecs(self) -> None:
+        for title in (
+            "Show S01 1080p WEB-DL H.265-GROUP",
+            "Show.S01.1080p.WEB-DL.x265-GROUP",
+            "Movie 2026 2160p HEVC",
+            "Movie.2026.1080p.AV1-GROUP",
+        ):
+            with self.subTest(title=title):
+                self.assertTrue(unacceptable_source_title(title))
+
     def test_inspects_actual_torrent_members(self) -> None:
         self.assertEqual(
             dangerous_torrent_paths(

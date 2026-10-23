@@ -1,7 +1,9 @@
 
 import importlib.util
+import json
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path("scripts/grab-prowlarr-release.py")
@@ -25,6 +27,28 @@ def release(**overrides: object) -> dict[str, object]:
 
 
 class SelectReleaseTests(unittest.TestCase):
+    def test_prowlarr_empty_search_is_retried_once(self) -> None:
+        empty = mock.MagicMock()
+        empty.__enter__.return_value.read.return_value = b"[]"
+        result = mock.MagicMock()
+        result.__enter__.return_value.read.return_value = json.dumps(
+            [{"title": "Example Spanish Latino 1080p"}]
+        ).encode("utf-8")
+        with mock.patch.object(
+            MODULE.urllib.request,
+            "urlopen",
+            side_effect=[empty, result],
+        ) as urlopen, mock.patch.object(MODULE.time, "sleep"):
+            releases = MODULE.prowlarr_search(
+                "http://prowlarr:9696",
+                "secret",
+                "Example",
+                12,
+                "movie",
+            )
+        self.assertEqual(len(releases), 1)
+        self.assertEqual(urlopen.call_count, 2)
+
     def test_selects_exact_valid_release(self) -> None:
         selected = MODULE.select_release(
             [release(), release(title="Something Else")],
@@ -67,6 +91,26 @@ class SelectReleaseTests(unittest.TestCase):
             "http://prowlarr:9696/api/v1/download?id=opaque",
         )
 
+    def test_fetch_torrent_payload_rejects_html_login_page(self) -> None:
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"<html>login</html>"
+        response.__enter__.return_value.headers = {"Content-Type": "text/html"}
+        with mock.patch.object(MODULE.urllib.request, "urlopen", return_value=response):
+            with self.assertRaisesRegex(MODULE.GrabError, "returned HTML"):
+                MODULE.fetch_torrent_payload("http://prowlarr/download/opaque")
+
+    def test_fetch_torrent_payload_accepts_bencoded_torrent(self) -> None:
+        payload = b"d8:announce20:https://tracker.teste"
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = payload
+        response.__enter__.return_value.headers = {
+            "Content-Type": "application/x-bittorrent"
+        }
+        with mock.patch.object(MODULE.urllib.request, "urlopen", return_value=response):
+            self.assertEqual(
+                MODULE.fetch_torrent_payload("http://prowlarr/download/opaque"),
+                payload,
+            )
     def test_selects_exact_movie_with_matching_tmdb_id(self) -> None:
         selected = MODULE.select_release(
             [
@@ -174,21 +218,33 @@ class SelectReleaseTests(unittest.TestCase):
             def post_form(self, path: str, form: dict) -> None:
                 self.posts.append((path, form))
 
+            def post_multipart(
+                self, path: str, form: dict, filename: str, payload: bytes
+            ) -> None:
+                self.posts.append((path, form))
+
         client = FakeQbit()
-        MODULE.add_to_qbittorrent(
-            client,
-            release(title="Example.S01E01.English.1080p.WEB-DL"),
-            "tv",
-            "public,series-fallback,sonarr-episode-9",
-            30,
-            False,
-            require_private=False,
-            policy_label="PUBLIC FALLBACK POLICY",
-        )
+        with mock.patch.object(MODULE, "fetch_torrent_payload", return_value=b"torrent"):
+            MODULE.add_to_qbittorrent(
+                client,
+                release(title="Example.S01E01.English.1080p.WEB-DL"),
+                "tv",
+                "public,series-fallback,sonarr-episode-9",
+                30,
+                False,
+                require_private=False,
+                policy_label="PUBLIC FALLBACK POLICY",
+            )
         self.assertIn(
             "/api/v2/torrents/start",
             [path for path, _form in client.posts],
         )
+        share_limits = next(
+            form
+            for path, form in client.posts
+            if path == "/api/v2/torrents/setShareLimits"
+        )
+        self.assertEqual(share_limits["shareLimitsMode"], "Default")
 
     def test_public_source_private_flag_requires_non_private_tracker(self) -> None:
         class FakeQbit:
@@ -219,26 +275,15 @@ class SelectReleaseTests(unittest.TestCase):
             def post_form(self, path: str, form: dict) -> None:
                 self.posts.append((path, form))
 
-        safe = FakeQbit("udp://tracker.opentrackr.org:1337/announce")
-        MODULE.add_to_qbittorrent(
-            safe,
-            release(title="Example.S01E01.English.1080p.WEB-DL"),
-            "tv",
-            "public,series-fallback,sonarr-episode-9",
-            30,
-            False,
-            require_private=False,
-            allow_public_private_flag=True,
-        )
-        self.assertIn(
-            "/api/v2/torrents/start",
-            [path for path, _form in safe.posts],
-        )
+            def post_multipart(
+                self, path: str, form: dict, filename: str, payload: bytes
+            ) -> None:
+                self.posts.append((path, form))
 
-        private = FakeQbit("https://announce.btarg.org/announce")
-        with self.assertRaises(MODULE.GrabError):
+        safe = FakeQbit("udp://tracker.opentrackr.org:1337/announce")
+        with mock.patch.object(MODULE, "fetch_torrent_payload", return_value=b"torrent"):
             MODULE.add_to_qbittorrent(
-                private,
+                safe,
                 release(title="Example.S01E01.English.1080p.WEB-DL"),
                 "tv",
                 "public,series-fallback,sonarr-episode-9",
@@ -247,6 +292,24 @@ class SelectReleaseTests(unittest.TestCase):
                 require_private=False,
                 allow_public_private_flag=True,
             )
+        self.assertIn(
+            "/api/v2/torrents/start",
+            [path for path, _form in safe.posts],
+        )
+
+        private = FakeQbit("https://announce.btarg.org/announce")
+        with mock.patch.object(MODULE, "fetch_torrent_payload", return_value=b"torrent"):
+            with self.assertRaises(MODULE.GrabError):
+                MODULE.add_to_qbittorrent(
+                    private,
+                    release(title="Example.S01E01.English.1080p.WEB-DL"),
+                    "tv",
+                    "public,series-fallback,sonarr-episode-9",
+                    30,
+                    False,
+                    require_private=False,
+                    allow_public_private_flag=True,
+                )
         self.assertNotIn(
             "/api/v2/torrents/start",
             [path for path, _form in private.posts],

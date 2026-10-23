@@ -313,7 +313,8 @@ Lat-Team is priority 1, followed by BTArg at 2 and Milnueve at 4. New missing
 movies wait 14 days for Spanish before an English private fallback becomes
 eligible. An existing file is replaced only by a higher-ranked language, and
 audio metadata protects files that already contain Spanish. Public releases
-are never dispatched.
+are never dispatched. Empty private-indexer searches are retried once so a
+temporary incomplete Prowlarr response does not hide a valid release.
 If an imported file is later removed as incorrect, its completed Seerr request
 becomes eligible again. Each dispatched release has a stable fingerprint, so a
 `language-mismatch` torrent blocks only that bad release while other private
@@ -324,6 +325,13 @@ private, and its member paths are checked for executable-like extensions. An
 unsafe or unexpectedly public payload is deleted without starting.
 Unmistakable YTS/YIFY payload names are also rejected when a tracker page has
 incorrectly classified the release as Spanish audio.
+
+A completed direct download is explicitly submitted to Radarr's completed-
+download scan once. It is not treated as a successful movie upgrade until
+Radarr points to a different movie-file ID and the imported audio metadata
+meets the expected language. Radarr removes the superseded library file as
+part of that import. The older private torrent remains in Downloads for
+seeding until its tracker-specific time or ratio obligation is satisfied.
 
 Use `make dispatch-private-seerr` to run the same evaluation on demand. The
 explicit `APPLY=1 make dispatch-private-seerr` path is idempotent: it refuses a
@@ -400,7 +408,8 @@ and Milnueve at priority 4, but language still outranks tracker priority.
 Existing Spanish episodes are never replaced by this path. Sonarr replaces
 only the library hardlink after the better file is verified; the older private
 torrent and its download remain protected until its tracker-specific seeding
-or ratio obligation is satisfied.
+or ratio obligation is satisfied. Empty safe-result searches are retried once
+before a season or episode is considered unavailable.
 
 The selected torrent is added stopped. Private sources must remain explicitly
 private. A public-source torrent that carries the private bit is accepted only
@@ -415,9 +424,18 @@ title from starving the others. Every missing episode remains monitored for a
 later Spanish upgrade. The current policy permits an English/original fallback
 immediately after a Spanish search produces no safe candidate.
 
-Completion alone is not considered success. Once Sonarr imports every covered
-episode, the worker checks the imported audio metadata against the expected
+Completion alone is not considered success. The worker explicitly submits a
+completed direct grab to Sonarr's completed-download scan once, including a
+full-season package. Once Sonarr imports every covered episode, the worker
+verifies that upgraded episodes no longer reference their original episode-
+file IDs, then checks the imported audio metadata against the expected
 language. It then tags the torrent as verified or as a language mismatch.
+
+Prowlarr resolves the selected torrent before it is uploaded to qBittorrent,
+so credential-bearing download URLs are not written into qBittorrent logs.
+HTML login/error responses are rejected before qBittorrent sees them and are
+treated as temporary delivery failures rather than permanently blocking an
+otherwise valid release.
 Telegram sends the availability message only after that successful import and
 audio verification. Secret-free status is refreshed at
 `/volume1/docker/media-stack/state/series-fallback-status.json` and

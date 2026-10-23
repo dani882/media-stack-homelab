@@ -32,8 +32,9 @@ from typing import Any
 STACK = Path("/volume1/docker/media-stack")
 SEERR_URL = "http://127.0.0.1:5055"
 SONARR_URL = "http://127.0.0.1:8989"
+PROWLARR_URL = "http://127.0.0.1:9696"
 QBITTORRENT_URL = "http://127.0.0.1:8888"
-INSPECTION_POLICY_VERSION = 2
+INSPECTION_POLICY_VERSION = 3
 VIDEO_EXTENSIONS = {".avi", ".m4v", ".mkv", ".mp4", ".ts", ".webm"}
 SPANISH_AUDIO_VALUES = {
     "es",
@@ -119,6 +120,20 @@ def get_json(base_url: str, path: str, api_key: str, timeout: int = 90) -> Any:
             return json.load(response)
     except (OSError, urllib.error.HTTPError, urllib.error.URLError) as error:
         raise SeriesFallbackError(f"GET {path} failed: {error}") from error
+
+
+def post_json(base_url: str, path: str, api_key: str, payload: dict[str, Any]) -> Any:
+    request = urllib.request.Request(
+        f"{base_url.rstrip('/')}{path}",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "X-Api-Key": api_key},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            return json.load(response)
+    except (OSError, urllib.error.HTTPError, urllib.error.URLError) as error:
+        raise SeriesFallbackError(f"POST {path} failed: {error}") from error
 
 
 def seerr_api_key(stack: Path) -> str:
@@ -415,6 +430,104 @@ def eligible_candidates(
     return candidates
 
 
+def candidates_with_retry(
+    fetch: Any,
+    classify: Any,
+    label: str,
+    delay_seconds: float = 2,
+) -> list[dict[str, Any]]:
+    last_error: SeriesFallbackError | None = None
+    completed = False
+    for attempt in range(2):
+        try:
+            candidates = classify(fetch())
+            completed = True
+            if candidates or attempt == 1:
+                return candidates
+        except SeriesFallbackError as error:
+            last_error = error
+            if attempt == 1:
+                break
+        print(f"SEARCH RETRY: {label}")
+        time.sleep(delay_seconds)
+    if last_error is not None and not completed:
+        raise last_error
+    return []
+
+
+def normalize_direct_latteam_release(
+    release: dict[str, Any], expected_tvdb_id: int
+) -> dict[str, Any] | None:
+    """Add the Sonarr scope fields missing from Prowlarr's UNIT3D result."""
+    if (
+        "lat-team" not in str(release.get("indexer") or "").casefold()
+        or int(release.get("tvdbId", 0) or 0) != expected_tvdb_id
+    ):
+        return None
+    title = str(release.get("title") or "")
+    season_match = re.search(
+        r"(?i)(?<![A-Z0-9])S(\d{1,2})(?=E\d|[^A-Z0-9]|$)", title
+    )
+    if season_match is None:
+        return None
+    season = int(season_match.group(1))
+    episode_numbers = {
+        int(value)
+        for value in re.findall(r"(?i)E(\d{1,3})(?![0-9])", title)
+        if int(value) > 0
+    }
+    normalized = dict(release)
+    normalized.update(
+        {
+            "approved": True,
+            "customFormatScore": int(release.get("customFormatScore", 0) or 0),
+            "downloadAllowed": release.get("downloadAllowed") is not False,
+            "episodeNumbers": sorted(episode_numbers),
+            "fullSeason": not episode_numbers,
+            "indexerPriority": 1,
+            "rejected": False,
+            "seasonNumber": season,
+        }
+    )
+    return normalized
+
+
+def direct_latteam_releases(
+    query: str,
+    tvdb_id: int,
+    indexer_ids: list[int],
+    prowlarr_key: str,
+) -> list[dict[str, Any]]:
+    releases: list[dict[str, Any]] = []
+    for indexer_id in indexer_ids:
+        try:
+            results = GRAB.prowlarr_search(
+                PROWLARR_URL,
+                prowlarr_key,
+                query,
+                indexer_id,
+                "tv",
+            )
+        except GRAB.GrabError as error:
+            print(f"LAT-TEAM DIRECT SEARCH SKIP: reason={error}")
+            continue
+        releases.extend(
+            normalized
+            for item in results
+            if (normalized := normalize_direct_latteam_release(item, tvdb_id))
+            is not None
+        )
+    return releases
+
+
+def merge_release_results(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for group in groups:
+        for release in group:
+            merged.setdefault(release_tag(release), release)
+    return list(merged.values())
+
+
 def enrich_btarg(
     releases: list[dict[str, Any]],
     expected_imdb: str | None,
@@ -640,6 +753,59 @@ def detected_audio_rank(media_file: dict[str, Any]) -> LanguageRank:
     return LanguageRank.UNKNOWN
 
 
+def request_completed_imports(
+    qbit: QBittorrentClient,
+    torrents: list[dict[str, Any]],
+    sonarr_key: str,
+    apply: bool,
+) -> int:
+    """Ask Sonarr to scan completed direct grabs exactly once."""
+    requested = 0
+    for torrent in fallback_torrents(torrents):
+        tags = torrent_tags(torrent)
+        if (
+            float(torrent.get("progress", 0) or 0) < 1
+            or "series-fallback-import-requested" in tags
+            or "series-fallback-import-verified" in tags
+            or "language-mismatch" in tags
+        ):
+            continue
+        content_path = str(torrent.get("content_path") or "")
+        if not content_path.startswith("/data/Downloads/"):
+            print("IMPORT REVIEW: completed series path is outside Downloads")
+            continue
+        print(
+            f"{'REQUEST' if apply else 'WOULD REQUEST'} SONARR IMPORT: "
+            f"episodes={len(tag_numbers(tags, 'sonarr-episode-'))}"
+        )
+        if not apply:
+            requested += 1
+            continue
+        post_json(
+            SONARR_URL,
+            "/api/v3/command",
+            sonarr_key,
+            {
+                "name": "DownloadedEpisodesScan",
+                "path": content_path,
+                "downloadClientId": str(torrent["hash"]),
+                "importMode": "Auto",
+            },
+        )
+        qbit.post_form(
+            "/api/v2/torrents/addTags",
+            {
+                "hashes": str(torrent["hash"]),
+                "tags": "series-fallback-import-requested",
+            },
+        )
+        torrent["tags"] = (
+            f"{torrent.get('tags', '')},series-fallback-import-requested"
+        )
+        requested += 1
+    return requested
+
+
 def expected_language_from_tags(tags: set[str]) -> LanguageRank:
     mapping = {
         "fallback-language-latino": LanguageRank.LATINO,
@@ -687,6 +853,16 @@ def reconcile_imports(
             print(f"IMPORT CHECK SKIP: {error}")
             continue
         if not ready:
+            continue
+        original_file_ids = tag_numbers(tags, "sonarr-original-file-")
+        if (
+            "series-language-upgrade" in tags
+            and original_file_ids.intersection(media_files)
+        ):
+            print(
+                "IMPORT PENDING: Sonarr still references an original "
+                "episode file"
+            )
             continue
         expected = expected_language_from_tags(tags)
         detected = [detected_audio_rank(item) for item in media_files.values()]
@@ -740,7 +916,7 @@ def validate_pack_members(
         found.append(int(matches[0]))
     if set(found) != expected_numbers or len(found) != len(expected_numbers):
         raise GRAB.GrabError(
-            "Season pack members do not exactly cover the missing episodes."
+            "Season pack members do not exactly cover the expected episodes."
         )
 
 
@@ -1119,6 +1295,20 @@ def main() -> int:
         raise SeriesFallbackError("--max-searches must be positive")
 
     sonarr_key = GRAB.read_api_key(stack / "config/sonarr/config.xml")
+    prowlarr_key = GRAB.read_api_key(stack / "config/prowlarr/config.xml")
+    try:
+        prowlarr_indexers = get_json(
+            PROWLARR_URL, "/api/v1/indexer", prowlarr_key, timeout=30
+        )
+        latteam_indexer_ids = [
+            int(item["id"])
+            for item in prowlarr_indexers
+            if item.get("enable")
+            and "lat-team" in str(item.get("name") or "").casefold()
+        ]
+    except SeriesFallbackError as error:
+        print(f"LAT-TEAM DIRECT DISCOVERY SKIP: reason={error}")
+        latteam_indexer_ids = []
     series_items = get_json(SONARR_URL, "/api/v3/series", sonarr_key)
     series_by_tvdb = {
         int(item.get("tvdbId", 0)): item
@@ -1158,6 +1348,9 @@ def main() -> int:
             last_request_id,
         )
         torrents = qbit.get_json("/api/v2/torrents/info")
+    import_requests = request_completed_imports(
+        qbit, torrents, sonarr_key, args.apply
+    )
     verified, mismatches = reconcile_imports(
         qbit, torrents, sonarr_key, args.apply
     )
@@ -1168,7 +1361,9 @@ def main() -> int:
         policy,
         args.apply,
     )
-    if args.apply and (verified or mismatches or removed or unsafe_removed):
+    if args.apply and (
+        import_requests or verified or mismatches or removed or unsafe_removed
+    ):
         save_state(
             state_path,
             cursors,
@@ -1252,8 +1447,17 @@ def main() -> int:
                 f"series={series['title']} season=S{season:02d} "
                 "language-floor=latino"
             )
-            try:
-                releases = get_json(
+            def fetch_season_releases() -> list[dict[str, Any]]:
+                # Query the priority-one source before Sonarr fans out to all
+                # indexers. This avoids overlapping Lat-Team requests hitting
+                # the tracker's request-delay protection.
+                direct_releases = direct_latteam_releases(
+                    f"{series['title']} S{season:02d}",
+                    tvdb_id,
+                    latteam_indexer_ids,
+                    prowlarr_key,
+                )
+                sonarr_releases = get_json(
                     SONARR_URL,
                     "/api/v3/release?"
                     + urllib.parse.urlencode(
@@ -1265,27 +1469,40 @@ def main() -> int:
                     sonarr_key,
                     timeout=180,
                 )
+                return merge_release_results(sonarr_releases, direct_releases)
+
+            def classify_season_releases(
+                releases: list[dict[str, Any]],
+            ) -> list[dict[str, Any]]:
+                enriched = enrich_btarg(
+                    releases,
+                    str(series.get("imdbId") or "") or None,
+                    btarg,
+                )
+                eligible = [
+                    item
+                    for item in enriched
+                    if release_tag(item)
+                    not in (blocked_tags | inspection_rejected)
+                ]
+                return latino_season_pack_candidates(
+                    eligible,
+                    season,
+                    policy,
+                )
+
+            try:
+                candidates = candidates_with_retry(
+                    fetch_season_releases,
+                    classify_season_releases,
+                    f"series={series['title']} season=S{season:02d}",
+                )
             except SeriesFallbackError as error:
                 print(
                     f"UPGRADE SEARCH SKIP: season=S{season:02d} "
                     f"reason={error}"
                 )
                 continue
-            releases = enrich_btarg(
-                releases,
-                str(series.get("imdbId") or "") or None,
-                btarg,
-            )
-            releases = [
-                item
-                for item in releases
-                if release_tag(item) not in (blocked_tags | inspection_rejected)
-            ]
-            candidates = latino_season_pack_candidates(
-                releases,
-                season,
-                policy,
-            )
             expected_numbers = {
                 int(item["episodeNumber"])
                 for item in episodes
@@ -1315,6 +1532,11 @@ def main() -> int:
                 tag_values.extend(
                     f"sonarr-episode-{item['id']}"
                     for item in covered_episodes
+                )
+                tag_values.extend(
+                    f"sonarr-original-file-{int(item.get('episodeFileId', 0))}"
+                    for item in covered_episodes
+                    if int(item.get("episodeFileId", 0) or 0) > 0
                 )
                 tags = ",".join(tag_values)
                 print(
@@ -1365,7 +1587,9 @@ def main() -> int:
                         ),
                     )
                 except GRAB.GrabError as error:
-                    inspection_rejected.add(fingerprint)
+                    transient = isinstance(error, GRAB.TorrentFetchError)
+                    if not transient:
+                        inspection_rejected.add(fingerprint)
                     save_state(
                         state_path,
                         cursors,
@@ -1373,7 +1597,8 @@ def main() -> int:
                         last_request_id,
                     )
                     print(
-                        f"UPGRADE INSPECTION REJECTED: season=S{season:02d} "
+                        f"{'UPGRADE DELIVERY DEFERRED' if transient else 'UPGRADE INSPECTION REJECTED'}: "
+                        f"season=S{season:02d} "
                         f"release={fingerprint} reason={error}"
                     )
                     continue
@@ -1427,47 +1652,70 @@ def main() -> int:
                 f"{target_label(request)} series={series['title']} "
                 f"episode={label} language-floor={floor.name.lower()}"
             )
-            try:
-                releases = get_json(
-                    SONARR_URL,
-                    "/api/v3/release?" + urllib.parse.urlencode({"episodeId": episode["id"]}),
-                    sonarr_key,
-                    timeout=180,
-                )
-            except SeriesFallbackError as error:
-                print(f"SEARCH SKIP: episode={label} reason={error}")
-                cursors[request_key] = int(episode["id"])
-                continue
-            releases = enrich_btarg(
-                releases,
-                str(series.get("imdbId") or "") or None,
-                btarg,
-            )
             rejected_tags = blocked_tags | inspection_rejected
-            releases = [item for item in releases if release_tag(item) not in rejected_tags]
             same_season_missing = {
                 int(item["episodeNumber"]): item
                 for item in missing
                 if int(item["seasonNumber"]) == int(episode["seasonNumber"])
             }
-            if is_upgrade:
-                installed_file = files_by_id[
-                    int(episode["episodeFileId"])
-                ]
-                candidates = language_upgrade_candidates(
-                    releases,
-                    episode,
-                    installed_file,
-                    policy,
+
+            def fetch_episode_releases() -> list[dict[str, Any]]:
+                direct_releases = direct_latteam_releases(
+                    f"{series['title']} {label}",
+                    tvdb_id,
+                    latteam_indexer_ids,
+                    prowlarr_key,
                 )
-            else:
-                candidates = eligible_candidates(
+                sonarr_releases = get_json(
+                    SONARR_URL,
+                    "/api/v3/release?"
+                    + urllib.parse.urlencode({"episodeId": episode["id"]}),
+                    sonarr_key,
+                    timeout=180,
+                )
+                return merge_release_results(sonarr_releases, direct_releases)
+
+            def classify_episode_releases(
+                releases: list[dict[str, Any]],
+            ) -> list[dict[str, Any]]:
+                enriched = enrich_btarg(
                     releases,
+                    str(series.get("imdbId") or "") or None,
+                    btarg,
+                )
+                eligible = [
+                    item
+                    for item in enriched
+                    if release_tag(item) not in rejected_tags
+                ]
+                if is_upgrade:
+                    installed_file = files_by_id[
+                        int(episode["episodeFileId"])
+                    ]
+                    return language_upgrade_candidates(
+                        eligible,
+                        episode,
+                        installed_file,
+                        policy,
+                    )
+                return eligible_candidates(
+                    eligible,
                     episode,
                     floor,
                     policy,
                     set(same_season_missing),
                 )
+
+            try:
+                candidates = candidates_with_retry(
+                    fetch_episode_releases,
+                    classify_episode_releases,
+                    f"series={series['title']} episode={label}",
+                )
+            except SeriesFallbackError as error:
+                print(f"SEARCH SKIP: episode={label} reason={error}")
+                cursors[request_key] = int(episode["id"])
+                continue
             cursors[request_key] = int(episode["id"])
             if not candidates:
                 print(f"NO SAFE CANDIDATE: episode={label}")
@@ -1507,6 +1755,11 @@ def main() -> int:
                 tag_values.extend(target_tags(request, series))
                 tag_values.extend(
                     f"sonarr-episode-{item['id']}" for item in covered_episodes
+                )
+                tag_values.extend(
+                    f"sonarr-original-file-{int(item.get('episodeFileId', 0))}"
+                    for item in covered_episodes
+                    if int(item.get("episodeFileId", 0) or 0) > 0
                 )
                 tags = ",".join(tag_values)
                 language = language_rank(selected)
@@ -1593,7 +1846,9 @@ def main() -> int:
                         else None,
                     )
                 except GRAB.GrabError as error:
-                    inspection_rejected.add(fingerprint)
+                    transient = isinstance(error, GRAB.TorrentFetchError)
+                    if not transient:
+                        inspection_rejected.add(fingerprint)
                     save_state(
                         state_path,
                         cursors,
@@ -1601,7 +1856,8 @@ def main() -> int:
                         last_request_id,
                     )
                     print(
-                        f"INSPECTION REJECTED: episode={label} "
+                        f"{'DELIVERY DEFERRED' if transient else 'INSPECTION REJECTED'}: "
+                        f"episode={label} "
                         f"release={fingerprint} reason={error}"
                     )
                     continue

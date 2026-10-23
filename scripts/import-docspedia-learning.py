@@ -225,6 +225,7 @@ def run(stack: Path, data_root: Path, dry_run: bool, max_torrents: int) -> int:
                         "seedingTimeLimit": MINIMUM_SEED_MINUTES,
                         "inactiveSeedingTimeLimit": -2,
                         "shareLimitAction": "Default",
+                        "shareLimitsMode": "Default",
                     },
                 )
 

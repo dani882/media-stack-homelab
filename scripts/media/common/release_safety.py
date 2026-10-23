@@ -28,7 +28,7 @@ _DANGEROUS_TITLE_RE = re.compile(
 
 _UNACCEPTABLE_SOURCE_RE = re.compile(
     r"(?:^|[\s._-])(?:cam|hdcam|hdts|telesync|telecine|dvdscr|screener|"
-    r"workprint|r5)(?:$|[\s._-])",
+    r"workprint|r5|x265|h[\s._-]?265|hevc|av1)(?:$|[\s._-])",
     re.IGNORECASE,
 )
 
@@ -48,7 +48,7 @@ def dangerous_release_title(title: str) -> bool:
 
 
 def unacceptable_source_title(title: str) -> bool:
-    """Reject camera captures and other unsuitable pre-release sources."""
+    """Reject unsuitable sources and technically banned video codecs."""
     return bool(_UNACCEPTABLE_SOURCE_RE.search(title))
 
 
