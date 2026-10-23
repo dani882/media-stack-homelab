@@ -542,6 +542,14 @@ Download queueing remains capped at three active downloads, but torrents below
 2 KiB/s for 60 seconds do not consume a slot. This lets stalled torrents wait
 for peers without blocking a healthy download; it avoids using Force Start.
 
+Every 15 minutes, the guarded stalled-download worker also reviews Arr queue
+items. Public torrents follow the longer removal and blocklist policy. A
+verified private torrent that remains at exactly 0%, with no seeders and no
+available pieces for 12 hours, is retained but tagged `stalled-deferred`,
+stopped, detached from its Arr category, and blocklisted there so another
+release can be tried. Partially downloaded private torrents are never deferred
+by this workflow.
+
 Managed categories include:
 
 ```text

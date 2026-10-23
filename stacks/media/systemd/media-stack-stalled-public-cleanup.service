@@ -1,5 +1,5 @@
 [Unit]
-Description=Blocklist stale incomplete public media torrents
+Description=Defer or blocklist stalled media torrents safely
 After=network.target docker.service
 
 [Service]
@@ -8,4 +8,4 @@ TimeoutStartSec=30min
 Nice=10
 IOSchedulingClass=idle
 ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
-ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/cleanup-stalled-public.py --apply --max-delete 10
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/cleanup-stalled-public.py --apply --max-delete 10 --max-defer 10

@@ -1,10 +1,10 @@
 [Unit]
-Description=Check for stale incomplete public media torrents
+Description=Check for stalled media torrents
 
 [Timer]
-OnBootSec=20min
-OnUnitActiveSec=2h
-AccuracySec=5min
+OnBootSec=10min
+OnUnitActiveSec=15min
+AccuracySec=2min
 Persistent=true
 
 [Install]
