@@ -792,6 +792,29 @@ class SeriesFallbackTests(unittest.TestCase):
         )
         self.assertEqual(len(active), 1)
 
+    def test_inactive_fallback_does_not_consume_active_cap(self) -> None:
+        now = 1_000_000.0
+        active = MODULE.active_fallback_torrents(
+            [
+                {
+                    "tags": "public,series-fallback",
+                    "state": "stalledDL",
+                    "progress": 0,
+                    "dlspeed": 0,
+                    "added_on": now - 61,
+                    "last_activity": now - 61,
+                },
+                {
+                    "tags": "private,series-fallback",
+                    "state": "downloading",
+                    "progress": 0.5,
+                    "dlspeed": 4096,
+                },
+            ],
+            now,
+        )
+        self.assertEqual(len(active), 1)
+
     def test_only_old_stalled_public_fallback_is_removable(self) -> None:
         now = 1_000_000
         old = now - 13 * 3600

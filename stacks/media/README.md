@@ -541,6 +541,13 @@ qBittorrent configuration is automated.
 Download queueing remains capped at three active downloads, but torrents below
 2 KiB/s for 60 seconds do not consume a slot. This lets stalled torrents wait
 for peers without blocking a healthy download; it avoids using Force Start.
+The monitored movie and series dispatchers use the same rule for their own
+safety caps, regardless of whether a torrent is public or private. A queued,
+stopped, completed, or 60-second inactive download therefore never prevents
+the next eligible release from being evaluated.
+If the highest-ranked tracker finds a release but cannot deliver its torrent
+file, the movie dispatcher skips that tracker for the current title and tries
+the next language-safe tracker instead of aborting the whole cycle.
 
 Every 15 minutes, the guarded stalled-download worker also reviews Arr queue
 items. Public torrents follow the longer removal and blocklist policy. A

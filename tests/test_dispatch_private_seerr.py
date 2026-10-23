@@ -158,6 +158,55 @@ class PrivateDispatcherTests(unittest.TestCase):
             1,
         )
 
+    def test_active_private_dispatch_cap_ignores_inactive_and_queued_items(self) -> None:
+        now = 1_000_000.0
+        self.assertEqual(
+            MODULE.active_private_dispatches(
+                [
+                    {
+                        "tags": "private-dispatch",
+                        "progress": 0,
+                        "state": "stalledDL",
+                        "dlspeed": 0,
+                        "added_on": now - 61,
+                        "last_activity": now - 61,
+                    },
+                    {
+                        "tags": "private-dispatch",
+                        "progress": 0,
+                        "state": "queuedDL",
+                    },
+                    {
+                        "tags": "private-dispatch",
+                        "progress": 0.2,
+                        "state": "downloading",
+                        "dlspeed": 4096,
+                    },
+                ],
+                now,
+            ),
+            1,
+        )
+
+    def test_torrent_fetch_failure_is_deferred_without_crashing(self) -> None:
+        qbit = mock.Mock()
+        release = {"indexerId": 12}
+        indexer = {"seed_minutes": 4920, "ratio_limit": None}
+        with mock.patch.object(
+            MODULE.GRAB,
+            "add_to_qbittorrent",
+            side_effect=MODULE.GRAB.TorrentFetchError("tracker unavailable"),
+        ):
+            self.assertFalse(
+                MODULE.add_selected_release(
+                    qbit,
+                    release,
+                    indexer,
+                    "private,lat-team",
+                    "Example [LATINO]",
+                )
+            )
+
     def test_movie_upgrade_waits_for_radarr_to_replace_original_file(self) -> None:
         torrent = {
             "hash": "abc",
