@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically process completed Lat-Team codec fallbacks
+
+[Timer]
+OnBootSec=25min
+OnUnitInactiveSec=15min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

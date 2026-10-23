@@ -56,6 +56,7 @@ for module_dir in (SCRIPT_ROOT / "media", STACK / "scripts"):
 from common.btarg import BTArgCache, BTArgClient, BTArgError, enrich_release
 from common.language import (
     LanguageRank,
+    is_language_upgrade,
     language_rank,
     release_is_safe_language_upgrade,
     rejection_is_overridable,
@@ -69,7 +70,8 @@ from common.qbittorrent import (
 from common.release_safety import (
     dangerous_release_title,
     dangerous_torrent_paths,
-    unacceptable_source_title,
+    transcode_codec_title,
+    unacceptable_noncodec_source_title,
 )
 
 
@@ -315,6 +317,36 @@ def source_policy(release: dict[str, Any], policy: dict[str, Any]) -> SourcePoli
     )
 
 
+def codec_rejection_is_overridable(reason: str) -> bool:
+    normalized = reason.casefold().replace(".", "").replace("-", "")
+    return any(token in normalized for token in ("x265", "h265", "hevc", "av1"))
+
+
+def release_approval_allows_transcode(
+    release: dict[str, Any], source: SourcePolicy, title: str
+) -> bool:
+    if release.get("approved") is True and not release.get("rejected", False):
+        return True
+    reasons = rejection_reasons(release)
+    if (
+        release.get("rejected", False)
+        and reasons
+        and all(rejection_is_overridable(reason) for reason in reasons)
+    ):
+        return True
+    return bool(
+        source.name == "lat-team"
+        and transcode_codec_title(title)
+        and release.get("rejected", False)
+        and reasons
+        and all(
+            rejection_is_overridable(reason)
+            or codec_rejection_is_overridable(reason)
+            for reason in reasons
+        )
+    )
+
+
 def exact_single_episode(release: dict[str, Any], episode: dict[str, Any]) -> bool:
     return release_episode_numbers(release, episode) == {
         int(episode["episodeNumber"])
@@ -369,8 +401,7 @@ def candidate_allowed(
     source = source_policy(release, policy)
     return bool(
         source
-        and release.get("approved") is True
-        and not release.get("rejected", False)
+        and release_approval_allows_transcode(release, source, title)
         and release.get("downloadAllowed", True) is not False
         and release.get("protocol") == "torrent"
         and release.get("downloadUrl")
@@ -381,7 +412,11 @@ def candidate_allowed(
             bool(policy["season_packs_enabled"]),
         )
         and not dangerous_release_title(title)
-        and not unacceptable_source_title(title)
+        and not unacceptable_noncodec_source_title(title)
+        and (
+            not transcode_codec_title(title)
+            or source.name == "lat-team"
+        )
         and GRAB.title_resolution(release) >= policy["minimum_resolution"]
         and int(release.get("seeders", 0) or 0) >= source.minimum_seeders
         and language_rank(release) >= floor
@@ -390,11 +425,12 @@ def candidate_allowed(
 
 def candidate_sort_key(
     release: dict[str, Any], policy: dict[str, Any]
-) -> tuple[int, int, int, int, int, str]:
+) -> tuple[int, int, int, int, int, int, str]:
     source = source_policy(release, policy)
     assert source is not None
     return (
         -int(language_rank(release)),
+        1 if transcode_codec_title(str(release.get("title") or "")) else 0,
         0 if source.private else 1,
         source.priority,
         -int(release.get("customFormatScore", 0) or 0),
@@ -530,6 +566,13 @@ def merge_release_results(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]
         for release in group:
             merged.setdefault(release_tag(release), release)
     return list(merged.values())
+
+
+def contains_latteam_release(releases: list[dict[str, Any]]) -> bool:
+    return any(
+        "lat-team" in str(item.get("indexer") or "").casefold()
+        for item in releases
+    )
 
 
 def enrich_btarg(
@@ -776,6 +819,12 @@ def request_completed_imports(
             or "language-mismatch" in tags
         ):
             continue
+        if (
+            "latteam-transcode-required" in tags
+            and "latteam-transcode-ready" not in tags
+        ):
+            print("IMPORT PENDING: Lat-Team H.264 staging is not ready")
+            continue
         content_path = str(torrent.get("content_path") or "")
         if not content_path.startswith("/data/Downloads/"):
             print("IMPORT REVIEW: completed series path is outside Downloads")
@@ -836,6 +885,8 @@ def reconcile_imports(
             or "language-mismatch" in tags
             or float(torrent.get("progress", 0) or 0) < 1
         ):
+            continue
+        if "series-fallback-import-requested" not in tags:
             continue
         episode_ids = tag_numbers(tags, "sonarr-episode-")
         if not episode_ids:
@@ -1152,24 +1203,26 @@ def language_upgrade_candidates(
         if not (
             source
             and source.private
+            and release_approval_allows_transcode(release, source, title)
             and (
-                release.get("approved") is True
+                release_is_safe_language_upgrade(installed_file, release)
                 or (
-                    release.get("rejected", False)
-                    and bool(rejection_reasons(release))
-                    and all(
-                        rejection_is_overridable(reason)
-                        for reason in rejection_reasons(release)
-                    )
+                    source.name == "lat-team"
+                    and transcode_codec_title(title)
+                    and is_language_upgrade(installed_file, release)
+                    and release.get("downloadAllowed", True) is not False
                 )
             )
-            and release_is_safe_language_upgrade(installed_file, release)
             and release.get("protocol") == "torrent"
             and release.get("downloadUrl")
             and release_episode_numbers(release, episode)
             == {int(episode["episodeNumber"])}
             and not dangerous_release_title(title)
-            and not unacceptable_source_title(title)
+            and not unacceptable_noncodec_source_title(title)
+            and (
+                not transcode_codec_title(title)
+                or source.name == "lat-team"
+            )
             and GRAB.title_resolution(release) >= policy["minimum_resolution"]
             and int(release.get("seeders", 0) or 0) >= source.minimum_seeders
         ):
@@ -1193,23 +1246,17 @@ def latino_season_pack_candidates(
             and source.private
             and release.get("fullSeason") is True
             and int(release.get("seasonNumber", -1) or -1) == season
-            and (
-                release.get("approved") is True
-                or (
-                    release.get("rejected", False)
-                    and bool(rejection_reasons(release))
-                    and all(
-                        rejection_is_overridable(reason)
-                        for reason in rejection_reasons(release)
-                    )
-                )
-            )
+            and release_approval_allows_transcode(release, source, title)
             and release.get("downloadAllowed", True) is not False
             and release.get("protocol") == "torrent"
             and release.get("downloadUrl")
             and language_rank(release) >= LanguageRank.LATINO
             and not dangerous_release_title(title)
-            and not unacceptable_source_title(title)
+            and not unacceptable_noncodec_source_title(title)
+            and (
+                not transcode_codec_title(title)
+                or source.name == "lat-team"
+            )
             and GRAB.title_resolution(release) >= policy["minimum_resolution"]
             and int(release.get("seeders", 0) or 0) >= source.minimum_seeders
         ):
@@ -1454,15 +1501,6 @@ def main() -> int:
                 "language-floor=latino"
             )
             def fetch_season_releases() -> list[dict[str, Any]]:
-                # Query the priority-one source before Sonarr fans out to all
-                # indexers. This avoids overlapping Lat-Team requests hitting
-                # the tracker's request-delay protection.
-                direct_releases = direct_latteam_releases(
-                    f"{series['title']} S{season:02d}",
-                    tvdb_id,
-                    latteam_indexer_ids,
-                    prowlarr_key,
-                )
                 sonarr_releases = get_json(
                     SONARR_URL,
                     "/api/v3/release?"
@@ -1475,6 +1513,17 @@ def main() -> int:
                     sonarr_key,
                     timeout=180,
                 )
+                # Sonarr already fans this search out through Prowlarr. Only
+                # use a direct query if that response contains no Lat-Team
+                # result, avoiding duplicate bursts against the private site.
+                direct_releases = []
+                if not contains_latteam_release(sonarr_releases):
+                    direct_releases = direct_latteam_releases(
+                        f"{series['title']} S{season:02d}",
+                        tvdb_id,
+                        latteam_indexer_ids,
+                        prowlarr_key,
+                    )
                 return merge_release_results(sonarr_releases, direct_releases)
 
             def classify_season_releases(
@@ -1544,6 +1593,8 @@ def main() -> int:
                     for item in covered_episodes
                     if int(item.get("episodeFileId", 0) or 0) > 0
                 )
+                if transcode_codec_title(str(selected.get("title") or "")):
+                    tag_values.append("latteam-transcode-required")
                 tags = ",".join(tag_values)
                 print(
                     f"{'UPGRADE' if args.apply else 'WOULD UPGRADE'}: "
@@ -1666,12 +1717,6 @@ def main() -> int:
             }
 
             def fetch_episode_releases() -> list[dict[str, Any]]:
-                direct_releases = direct_latteam_releases(
-                    f"{series['title']} {label}",
-                    tvdb_id,
-                    latteam_indexer_ids,
-                    prowlarr_key,
-                )
                 sonarr_releases = get_json(
                     SONARR_URL,
                     "/api/v3/release?"
@@ -1679,6 +1724,14 @@ def main() -> int:
                     sonarr_key,
                     timeout=180,
                 )
+                direct_releases = []
+                if not contains_latteam_release(sonarr_releases):
+                    direct_releases = direct_latteam_releases(
+                        f"{series['title']} {label}",
+                        tvdb_id,
+                        latteam_indexer_ids,
+                        prowlarr_key,
+                    )
                 return merge_release_results(sonarr_releases, direct_releases)
 
             def classify_episode_releases(
@@ -1778,6 +1831,8 @@ def main() -> int:
                     tag_values.append(language_tag)
                 if len(covered_episodes) > 1:
                     tag_values.append("series-fallback-season-pack")
+                if transcode_codec_title(str(selected.get("title") or "")):
+                    tag_values.append("latteam-transcode-required")
                 tags = ",".join(tag_values)
                 dispatch_label = (
                     label

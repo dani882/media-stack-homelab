@@ -83,6 +83,39 @@ class PrivateDispatcherTests(unittest.TestCase):
         )
         self.assertEqual(selected["indexerId"], 12)
 
+    def test_h264_beats_latteam_hevc_for_equal_language(self) -> None:
+        selected = MODULE.select_candidate(
+            [
+                self.release(12, "Example Spanish Latino 2160p H.265-LatTeam"),
+                self.release(11, "Example Spanish Latino 1080p H.264-GROUP"),
+            ],
+            123,
+            self.indexers,
+            "latino",
+            720,
+        )
+        self.assertEqual(selected["indexerId"], 11)
+
+    def test_latteam_hevc_is_a_last_resort_candidate(self) -> None:
+        selected = MODULE.select_candidate(
+            [self.release(12, "Example Spanish Latino 2160p HEVC-LatTeam")],
+            123,
+            self.indexers,
+            "latino",
+            720,
+        )
+        self.assertIsNotNone(selected)
+
+    def test_other_tracker_hevc_remains_rejected(self) -> None:
+        selected = MODULE.select_candidate(
+            [self.release(11, "Example Spanish Latino 1080p x265-GROUP")],
+            123,
+            self.indexers,
+            "latino",
+            720,
+        )
+        self.assertIsNone(selected)
+
     def test_existing_movie_requires_real_language_upgrade(self) -> None:
         selected = MODULE.select_candidate(
             [self.release(12, "Example English 1080p")],
@@ -213,7 +246,8 @@ class PrivateDispatcherTests(unittest.TestCase):
             "progress": 1,
             "tags": (
                 "private-dispatch,movie-language-upgrade,radarr-movie-7,"
-                "radarr-original-file-88,movie-expected-latino"
+                "radarr-original-file-88,movie-expected-latino,"
+                "private-dispatch-import-requested"
             ),
         }
         qbit = mock.Mock()
@@ -257,7 +291,8 @@ class PrivateDispatcherTests(unittest.TestCase):
             "progress": 1,
             "tags": (
                 "private-dispatch,movie-language-upgrade,radarr-movie-7,"
-                "radarr-original-file-88,movie-expected-latino"
+                "radarr-original-file-88,movie-expected-latino,"
+                "private-dispatch-import-requested"
             ),
         }
         qbit = mock.Mock()
@@ -277,6 +312,30 @@ class PrivateDispatcherTests(unittest.TestCase):
             "/api/v2/torrents/addTags",
             {"hashes": "abc", "tags": "private-dispatch-import-verified"},
         )
+
+    def test_movie_upgrade_without_original_file_id_is_never_verified(self) -> None:
+        torrent = {
+            "hash": "abc",
+            "progress": 1,
+            "tags": (
+                "private-dispatch,movie-language-upgrade,radarr-movie-7,"
+                "movie-expected-latino,private-dispatch-import-requested"
+            ),
+        }
+        qbit = mock.Mock()
+        movies = {
+            7: {
+                "movieFile": {
+                    "id": 99,
+                    "mediaInfo": {"audioLanguages": "spa/eng"},
+                }
+            }
+        }
+        self.assertEqual(
+            MODULE.reconcile_movie_imports(qbit, [torrent], movies, True),
+            (0, 0),
+        )
+        qbit.post_form.assert_not_called()
 
     def test_dangerous_release_is_never_selected(self) -> None:
         selected = MODULE.select_candidate(

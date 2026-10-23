@@ -1,0 +1,13 @@
+[Unit]
+Description=Convert verified Lat-Team codec fallbacks to H.264 and import them
+After=network.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=36h
+TimeoutStopSec=2min
+KillMode=control-group
+Nice=10
+IOSchedulingClass=idle
+ExecCondition=/usr/bin/python3 /volume1/docker/media-stack/check-system-pressure.py --guard
+ExecStart=/usr/bin/python3 -u /volume1/docker/media-stack/dispatch-latteam-transcode.py --apply

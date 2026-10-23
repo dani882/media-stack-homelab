@@ -543,7 +543,7 @@ class SeriesFallbackTests(unittest.TestCase):
             [private_castilian],
         )
 
-    def test_individual_upgrade_rejects_non_overridable_sonarr_reason(self) -> None:
+    def test_individual_upgrade_allows_latteam_codec_rejection_for_transcode(self) -> None:
         candidate = self.release(
             "Example.S02E01.SPANiSH.1080p.x265",
             "Lat-Team (API) (Prowlarr)",
@@ -557,6 +557,49 @@ class SeriesFallbackTests(unittest.TestCase):
                 [candidate],
                 self.episode,
                 {"languages": [{"name": "English"}]},
+                self.policy,
+            ),
+            [candidate],
+        )
+
+    def test_h264_is_preferred_over_latteam_hevc_at_equal_language(self) -> None:
+        h265 = self.release(
+            "Example.S02E01.SPANiSH.1080p.H.265",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish (Latino)",
+            approved=False,
+            rejected=True,
+            rejections=["x265 is not wanted in profile"],
+        )
+        h264 = self.release(
+            "Example.S02E01.SPANiSH.1080p.H.264",
+            "Milnueve (API) (Prowlarr)",
+            language="Spanish (Latino)",
+        )
+        self.assertEqual(
+            MODULE.eligible_candidates(
+                [h265, h264],
+                self.episode,
+                MODULE.LanguageRank.LATINO,
+                self.policy,
+            ),
+            [h264, h265],
+        )
+
+    def test_non_latteam_codec_rejection_remains_blocked(self) -> None:
+        candidate = self.release(
+            "Example.S02E01.SPANiSH.1080p.x265",
+            "Milnueve (API) (Prowlarr)",
+            language="Spanish (Latino)",
+            approved=False,
+            rejected=True,
+            rejections=["x265 is not wanted in profile"],
+        )
+        self.assertEqual(
+            MODULE.eligible_candidates(
+                [candidate],
+                self.episode,
+                MODULE.LanguageRank.LATINO,
                 self.policy,
             ),
             [],
@@ -655,7 +698,7 @@ class SeriesFallbackTests(unittest.TestCase):
             "progress": 1,
             "tags": (
                 "series-fallback,sonarr-episode-4512,"
-                "fallback-language-latino"
+                "fallback-language-latino,series-fallback-import-requested"
             ),
         }
         qbit = mock.Mock()
@@ -719,7 +762,7 @@ class SeriesFallbackTests(unittest.TestCase):
             "progress": 1,
             "tags": (
                 "series-fallback,sonarr-episode-4512,"
-                "fallback-language-castilian"
+                "fallback-language-castilian,series-fallback-import-requested"
             ),
         }
         qbit = mock.Mock()

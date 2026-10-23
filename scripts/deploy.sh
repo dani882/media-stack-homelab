@@ -25,6 +25,7 @@ PRIVATE_GRAB_SCRIPT="${ROOT_DIR}/scripts/grab-prowlarr-release.py"
 PRIVATE_DISPATCH_SCRIPT="${ROOT_DIR}/scripts/dispatch-private-seerr.py"
 SERIES_FALLBACK_SCRIPT="${ROOT_DIR}/scripts/dispatch-series-fallback.py"
 BTARG_SERIES_SCRIPT="${ROOT_DIR}/scripts/dispatch-btarg-series.py"
+LATTEAM_TRANSCODE_SCRIPT="${ROOT_DIR}/scripts/dispatch-latteam-transcode.py"
 BTARG_SERIES_MODULE="${ROOT_DIR}/scripts/media/btarg_series_pack.py"
 LANGUAGE_REPAIR_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-language-repairs.py"
 IMPORTED_AUDIO_AUDIT_SCRIPT="${ROOT_DIR}/scripts/audit-imported-audio.py"
@@ -45,6 +46,7 @@ MEDIA_COMMON_LATINO="${MEDIA_COMMON_DIR}/latino.py"
 MEDIA_COMMON_LANGUAGE="${MEDIA_COMMON_DIR}/language.py"
 MEDIA_COMMON_BTARG="${MEDIA_COMMON_DIR}/btarg.py"
 MEDIA_COMMON_RELEASE_SAFETY="${MEDIA_COMMON_DIR}/release_safety.py"
+MEDIA_COMMON_LATTEAM_TRANSCODE="${MEDIA_COMMON_DIR}/latteam_transcode.py"
 
 SERVARR_SCRIPT="${ROOT_DIR}/scripts/configure-servarr.py"
 SEERR_SCRIPT="${ROOT_DIR}/scripts/configure-seerr.py"
@@ -84,6 +86,8 @@ SERIES_FALLBACK_SERVICE="${STACK_DIR}/systemd/media-stack-series-fallback.servic
 SERIES_FALLBACK_TIMER="${STACK_DIR}/systemd/media-stack-series-fallback.timer"
 BTARG_SERIES_SERVICE="${STACK_DIR}/systemd/media-stack-btarg-series.service"
 BTARG_SERIES_TIMER="${STACK_DIR}/systemd/media-stack-btarg-series.timer"
+LATTEAM_TRANSCODE_SERVICE="${STACK_DIR}/systemd/media-stack-latteam-transcode.service"
+LATTEAM_TRANSCODE_TIMER="${STACK_DIR}/systemd/media-stack-latteam-transcode.timer"
 LANGUAGE_REPAIR_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-language-repair-audit.service"
 LANGUAGE_REPAIR_AUDIT_TIMER="${STACK_DIR}/systemd/media-stack-language-repair-audit.timer"
 IMPORTED_AUDIO_AUDIT_SERVICE="${STACK_DIR}/systemd/media-stack-imported-audio-audit.service"
@@ -147,6 +151,7 @@ for required_file in \
   "$MEDIA_COMMON_LANGUAGE" \
   "$MEDIA_COMMON_BTARG" \
   "$MEDIA_COMMON_RELEASE_SAFETY" \
+  "$MEDIA_COMMON_LATTEAM_TRANSCODE" \
   "$SERVARR_SCRIPT" \
   "$SEERR_SCRIPT" \
   "$BAZARR_SCRIPT" \
@@ -187,6 +192,9 @@ for required_file in \
   "$BTARG_SERIES_MODULE" \
   "$BTARG_SERIES_SERVICE" \
   "$BTARG_SERIES_TIMER" \
+  "$LATTEAM_TRANSCODE_SCRIPT" \
+  "$LATTEAM_TRANSCODE_SERVICE" \
+  "$LATTEAM_TRANSCODE_TIMER" \
   "$LANGUAGE_REPAIR_AUDIT_SCRIPT" \
   "$LANGUAGE_REPAIR_AUDIT_SERVICE" \
   "$LANGUAGE_REPAIR_AUDIT_TIMER" \
@@ -295,6 +303,7 @@ REMOTE_PRIVATE_GRAB_TEMP="${REMOTE_STAGING}/grab-prowlarr-release-${USER}-$$.py"
 REMOTE_PRIVATE_DISPATCH_TEMP="${REMOTE_STAGING}/dispatch-private-seerr-${USER}-$$.py"
 REMOTE_SERIES_FALLBACK_TEMP="${REMOTE_STAGING}/dispatch-series-fallback-${USER}-$$.py"
 REMOTE_BTARG_SERIES_TEMP="${REMOTE_STAGING}/dispatch-btarg-series-${USER}-$$.py"
+REMOTE_LATTEAM_TRANSCODE_TEMP="${REMOTE_STAGING}/dispatch-latteam-transcode-${USER}-$$.py"
 REMOTE_BTARG_SERIES_MODULE_TEMP="${REMOTE_STAGING}/btarg-series-pack-${USER}-$$.py"
 REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP="${REMOTE_STAGING}/audit-language-repairs-${USER}-$$.py"
 REMOTE_IMPORTED_AUDIO_AUDIT_TEMP="${REMOTE_STAGING}/audit-imported-audio-${USER}-$$.py"
@@ -314,6 +323,7 @@ REMOTE_MEDIA_COMMON_LATINO_TEMP="${REMOTE_STAGING}/media-common-latino-${USER}-$
 REMOTE_MEDIA_COMMON_LANGUAGE_TEMP="${REMOTE_STAGING}/media-common-language-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_BTARG_TEMP="${REMOTE_STAGING}/media-common-btarg-${USER}-$$.py"
 REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP="${REMOTE_STAGING}/media-common-release-safety-${USER}-$$.py"
+REMOTE_MEDIA_COMMON_LATTEAM_TRANSCODE_TEMP="${REMOTE_STAGING}/media-common-latteam-transcode-${USER}-$$.py"
 
 REMOTE_SERVARR_TEMP="${REMOTE_STAGING}/configure-servarr-${USER}-$$.py"
 REMOTE_SEERR_TEMP="${REMOTE_STAGING}/configure-seerr-${USER}-$$.py"
@@ -353,6 +363,8 @@ REMOTE_SERIES_FALLBACK_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-series-fallba
 REMOTE_SERIES_FALLBACK_TIMER_TEMP="${REMOTE_STAGING}/media-stack-series-fallback-${USER}-$$.timer"
 REMOTE_BTARG_SERIES_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.service"
 REMOTE_BTARG_SERIES_TIMER_TEMP="${REMOTE_STAGING}/media-stack-btarg-series-${USER}-$$.timer"
+REMOTE_LATTEAM_TRANSCODE_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-latteam-transcode-${USER}-$$.service"
+REMOTE_LATTEAM_TRANSCODE_TIMER_TEMP="${REMOTE_STAGING}/media-stack-latteam-transcode-${USER}-$$.timer"
 REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.service"
 REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP="${REMOTE_STAGING}/media-stack-language-repair-audit-${USER}-$$.timer"
 REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP="${REMOTE_STAGING}/media-stack-imported-audio-audit-${USER}-$$.service"
@@ -611,6 +623,7 @@ echo "Uploading imported public torrent cleanup script through SSH..."
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_PRIVATE_DISPATCH_TEMP}'" < "$PRIVATE_DISPATCH_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_SERIES_FALLBACK_TEMP}'" < "$SERIES_FALLBACK_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_TEMP}'" < "$BTARG_SERIES_SCRIPT"
+"${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LATTEAM_TRANSCODE_TEMP}'" < "$LATTEAM_TRANSCODE_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_BTARG_SERIES_MODULE_TEMP}'" < "$BTARG_SERIES_MODULE"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}'" < "$LANGUAGE_REPAIR_AUDIT_SCRIPT"
 "${SSH[@]}" "$REMOTE" "cat > '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}'" < "$IMPORTED_AUDIO_AUDIT_SCRIPT"
@@ -655,6 +668,10 @@ echo "Uploading shared media modules..."
 "${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}'" \
   < "$MEDIA_COMMON_RELEASE_SAFETY"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_MEDIA_COMMON_LATTEAM_TRANSCODE_TEMP}'" \
+  < "$MEDIA_COMMON_LATTEAM_TRANSCODE"
 
 echo "Uploading Seerr configuration script through SSH..."
 
@@ -839,6 +856,14 @@ echo "Uploading media watchdog systemd units through SSH..."
   < "$BTARG_SERIES_TIMER"
 
 "${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_LATTEAM_TRANSCODE_SERVICE_TEMP}'" \
+  < "$LATTEAM_TRANSCODE_SERVICE"
+
+"${SSH[@]}" "$REMOTE" \
+  "cat > '${REMOTE_LATTEAM_TRANSCODE_TIMER_TEMP}'" \
+  < "$LATTEAM_TRANSCODE_TIMER"
+
+"${SSH[@]}" "$REMOTE" \
   "cat > '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}'" \
   < "$LANGUAGE_REPAIR_AUDIT_SERVICE"
 
@@ -973,6 +998,7 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0755 '${REMOTE_PRIVATE_DISPATCH_TEMP}' '${NAS_STACK_DIR}/dispatch-private-seerr.py'
   sudo install -m 0755 '${REMOTE_SERIES_FALLBACK_TEMP}' '${NAS_STACK_DIR}/dispatch-series-fallback.py'
   sudo install -m 0755 '${REMOTE_BTARG_SERIES_TEMP}' '${NAS_STACK_DIR}/dispatch-btarg-series.py'
+  sudo install -m 0755 '${REMOTE_LATTEAM_TRANSCODE_TEMP}' '${NAS_STACK_DIR}/dispatch-latteam-transcode.py'
   sudo install -m 0644 '${REMOTE_BTARG_SERIES_MODULE_TEMP}' '${NAS_STACK_DIR}/scripts/btarg_series_pack.py'
   sudo install -m 0755 '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-language-repairs.py'
   sudo install -m 0755 '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' '${NAS_STACK_DIR}/audit-imported-audio.py'
@@ -1018,6 +1044,10 @@ echo "Installing and validating Compose file on the NAS..."
   sudo install -m 0644 \
     '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}' \
     '${NAS_STACK_DIR}/scripts/common/release_safety.py'
+
+  sudo install -m 0644 \
+    '${REMOTE_MEDIA_COMMON_LATTEAM_TRANSCODE_TEMP}' \
+    '${NAS_STACK_DIR}/scripts/common/latteam_transcode.py'
 
   sudo install -m 0755 \
     '${REMOTE_SERVARR_TEMP}' \
@@ -1172,6 +1202,14 @@ echo "Installing and validating Compose file on the NAS..."
     /etc/systemd/system/media-stack-btarg-series.timer
 
   sudo install -m 0644 \
+    '${REMOTE_LATTEAM_TRANSCODE_SERVICE_TEMP}' \
+    /etc/systemd/system/media-stack-latteam-transcode.service
+
+  sudo install -m 0644 \
+    '${REMOTE_LATTEAM_TRANSCODE_TIMER_TEMP}' \
+    /etc/systemd/system/media-stack-latteam-transcode.timer
+
+  sudo install -m 0644 \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
     /etc/systemd/system/media-stack-language-repair-audit.service
 
@@ -1220,6 +1258,7 @@ echo "Installing and validating Compose file on the NAS..."
     media-stack-private-dispatch.timer \
     media-stack-series-fallback.timer \
     media-stack-btarg-series.timer \
+    media-stack-latteam-transcode.timer \
     media-stack-language-repair-audit.timer \
     media-stack-imported-audio-audit.timer \
     media-stack-archive-spanish-dispatch.timer \
@@ -1340,6 +1379,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_MEDIA_COMMON_LANGUAGE_TEMP}' \
     '${REMOTE_MEDIA_COMMON_BTARG_TEMP}' \
     '${REMOTE_MEDIA_COMMON_RELEASE_SAFETY_TEMP}' \
+    '${REMOTE_MEDIA_COMMON_LATTEAM_TRANSCODE_TEMP}' \
     '${REMOTE_SERVARR_TEMP}' \
     '${REMOTE_SEERR_TEMP}' \
     '${REMOTE_BAZARR_TEMP}' \
@@ -1378,6 +1418,8 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_SERIES_FALLBACK_TIMER_TEMP}' \
     '${REMOTE_BTARG_SERIES_SERVICE_TEMP}' \
     '${REMOTE_BTARG_SERIES_TIMER_TEMP}' \
+    '${REMOTE_LATTEAM_TRANSCODE_SERVICE_TEMP}' \
+    '${REMOTE_LATTEAM_TRANSCODE_TIMER_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_SERVICE_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_TIMER_TEMP}' \
     '${REMOTE_IMPORTED_AUDIO_AUDIT_SERVICE_TEMP}' \
@@ -1411,6 +1453,7 @@ echo "Installing and validating Compose file on the NAS..."
     '${REMOTE_PRIVATE_DISPATCH_TEMP}' \
     '${REMOTE_SERIES_FALLBACK_TEMP}' \
     '${REMOTE_BTARG_SERIES_TEMP}' \
+    '${REMOTE_LATTEAM_TRANSCODE_TEMP}' \
     '${REMOTE_BTARG_SERIES_MODULE_TEMP}' \
     '${REMOTE_LANGUAGE_REPAIR_AUDIT_TEMP}' \
     '${REMOTE_IMPORTED_AUDIO_AUDIT_TEMP}' \

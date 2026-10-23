@@ -12,6 +12,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
@@ -93,6 +94,8 @@ PRIVATE_INDEXER_POLICIES: tuple[dict[str, Any], ...] = (
         "ratio_limit": None,
     },
 )
+LATTEAM_MAX_QUERIES_PER_RUN = 2
+LATTEAM_MINIMUM_QUERY_INTERVAL_SECONDS = 15
 
 
 def api_key(path: Path) -> str:
@@ -190,6 +193,9 @@ def request_completed_movie_imports(
             or "language-mismatch" in tags
         ):
             continue
+        if "latteam-transcode-required" in tags:
+            print("MOVIE IMPORT PENDING: Lat-Team H.264 staging is not ready")
+            continue
         content_path = str(torrent.get("content_path") or "")
         if not content_path.startswith("/data/Downloads/"):
             print("MOVIE IMPORT REVIEW: completed path is outside Downloads")
@@ -250,6 +256,14 @@ def reconcile_movie_imports(
             continue
         current_file_id = int(movie_file.get("id", 0) or 0)
         original_file_id = tag_number(tags, "radarr-original-file-")
+        if "private-dispatch-import-requested" not in tags:
+            print(f"MOVIE IMPORT PENDING: movie={movie_id} scan was not requested")
+            continue
+        if "movie-language-upgrade" in tags and original_file_id is None:
+            print(
+                f"MOVIE IMPORT REVIEW: movie={movie_id} original file ID is missing"
+            )
+            continue
         if original_file_id and current_file_id == original_file_id:
             print(
                 f"MOVIE IMPORT PENDING: movie={movie_id} Radarr still "
@@ -421,10 +435,11 @@ def language_floor_for_request(
 def candidate_sort_key(
     release: dict[str, Any],
     indexers: dict[int, dict[str, Any]],
-) -> tuple[int, int, int, int, str]:
+) -> tuple[int, int, int, int, int, str]:
     indexer = indexers[int(release["indexerId"])]
     return (
         -int(language_rank(release)),
+        1 if GRAB.transcode_codec_title(str(release.get("title") or "")) else 0,
         int(indexer["priority"]),
         -GRAB.title_resolution(release),
         -int(release.get("seeders", 0) or 0),
@@ -453,6 +468,9 @@ def select_candidate(
             release,
             minimum_language,
             minimum_resolution,
+            allow_transcode=(
+                indexers[int(release["indexerId"])]["tracker"] == "lat-team"
+            ),
         )
         and (
             installed is None
@@ -665,6 +683,8 @@ def main() -> int:
     state_path = stack / "state/private-dispatch.json"
     last_movie_id = read_last_movie_id(state_path)
     searches = 0
+    latteam_queries = 0
+    last_latteam_query_at: float | None = None
     for target in rotate_movie_targets(pending, last_movie_id):
         movie = target["movie"]
         request = target["request"]
@@ -686,7 +706,22 @@ def main() -> int:
 
         releases: list[dict[str, Any]] = []
         for indexer_id in indexers:
+            indexer = indexers[indexer_id]
+            is_latteam = indexer["tracker"] == "lat-team"
+            if is_latteam and latteam_queries >= LATTEAM_MAX_QUERIES_PER_RUN:
+                print("LAT-TEAM QUERY BUDGET: remaining movies deferred")
+                continue
+            if is_latteam and last_latteam_query_at is not None:
+                remaining = (
+                    LATTEAM_MINIMUM_QUERY_INTERVAL_SECONDS
+                    - (time.monotonic() - last_latteam_query_at)
+                )
+                if remaining > 0:
+                    time.sleep(remaining)
             try:
+                if is_latteam:
+                    latteam_queries += 1
+                    last_latteam_query_at = time.monotonic()
                 releases.extend(
                     GRAB.prowlarr_search(
                         prowlarr_url,
@@ -701,6 +736,8 @@ def main() -> int:
                     f"INDEXER SKIP: movie={movie_id} "
                     f"indexer={indexer_id} reason={error}"
                 )
+                if is_latteam:
+                    latteam_queries = LATTEAM_MAX_QUERIES_PER_RUN
 
         movie_file = movie.get("movieFile") if movie.get("hasFile") else None
         minimum_language = (
@@ -752,6 +789,8 @@ def main() -> int:
                         f"radarr-original-file-{int(movie_file['id'])}"
                     )
             tag_values.append(f"movie-expected-{actual_language}")
+            if GRAB.transcode_codec_title(str(release.get("title") or "")):
+                tag_values.append("latteam-transcode-required")
             tags = ",".join(tag_values)
             print(
                 f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'} "

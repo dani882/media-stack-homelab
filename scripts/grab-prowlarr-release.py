@@ -34,6 +34,8 @@ from common.release_safety import (
     dangerous_release_title,
     dangerous_torrent_paths,
     english_only_torrent_paths,
+    transcode_codec_title,
+    unacceptable_noncodec_source_title,
     unacceptable_source_title,
 )
 
@@ -69,9 +71,12 @@ def release_meets_private_policy(
     release: dict[str, Any],
     minimum_language: str,
     minimum_title_resolution: int,
+    allow_transcode: bool = False,
 ) -> bool:
     title = str(release.get("title", ""))
-    if dangerous_release_title(title) or unacceptable_source_title(title):
+    if dangerous_release_title(title) or unacceptable_noncodec_source_title(title):
+        return False
+    if transcode_codec_title(title) and not allow_transcode:
         return False
     if language_rank(release) < LANGUAGE_FLOORS[minimum_language]:
         return False
