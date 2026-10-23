@@ -392,12 +392,15 @@ fill a partially available season, but only missing or non-Spanish episodes
 receive upgrade tracking tags; existing Spanish audio remains protected.
 
 The same timer also upgrades monitored English/original episodes when Sonarr
-approves a private Latino season pack. Lat-Team is
-priority 1, followed by BTArg at priority 2 and Milnueve at priority 4. The
-candidate is added stopped and must contain exactly one safe video for every
-aired monitored episode before it starts. Existing Latino seasons are never
-replaced by this path, and private source torrents remain protected for their
-tracker-specific obligation after the library files are upgraded.
+finds either an exact private Latino season pack or a better private
+single-episode release in Latino or Castellano. It reserves part of every
+search cycle for individual episodes so unsuccessful season-pack searches
+cannot starve them. Lat-Team is priority 1, followed by BTArg at priority 2
+and Milnueve at priority 4, but language still outranks tracker priority.
+Existing Spanish episodes are never replaced by this path. Sonarr replaces
+only the library hardlink after the better file is verified; the older private
+torrent and its download remain protected until its tracker-specific seeding
+or ratio obligation is satisfied.
 
 The selected torrent is added stopped. Private sources must remain explicitly
 private. A public-source torrent that carries the private bit is accepted only

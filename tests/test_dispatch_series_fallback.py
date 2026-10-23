@@ -414,6 +414,112 @@ class SeriesFallbackTests(unittest.TestCase):
             {},
         )
 
+    def test_english_episode_is_an_individual_upgrade_target(self) -> None:
+        now = datetime(2026, 9, 27, tzinfo=UTC)
+        episode = {
+            "id": 1,
+            "seasonNumber": 1,
+            "episodeNumber": 1,
+            "monitored": True,
+            "hasFile": True,
+            "episodeFileId": 101,
+            "airDateUtc": "2026-01-01T00:00:00Z",
+        }
+        files = {101: {"languages": [{"name": "English"}]}}
+        self.assertEqual(
+            MODULE.upgradeable_episodes(
+                [episode], {1}, files, set(), set(), now
+            ),
+            [episode],
+        )
+
+    def test_spanish_episode_is_not_an_individual_upgrade_target(self) -> None:
+        now = datetime(2026, 9, 27, tzinfo=UTC)
+        episode = {
+            "id": 1,
+            "seasonNumber": 1,
+            "episodeNumber": 1,
+            "monitored": True,
+            "hasFile": True,
+            "episodeFileId": 101,
+            "airDateUtc": "2026-01-01T00:00:00Z",
+        }
+        files = {101: {"mediaInfo": {"audioLanguages": "spa/eng"}}}
+        self.assertEqual(
+            MODULE.upgradeable_episodes(
+                [episode], {1}, files, set(), set(), now
+            ),
+            [],
+        )
+
+    def test_individual_upgrade_requires_better_private_spanish(self) -> None:
+        installed = {"languages": [{"name": "English"}]}
+        private_castilian = self.release(
+            "Example.S02E01.SPANiSH.1080p.WEB-DL",
+            "Milnueve (API) (Prowlarr)",
+            language="Spanish",
+            approved=False,
+            rejected=True,
+            rejections=[
+                "Existing file on disk is of equal or higher preference: v2"
+            ],
+        )
+        public_latino = self.release(
+            "Example.S02E01.Spanish.Latino.1080p.WEB-DL",
+            "LimeTorrents (Prowlarr)",
+            language="Spanish (Latino)",
+        )
+        private_english = self.release(
+            "Example.S02E01.English.1080p.WEB-DL",
+            "Lat-Team (API) (Prowlarr)",
+        )
+        self.assertEqual(
+            MODULE.language_upgrade_candidates(
+                [public_latino, private_english, private_castilian],
+                self.episode,
+                installed,
+                self.policy,
+            ),
+            [private_castilian],
+        )
+
+    def test_individual_upgrade_rejects_non_overridable_sonarr_reason(self) -> None:
+        candidate = self.release(
+            "Example.S02E01.SPANiSH.1080p.x265",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish (Latino)",
+            approved=False,
+            rejected=True,
+            rejections=["x265 is not wanted in profile"],
+        )
+        self.assertEqual(
+            MODULE.language_upgrade_candidates(
+                [candidate],
+                self.episode,
+                {"languages": [{"name": "English"}]},
+                self.policy,
+            ),
+            [],
+        )
+
+    def test_individual_upgrade_requires_sonarr_approval_state(self) -> None:
+        candidate = self.release(
+            "Example.S02E01.SPANiSH.1080p.WEB-DL",
+            "Lat-Team (API) (Prowlarr)",
+            language="Spanish (Latino)",
+            approved=False,
+            rejected=False,
+        )
+        self.assertEqual(
+            MODULE.language_upgrade_candidates(
+                [candidate],
+                self.episode,
+                {"languages": [{"name": "English"}]},
+                self.policy,
+            ),
+            [],
+        )
+
     def test_only_approved_private_latino_season_pack_is_selected(self) -> None:
         good = self.release(
             "Carrie.2026.S01.1080p.H264.SPANiSH",

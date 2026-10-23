@@ -2,10 +2,11 @@
 """Dispatch one guarded fallback or upgrade for monitored TV episodes.
 
 Candidates are ranked by language first, then by private/public source and
-tracker priority.  Only exact single-episode torrents accepted by Sonarr are
-eligible.  The selected torrent is added stopped, its privacy flag and member
-paths are inspected, and only then is it started.  At most one torrent is
-started per run.
+tracker priority. Exact single-episode torrents and exact season packs are
+eligible. Existing non-Spanish episodes may only be upgraded from known
+private trackers. The selected torrent is added stopped, its privacy flag and
+member paths are inspected, and only then is it started. At most one torrent
+is started per run.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from common.btarg import BTArgCache, BTArgClient, BTArgError, enrich_release
 from common.language import (
     LanguageRank,
     language_rank,
+    release_is_safe_language_upgrade,
     rejection_is_overridable,
     rejection_reasons,
 )
@@ -921,6 +923,80 @@ def upgradeable_seasons(
     return result
 
 
+def upgradeable_episodes(
+    episodes: list[dict[str, Any]],
+    seasons: set[int],
+    files_by_id: dict[int, dict[str, Any]],
+    queued: set[int],
+    inflight_tags: set[str],
+    now: datetime,
+) -> list[dict[str, Any]]:
+    result = []
+    for episode in episodes:
+        episode_id = int(episode["id"])
+        file_id = int(episode.get("episodeFileId", 0) or 0)
+        episode_file = files_by_id.get(file_id)
+        if not (
+            int(episode.get("seasonNumber", 0) or 0) in seasons
+            and episode.get("monitored") is True
+            and episode.get("hasFile") is True
+            and episode_file is not None
+            and language_rank(episode_file) < LanguageRank.CASTILIAN
+            and episode_id not in queued
+            and f"sonarr-episode-{episode_id}" not in inflight_tags
+            and aired(episode.get("airDateUtc"), now)
+        ):
+            continue
+        result.append(episode)
+    return sorted(
+        result,
+        key=lambda item: (
+            int(item.get("seasonNumber", 0)),
+            int(item.get("episodeNumber", 0)),
+        ),
+    )
+
+
+def language_upgrade_candidates(
+    releases: list[dict[str, Any]],
+    episode: dict[str, Any],
+    installed_file: dict[str, Any],
+    policy: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates = []
+    for release in releases:
+        source = source_policy(release, policy)
+        title = str(release.get("title") or "")
+        if not (
+            source
+            and source.private
+            and (
+                release.get("approved") is True
+                or (
+                    release.get("rejected", False)
+                    and bool(rejection_reasons(release))
+                    and all(
+                        rejection_is_overridable(reason)
+                        for reason in rejection_reasons(release)
+                    )
+                )
+            )
+            and release_is_safe_language_upgrade(installed_file, release)
+            and release.get("protocol") == "torrent"
+            and release.get("downloadUrl")
+            and release_episode_numbers(release, episode)
+            == {int(episode["episodeNumber"])}
+            and not dangerous_release_title(title)
+            and not unacceptable_source_title(title)
+            and GRAB.title_resolution(release) >= policy["minimum_resolution"]
+            and int(release.get("seeders", 0) or 0) >= source.minimum_seeders
+        ):
+            continue
+        candidates.append(release)
+    candidates.sort(key=lambda item: candidate_sort_key(item, policy))
+    return candidates
+
+
 def latino_season_pack_candidates(
     releases: list[dict[str, Any]],
     season: int,
@@ -1163,19 +1239,13 @@ def main() -> int:
             inflight_tags,
             now,
         )
+        season_search_limit = min(
+            max_searches,
+            searches + max(1, (max_searches - searches) // 2),
+        )
         for season, covered_episodes in sorted(season_upgrades.items()):
-            if searches >= max_searches:
-                if args.apply:
-                    save_state(
-                        state_path,
-                        cursors,
-                        inspection_rejected,
-                        last_request_id,
-                    )
-                print(
-                    f"SERIES FALLBACK LIMIT: searched={searches} dispatched=0"
-                )
-                return 0
+            if searches >= season_search_limit:
+                break
             searches += 1
             print(
                 f"UPGRADE SEARCH: {target_label(request)} "
@@ -1322,11 +1392,20 @@ def main() -> int:
             print(f"NO LATINO PACK PASSED INSPECTION: season=S{season:02d}")
 
         missing = missing_episodes(episodes, seasons, queued, existing_tags, now)
+        upgrades = upgradeable_episodes(
+            episodes,
+            seasons,
+            files_by_id,
+            queued,
+            inflight_tags,
+            now,
+        )
         request_key = str(request["id"])
-        missing = rotate_after(missing, cursors.get(request_key))
-        floor = language_floor(request, policy, now)
+        work = rotate_after(missing + upgrades, cursors.get(request_key))
+        missing_ids = {int(item["id"]) for item in missing}
+        fallback_floor = language_floor(request, policy, now)
 
-        for episode in missing:
+        for episode in work:
             if searches >= max_searches:
                 if args.apply:
                     save_state(
@@ -1339,8 +1418,13 @@ def main() -> int:
                 return 0
             searches += 1
             label = f"S{int(episode['seasonNumber']):02d}E{int(episode['episodeNumber']):02d}"
+            is_upgrade = int(episode["id"]) not in missing_ids
+            floor = (
+                LanguageRank.CASTILIAN if is_upgrade else fallback_floor
+            )
             print(
-                f"SEARCH: {target_label(request)} series={series['title']} "
+                f"{'UPGRADE ' if is_upgrade else ''}SEARCH: "
+                f"{target_label(request)} series={series['title']} "
                 f"episode={label} language-floor={floor.name.lower()}"
             )
             try:
@@ -1366,14 +1450,24 @@ def main() -> int:
                 for item in missing
                 if int(item["seasonNumber"]) == int(episode["seasonNumber"])
             }
-            missing_numbers = set(same_season_missing)
-            candidates = eligible_candidates(
-                releases,
-                episode,
-                floor,
-                policy,
-                missing_numbers,
-            )
+            if is_upgrade:
+                installed_file = files_by_id[
+                    int(episode["episodeFileId"])
+                ]
+                candidates = language_upgrade_candidates(
+                    releases,
+                    episode,
+                    installed_file,
+                    policy,
+                )
+            else:
+                candidates = eligible_candidates(
+                    releases,
+                    episode,
+                    floor,
+                    policy,
+                    set(same_season_missing),
+                )
             cursors[request_key] = int(episode["id"])
             if not candidates:
                 print(f"NO SAFE CANDIDATE: episode={label}")
@@ -1385,11 +1479,15 @@ def main() -> int:
                 fingerprint = release_tag(selected)
                 source_tag = source.name if source.private else "public"
                 coverage = release_episode_numbers(selected, episode)
-                covered_episodes = [
-                    same_season_missing[number]
-                    for number in sorted(coverage)
-                    if number in same_season_missing
-                ]
+                covered_episodes = (
+                    [episode]
+                    if is_upgrade
+                    else [
+                        same_season_missing[number]
+                        for number in sorted(coverage)
+                        if number in same_season_missing
+                    ]
+                )
                 if set(coverage) != {
                     int(item["episodeNumber"]) for item in covered_episodes
                 }:
@@ -1404,6 +1502,8 @@ def main() -> int:
                         fingerprint,
                     )
                 )
+                if is_upgrade:
+                    tag_values.append("series-language-upgrade")
                 tag_values.extend(target_tags(request, series))
                 tag_values.extend(
                     f"sonarr-episode-{item['id']}" for item in covered_episodes
@@ -1425,8 +1525,17 @@ def main() -> int:
                     if len(covered_episodes) == 1
                     else f"S{int(episode['seasonNumber']):02d} pack ({len(covered_episodes)} episodes)"
                 )
+                action = (
+                    "UPGRADE"
+                    if args.apply and is_upgrade
+                    else "DISPATCH"
+                    if args.apply
+                    else "WOULD UPGRADE"
+                    if is_upgrade
+                    else "WOULD DISPATCH"
+                )
                 print(
-                    f"{'DISPATCH' if args.apply else 'WOULD DISPATCH'}: "
+                    f"{action}: "
                     f"series={series['title']} episode={dispatch_label} "
                     f"language={language.name.lower()} source={source_tag} "
                     f"title={selected['title']}"
