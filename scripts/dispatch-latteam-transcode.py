@@ -25,6 +25,7 @@ from common.latteam_transcode import (  # noqa: E402
 )
 from common.qbittorrent import (  # noqa: E402
     QBittorrentClient,
+    QBittorrentError,
     read_credentials,
 )
 
@@ -140,6 +141,17 @@ def write_status(stack: Path, payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def add_torrent_tags(
+    qbit: QBittorrentClient, torrent_hash: str, tag_values: str
+) -> None:
+    """Refresh the qBittorrent session before tagging after a long conversion."""
+    qbit.login()
+    qbit.post_form(
+        "/api/v2/torrents/addTags",
+        {"hashes": torrent_hash, "tags": tag_values},
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stack-dir", type=Path, default=STACK)
@@ -197,11 +209,6 @@ def main() -> int:
         import_tag, manager = request_import(torrent, staged, args.stack_dir)
     except (LatTeamTranscodeError, LatTeamWorkerError, OSError) as error:
         retryable = "temperature" in str(error).casefold()
-        if not retryable:
-            qbit.post_form(
-                "/api/v2/torrents/addTags",
-                {"hashes": torrent_hash, "tags": "latteam-transcode-review"},
-            )
         write_status(
             args.stack_dir,
             {
@@ -211,16 +218,16 @@ def main() -> int:
                 "torrent": torrent_hash[:12],
             },
         )
+        if not retryable:
+            try:
+                add_torrent_tags(
+                    qbit, torrent_hash, "latteam-transcode-review"
+                )
+            except QBittorrentError as tag_error:
+                print(f"LAT-TEAM TRANSCODE TAG REVIEW: {tag_error}")
         print(f"LAT-TEAM TRANSCODE {'PAUSED' if retryable else 'REVIEW'}: {error}")
         return 0 if retryable else 1
 
-    qbit.post_form(
-        "/api/v2/torrents/addTags",
-        {
-            "hashes": torrent_hash,
-            "tags": f"latteam-transcode-ready,{import_tag}",
-        },
-    )
     write_status(
         args.stack_dir,
         {
@@ -232,6 +239,27 @@ def main() -> int:
             "torrent": torrent_hash[:12],
         },
     )
+    try:
+        add_torrent_tags(
+            qbit,
+            torrent_hash,
+            f"latteam-transcode-ready,{import_tag}",
+        )
+    except QBittorrentError as error:
+        write_status(
+            args.stack_dir,
+            {
+                "checkedAt": datetime.now(UTC).isoformat(),
+                "convertedFiles": staged.converted_files,
+                "linkedFiles": staged.linked_files,
+                "manager": manager,
+                "message": f"Import requested; unable to apply qBittorrent tags: {error}",
+                "status": "review",
+                "torrent": torrent_hash[:12],
+            },
+        )
+        print(f"LAT-TEAM TRANSCODE TAG REVIEW: {error}")
+        return 1
     print(
         f"LAT-TEAM H.264 READY: manager={manager} "
         f"converted={staged.converted_files} linked={staged.linked_files}"
