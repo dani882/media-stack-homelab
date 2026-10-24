@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -18,6 +19,12 @@ TRANSCODE_ROOT = FAMILY_ROOT / "Downloads/.transcode/latteam"
 VIDEO_EXTENSIONS = {".avi", ".m4v", ".mkv", ".mp4", ".ts", ".webm"}
 SPANISH_AUDIO = {"es", "esl", "spa", "spanish", "lat", "latino"}
 MAX_HARDWARE_TEMPERATURE_C = 85.0
+MAX_IMPORT_WIDTH = 1920
+MAX_IMPORT_HEIGHT = 1080
+H264_VIDEO_FILTER = (
+    "scale=w=min(1920\\,iw):h=min(1080\\,ih):"
+    "force_original_aspect_ratio=decrease:force_divisible_by=2,format=nv12"
+)
 _RKMPP_AVAILABLE: bool | None = None
 
 
@@ -187,7 +194,7 @@ def conversion_command(source: Path, temporary: Path, hardware: bool) -> list[st
     video_arguments = (
         [
             "-vf",
-            "format=nv12",
+            H264_VIDEO_FILTER,
             "-c:v",
             "h264_rkmpp",
             "-rc_mode",
@@ -197,6 +204,8 @@ def conversion_command(source: Path, temporary: Path, hardware: bool) -> list[st
         ]
         if hardware
         else [
+            "-vf",
+            H264_VIDEO_FILTER,
             "-c:v",
             "libx264",
             "-preset",
@@ -240,14 +249,30 @@ def validate_conversion(
     validate_spanish_audio(converted_probe)
     source_video = streams(source_probe, "video")[0]
     converted_video = streams(converted_probe, "video")[0]
-    if (
-        int(source_video.get("width", 0) or 0),
-        int(source_video.get("height", 0) or 0),
-    ) != (
-        int(converted_video.get("width", 0) or 0),
-        int(converted_video.get("height", 0) or 0),
-    ):
-        raise LatTeamTranscodeError(f"Converted dimensions changed: {source_name}")
+    source_width = int(source_video.get("width", 0) or 0)
+    source_height = int(source_video.get("height", 0) or 0)
+    converted_width = int(converted_video.get("width", 0) or 0)
+    converted_height = int(converted_video.get("height", 0) or 0)
+    if min(source_width, source_height, converted_width, converted_height) <= 0:
+        raise LatTeamTranscodeError(f"Invalid video dimensions: {source_name}")
+    if source_width <= MAX_IMPORT_WIDTH and source_height <= MAX_IMPORT_HEIGHT:
+        if (source_width, source_height) != (converted_width, converted_height):
+            raise LatTeamTranscodeError(
+                f"Converted dimensions changed unexpectedly: {source_name}"
+            )
+    else:
+        source_aspect = source_width / source_height
+        converted_aspect = converted_width / converted_height
+        if (
+            converted_width > MAX_IMPORT_WIDTH
+            or converted_height > MAX_IMPORT_HEIGHT
+            or converted_width > source_width
+            or converted_height > source_height
+            or abs(source_aspect - converted_aspect) > 0.02
+        ):
+            raise LatTeamTranscodeError(
+                f"Converted dimensions are not an import-safe downscale: {source_name}"
+            )
     for stream_type in ("audio", "subtitle"):
         if len(streams(source_probe, stream_type)) != len(
             streams(converted_probe, stream_type)
@@ -350,6 +375,32 @@ def marked_name(path: Path, marker: str) -> str:
     return f"{path.stem} [{marker}]{path.suffix}"
 
 
+def converted_name(path: Path, marker: str, downscaled: bool) -> str:
+    stem = path.stem
+    if downscaled:
+        stem = re.sub(
+            r"(?<![A-Za-z0-9])(2160p|4k|uhd)(?![A-Za-z0-9])",
+            "1080p",
+            stem,
+            flags=re.IGNORECASE,
+        )
+        stem = re.sub(
+            r"1080p(?:[ ._-]+1080p)+",
+            "1080p",
+            stem,
+            flags=re.IGNORECASE,
+        )
+    stem = re.sub(
+        r"(?<![A-Za-z0-9])(h[ ._-]?265|x265|hevc|av1)(?![A-Za-z0-9])",
+        "H.264",
+        stem,
+        flags=re.IGNORECASE,
+    )
+    if f"[{marker}]" not in stem.upper():
+        stem = f"{stem} [{marker}]"
+    return f"{stem}{path.suffix}"
+
+
 def stage_completed_content(
     content_path: str,
     torrent_hash: str,
@@ -376,19 +427,51 @@ def stage_completed_content(
     destinations: list[Path] = []
     for source in video_files:
         relative_parent = Path() if source_root.is_file() else source.parent.relative_to(source_root)
-        destination = stage_root / relative_parent / marked_name(source, marker)
-        destinations.append(destination)
         source_probe = probe_media(source)
         validate_spanish_audio(source_probe)
         codec = video_codec(source_probe)
+        source_video = streams(source_probe, "video")[0]
+        downscaled = (
+            int(source_video.get("width", 0) or 0) > MAX_IMPORT_WIDTH
+            or int(source_video.get("height", 0) or 0) > MAX_IMPORT_HEIGHT
+        )
+        output_name = (
+            converted_name(source, marker, downscaled)
+            if codec in {"hevc", "h265", "av1"}
+            else marked_name(source, marker)
+        )
+        destination = stage_root / relative_parent / output_name
+        legacy_destination = (
+            stage_root / relative_parent / marked_name(source, marker)
+        )
+        if (
+            destination != legacy_destination
+            and not destination.exists()
+            and legacy_destination.exists()
+        ):
+            staged_probe = probe_media(legacy_destination)
+            validate_conversion(source_probe, staged_probe, source.name)
+            validate_tail(legacy_destination)
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            legacy_destination.replace(destination)
+        destinations.append(destination)
         if destination.exists():
             staged_probe = probe_media(destination)
             validate_spanish_audio(staged_probe)
             if video_codec(staged_probe) != "h264":
                 raise LatTeamTranscodeError(f"Existing staged file is not H.264: {destination.name}")
-            linked += int(codec == "h264")
-            converted += int(codec != "h264")
-            continue
+            staged_video = streams(staged_probe, "video")[0]
+            staged_width = int(staged_video.get("width", 0) or 0)
+            staged_height = int(staged_video.get("height", 0) or 0)
+            if staged_width <= MAX_IMPORT_WIDTH and staged_height <= MAX_IMPORT_HEIGHT:
+                linked += int(codec == "h264")
+                converted += int(codec != "h264")
+                continue
+            if codec not in {"hevc", "h265", "av1"}:
+                raise LatTeamTranscodeError(
+                    f"Existing staged file exceeds the managed profile: {destination.name}"
+                )
+            destination.unlink()
         destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if codec == "h264":
             os.link(source, destination)
