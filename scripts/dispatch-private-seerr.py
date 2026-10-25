@@ -624,7 +624,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stack-dir", type=Path, default=STACK)
     parser.add_argument("--request-id", type=int)
-    parser.add_argument("--apply", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true")
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicitly inspect candidates without changing qBittorrent or Arr.",
+    )
     args = parser.parse_args()
     stack = args.stack_dir
     policy = read_dispatch_policy(stack / "private-release-policy.json")

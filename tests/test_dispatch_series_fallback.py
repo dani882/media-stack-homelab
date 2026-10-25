@@ -24,6 +24,7 @@ class SeriesFallbackTests(unittest.TestCase):
             "public_minimum_seeders": 5,
             "public_seed_minutes": 30,
             "max_searches": 12,
+            "max_searches_per_series": 3,
             "max_active_downloads": 3,
             "minimum_free_space_gib": 50,
             "stalled_after_hours": 12,

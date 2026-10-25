@@ -11,8 +11,10 @@ private indexers with incomplete Torznab metadata.
 
 import argparse
 import json
+import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -22,6 +24,9 @@ from typing import Any, Callable
 
 DEFAULT_STACK_DIR = Path("/volume1/docker/media-stack")
 DEFAULT_PRIVATE_POLICY_FILE = DEFAULT_STACK_DIR / "private-release-policy.json"
+DEFAULT_PRIVATE_INDEXER_SECRETS = (
+    DEFAULT_STACK_DIR / "secrets/prowlarr-private-indexers.json"
+)
 DEPLOYED_SCRIPT_DIR = DEFAULT_STACK_DIR / "scripts"
 LOCAL_MEDIA_SCRIPT_DIR = Path(__file__).resolve().parent / "media"
 for script_dir in (LOCAL_MEDIA_SCRIPT_DIR, DEPLOYED_SCRIPT_DIR):
@@ -48,6 +53,22 @@ class TorrentFetchError(GrabError):
     """A transient tracker/Prowlarr delivery failure, not a release rejection."""
 
     pass
+
+
+class TrackerAccountGuardError(TorrentFetchError):
+    """A temporary private-tracker account condition blocks a new grab."""
+
+    pass
+
+
+LATTEAM_API_URL = "https://lat-team.com/api/torrents/filter"
+LATTEAM_USER_API_URL = "https://lat-team.com/api/user"
+LATTEAM_HOST = "lat-team.com"
+LATTEAM_MINIMUM_ACCOUNT_RATIO = 0.25
+TRACKER_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "Chrome/140 Safari/537.36"
+)
 
 
 LANGUAGE_FLOORS = {
@@ -255,6 +276,154 @@ def fetch_torrent_payload(download_url: str) -> bytes:
     return payload
 
 
+def is_latteam_release(release: dict[str, Any]) -> bool:
+    return "lat-team" in str(release.get("indexer") or "").casefold()
+
+
+def normalized_latteam_title(value: str) -> str:
+    return re.sub(r"(?i)\s+SPANiSH\s*$", "", value).strip()
+
+
+def read_latteam_api_key(secret_file: Path) -> str:
+    try:
+        payload = json.loads(secret_file.read_text(encoding="utf-8"))
+        api_key = str(payload["lat-team-api"]["apikey"]).strip()
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise TorrentFetchError(
+            "Lat-Team direct delivery is unavailable because its NAS-local "
+            "API configuration could not be read."
+        ) from error
+    if not api_key:
+        raise TorrentFetchError(
+            "Lat-Team direct delivery is unavailable because its NAS-local "
+            "API key is empty."
+        )
+    return api_key
+
+
+def latteam_api_json(url: str, api_key: str) -> Any:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "Authorization": "Bearer " + api_key,
+            "User-Agent": TRACKER_USER_AGENT,
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            return json.load(response)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise TorrentFetchError(
+            "Lat-Team could not be reached through its API."
+        ) from error
+
+
+def ensure_latteam_account_healthy(
+    secret_file: Path = DEFAULT_PRIVATE_INDEXER_SECRETS,
+) -> str:
+    api_key = read_latteam_api_key(secret_file)
+    payload = latteam_api_json(LATTEAM_USER_API_URL, api_key)
+    try:
+        ratio = float(str(payload["ratio"]).strip())
+    except (KeyError, TypeError, ValueError) as error:
+        raise TrackerAccountGuardError(
+            "Lat-Team did not provide a usable account ratio; new grabs are "
+            "paused safely."
+        ) from error
+    if ratio < LATTEAM_MINIMUM_ACCOUNT_RATIO:
+        raise TrackerAccountGuardError(
+            "Lat-Team account ratio is below 0.25; new grabs are paused while "
+            "existing torrents continue seeding."
+        )
+    return api_key
+
+
+def fetch_latteam_torrent_payload(
+    release: dict[str, Any],
+    secret_file: Path = DEFAULT_PRIVATE_INDEXER_SECRETS,
+) -> bytes:
+    """Resolve one exact Lat-Team result without exposing its signed URL."""
+    api_key = read_latteam_api_key(secret_file)
+    expected_title = normalized_latteam_title(str(release.get("title") or ""))
+    expected_size = int(release.get("size", 0) or 0)
+    if not expected_title or expected_size <= 0:
+        raise TorrentFetchError(
+            "Lat-Team direct delivery requires an exact title and size."
+        )
+
+    query = urllib.parse.urlencode({"name": expected_title, "perPage": 100})
+    payload = latteam_api_json(f"{LATTEAM_API_URL}?{query}", api_key)
+
+    rows = payload.get("data", []) if isinstance(payload, dict) else []
+    matches = []
+    for row in rows:
+        attributes = row.get("attributes", {}) if isinstance(row, dict) else {}
+        title = normalized_latteam_title(str(attributes.get("name") or ""))
+        size = int(attributes.get("size", 0) or 0)
+        if title.casefold() == expected_title.casefold() and size == expected_size:
+            matches.append(attributes)
+    if len(matches) != 1:
+        raise TorrentFetchError(
+            "Lat-Team direct delivery did not return one exact title-and-size match."
+        )
+
+    download_url = str(matches[0].get("download_link") or "")
+    parsed = urllib.parse.urlsplit(download_url)
+    if not (
+        parsed.scheme == "https"
+        and parsed.hostname == LATTEAM_HOST
+        and re.fullmatch(r"/torrent/download/\d+\.[A-Za-z0-9_-]+", parsed.path)
+        and not parsed.query
+        and not parsed.fragment
+    ):
+        raise TorrentFetchError(
+            "Lat-Team returned an unexpected download-link format."
+        )
+
+    torrent_headers = {
+        "Accept": "application/x-bittorrent, application/octet-stream;q=0.9, */*;q=0.8",
+        "Authorization": "Bearer " + api_key,
+        "Referer": "https://lat-team.com/",
+        "User-Agent": TRACKER_USER_AGENT,
+    }
+    torrent_request = urllib.request.Request(download_url, headers=torrent_headers)
+    try:
+        with urllib.request.urlopen(torrent_request, timeout=90) as response:
+            torrent_payload = response.read()
+            content_type = str(response.headers.get("Content-Type", "")).casefold()
+    except urllib.error.HTTPError as error:
+        raise TorrentFetchError(
+            f"Lat-Team rejected the selected torrent with HTTP {error.code}."
+        ) from error
+    except OSError as error:
+        raise TorrentFetchError(
+            "Lat-Team could not deliver the selected torrent."
+        ) from error
+    if not torrent_payload.startswith(b"d") or b"announce" not in torrent_payload[:4096]:
+        kind = (
+            "HTML"
+            if "html" in content_type or torrent_payload.lstrip().startswith(b"<")
+            else "non-torrent data"
+        )
+        raise TorrentFetchError(
+            f"Lat-Team returned {kind} instead of a torrent; nothing was sent "
+            "to qBittorrent."
+        )
+    return torrent_payload
+
+
+def fetch_torrent_payload_for_release(release: dict[str, Any]) -> bytes:
+    if is_latteam_release(release):
+        ensure_latteam_account_healthy()
+    try:
+        return fetch_torrent_payload(str(release["downloadUrl"]))
+    except TorrentFetchError:
+        if not is_latteam_release(release):
+            raise
+        return fetch_latteam_torrent_payload(release)
+
+
 def add_to_qbittorrent(
     client: QBittorrentClient,
     release: dict[str, Any],
@@ -324,7 +493,7 @@ def add_to_qbittorrent(
     if display_name:
         add_form["rename"] = display_name
 
-    torrent_payload = fetch_torrent_payload(str(release["downloadUrl"]))
+    torrent_payload = fetch_torrent_payload_for_release(release)
     client.post_multipart(
         "/api/v2/torrents/add",
         add_form,
