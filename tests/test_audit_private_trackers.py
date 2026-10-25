@@ -23,6 +23,98 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PrivateTrackerAuditTest(unittest.TestCase):
+    def test_pending_private_torrent_is_force_started_and_tagged(self) -> None:
+        class FakeClient:
+            def __init__(self):
+                self.posts = []
+
+            def get_json(self, path):
+                if path == "/api/v2/torrents/info":
+                    return [
+                        {
+                            "hash": "q" * 40,
+                            "private": True,
+                            "progress": 1,
+                            "state": "queuedUP",
+                            "force_start": False,
+                            "tags": "milnueve, private",
+                            "seeding_time_limit": 6360,
+                            "seeding_time": 60,
+                            "uploaded": 0,
+                            "downloaded": 1,
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/trackers?"):
+                    return [{"url": "https://tracker.milnueve.cc/example"}]
+                raise AssertionError(f"unexpected request: {path}")
+
+            def post_form(self, path, payload):
+                self.posts.append((path, payload))
+
+        client = FakeClient()
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                MODULE.run_audit(client, ensure_active_seeding=True),
+                0,
+            )
+
+        self.assertEqual(
+            [path for path, _payload in client.posts],
+            [
+                "/api/v2/torrents/start",
+                "/api/v2/torrents/setForceStart",
+                "/api/v2/torrents/reannounce",
+                "/api/v2/torrents/addTags",
+            ],
+        )
+        self.assertEqual(
+            client.posts[-1][1]["tags"],
+            MODULE.MANAGED_ACTIVE_TAG,
+        )
+
+    def test_satisfied_managed_torrent_releases_force_start(self) -> None:
+        class FakeClient:
+            def __init__(self):
+                self.posts = []
+
+            def get_json(self, path):
+                if path == "/api/v2/torrents/info":
+                    return [
+                        {
+                            "hash": "r" * 40,
+                            "private": True,
+                            "progress": 1,
+                            "state": "forcedUP",
+                            "force_start": True,
+                            "tags": MODULE.MANAGED_ACTIVE_TAG,
+                            "seeding_time_limit": 6360,
+                            "seeding_time": 6360 * 60,
+                            "uploaded": 0,
+                            "downloaded": 1,
+                        }
+                    ]
+                if path.startswith("/api/v2/torrents/trackers?"):
+                    return [{"url": "https://tracker.milnueve.cc/example"}]
+                raise AssertionError(f"unexpected request: {path}")
+
+            def post_form(self, path, payload):
+                self.posts.append((path, payload))
+
+        client = FakeClient()
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                MODULE.run_audit(client, ensure_active_seeding=True),
+                0,
+            )
+
+        self.assertEqual(
+            [path for path, _payload in client.posts],
+            [
+                "/api/v2/torrents/setForceStart",
+                "/api/v2/torrents/removeTags",
+            ],
+        )
+
     def test_enforcement_sends_qbittorrent_53_share_limit_mode(self) -> None:
         class FakeClient:
             def __init__(self):
