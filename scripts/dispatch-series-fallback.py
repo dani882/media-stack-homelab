@@ -257,6 +257,7 @@ def read_policy(path: Path) -> dict[str, Any]:
             "public_minimum_seeders": int(raw["publicMinimumSeeders"]),
             "public_seed_minutes": int(raw["publicSeedTimeMinutes"]),
             "max_searches": int(raw["maxEpisodeSearchesPerRun"]),
+            "max_searches_per_series": int(raw["maxSearchesPerSeriesPerRun"]),
             "max_active_downloads": int(raw["maxActiveDownloads"]),
             "minimum_free_space_gib": int(raw["minimumFreeSpaceGiB"]),
             "stalled_after_hours": int(raw["stalledAfterHours"]),
@@ -271,6 +272,7 @@ def read_policy(path: Path) -> dict[str, Any]:
         or policy["public_minimum_seeders"] < 1
         or policy["public_seed_minutes"] < 1
         or policy["max_searches"] < 1
+        or policy["max_searches_per_series"] < 1
         or policy["max_active_downloads"] < 1
         or policy["minimum_free_space_gib"] < 1
         or policy["stalled_after_hours"] < 1
@@ -1338,7 +1340,13 @@ def main() -> int:
     parser.add_argument("--request-id", type=int)
     parser.add_argument("--series")
     parser.add_argument("--max-searches", type=int)
-    parser.add_argument("--apply", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true")
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicitly inspect candidates without changing qBittorrent or Arr.",
+    )
     args = parser.parse_args()
 
     stack = args.stack_dir
@@ -1452,6 +1460,11 @@ def main() -> int:
     )
 
     for request in rotate_requests(requests, last_request_id):
+        request_search_start = searches
+        request_search_limit = min(
+            max_searches,
+            request_search_start + int(policy["max_searches_per_series"]),
+        )
         last_request_id = int(request.get("id", 0))
         tvdb_id = int(request["media"]["tvdbId"])
         series = series_by_tvdb.get(tvdb_id)
@@ -1487,10 +1500,7 @@ def main() -> int:
             inflight_tags,
             now,
         )
-        season_search_limit = min(
-            max_searches,
-            searches + max(1, (max_searches - searches) // 2),
-        )
+        season_search_limit = request_search_limit
         for season, covered_episodes in sorted(season_upgrades.items()):
             if searches >= season_search_limit:
                 break
@@ -1569,9 +1579,12 @@ def main() -> int:
                 print(f"NO SAFE LATINO PACK: season=S{season:02d}")
                 continue
 
+            latteam_unavailable = False
             for selected in candidates[:5]:
                 source = source_policy(selected, policy)
                 assert source is not None and source.private
+                if source.name == "lat-team" and latteam_unavailable:
+                    continue
                 fingerprint = release_tag(selected)
                 tag_values = [
                     "private",
@@ -1645,6 +1658,8 @@ def main() -> int:
                     )
                 except GRAB.GrabError as error:
                     transient = isinstance(error, GRAB.TorrentFetchError)
+                    if transient and source.name == "lat-team":
+                        latteam_unavailable = True
                     if not transient:
                         inspection_rejected.add(fingerprint)
                     save_state(
@@ -1698,6 +1713,13 @@ def main() -> int:
                     )
                 print(f"SERIES FALLBACK LIMIT: searched={searches} dispatched=0")
                 return 0
+            if searches >= request_search_limit:
+                print(
+                    "SERIES ROTATION: "
+                    f"series={series['title']} searched="
+                    f"{searches - request_search_start}"
+                )
+                break
             searches += 1
             label = f"S{int(episode['seasonNumber']):02d}E{int(episode['episodeNumber']):02d}"
             is_upgrade = int(episode["id"]) not in missing_ids
@@ -1780,9 +1802,12 @@ def main() -> int:
                 print(f"NO SAFE CANDIDATE: episode={label}")
                 continue
 
+            latteam_unavailable = False
             for selected in candidates[:5]:
                 source = source_policy(selected, policy)
                 assert source is not None
+                if source.name == "lat-team" and latteam_unavailable:
+                    continue
                 fingerprint = release_tag(selected)
                 source_tag = source.name if source.private else "public"
                 coverage = release_episode_numbers(selected, episode)
@@ -1908,6 +1933,8 @@ def main() -> int:
                     )
                 except GRAB.GrabError as error:
                     transient = isinstance(error, GRAB.TorrentFetchError)
+                    if transient and source.name == "lat-team":
+                        latteam_unavailable = True
                     if not transient:
                         inspection_rejected.add(fingerprint)
                     save_state(

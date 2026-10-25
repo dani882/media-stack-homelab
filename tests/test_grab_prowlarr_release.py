@@ -111,6 +111,84 @@ class SelectReleaseTests(unittest.TestCase):
                 MODULE.fetch_torrent_payload("http://prowlarr/download/opaque"),
                 payload,
             )
+
+    def test_latteam_release_falls_back_to_direct_api_delivery(self) -> None:
+        payload = b"d8:announce20:https://tracker.teste"
+        selected = release(
+            indexer="Lat-Team",
+            size=1234,
+        )
+        with (
+            mock.patch.object(MODULE, "ensure_latteam_account_healthy"),
+            mock.patch.object(
+                MODULE,
+                "fetch_torrent_payload",
+                side_effect=MODULE.TorrentFetchError("Prowlarr unavailable"),
+            ),
+            mock.patch.object(
+                MODULE,
+                "fetch_latteam_torrent_payload",
+                return_value=payload,
+            ) as direct,
+        ):
+            self.assertEqual(
+                MODULE.fetch_torrent_payload_for_release(selected),
+                payload,
+            )
+        direct.assert_called_once_with(selected)
+
+    def test_non_latteam_release_does_not_use_direct_api_delivery(self) -> None:
+        selected = release(indexer="Milnueve")
+        with (
+            mock.patch.object(
+                MODULE,
+                "fetch_torrent_payload",
+                side_effect=MODULE.TorrentFetchError("Prowlarr unavailable"),
+            ),
+            mock.patch.object(MODULE, "fetch_latteam_torrent_payload") as direct,
+        ):
+            with self.assertRaises(MODULE.TorrentFetchError):
+                MODULE.fetch_torrent_payload_for_release(selected)
+        direct.assert_not_called()
+
+    def test_latteam_account_guard_rejects_ratio_below_minimum(self) -> None:
+        with (
+            mock.patch.object(MODULE, "read_latteam_api_key", return_value="test"),
+            mock.patch.object(
+                MODULE,
+                "latteam_api_json",
+                return_value={"ratio": "0.22"},
+            ),
+        ):
+            with self.assertRaisesRegex(
+                MODULE.TrackerAccountGuardError,
+                "below 0.25",
+            ):
+                MODULE.ensure_latteam_account_healthy(Path("/secret"))
+
+    def test_latteam_account_guard_accepts_minimum_ratio(self) -> None:
+        with (
+            mock.patch.object(MODULE, "read_latteam_api_key", return_value="test"),
+            mock.patch.object(
+                MODULE,
+                "latteam_api_json",
+                return_value={"ratio": "0.25"},
+            ),
+        ):
+            self.assertEqual(
+                MODULE.ensure_latteam_account_healthy(Path("/secret")),
+                "test",
+            )
+
+    def test_latteam_title_normalization_only_removes_trailing_marker(self) -> None:
+        self.assertEqual(
+            MODULE.normalized_latteam_title("Example S01 SPANiSH"),
+            "Example S01",
+        )
+        self.assertEqual(
+            MODULE.normalized_latteam_title("SPANiSH Example S01"),
+            "SPANiSH Example S01",
+        )
     def test_selects_exact_movie_with_matching_tmdb_id(self) -> None:
         selected = MODULE.select_release(
             [

@@ -29,6 +29,7 @@ FILES=(
   "scripts/check-system-pressure.py"
   "scripts/check-media-live.py"
   "scripts/build-health-dashboard.py"
+  "scripts/audit-language-repairs.py"
   "scripts/cleanup-stalled-public.py"
   "scripts/dispatch-archive-spanish.py"
   "scripts/dispatch-btarg-series.py"
@@ -84,6 +85,9 @@ done
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/build-health-dashboard.py' \
     /volume1/docker/media-stack/build-health-dashboard.py
+  sudo -n install -m 0755 \
+    '${REMOTE_STAGING}/scripts/audit-language-repairs.py' \
+    /volume1/docker/media-stack/audit-language-repairs.py
   sudo -n install -m 0755 \
     '${REMOTE_STAGING}/scripts/cleanup-stalled-public.py' \
     /volume1/docker/media-stack/cleanup-stalled-public.py

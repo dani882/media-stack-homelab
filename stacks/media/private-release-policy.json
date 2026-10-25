@@ -13,6 +13,7 @@
     "publicMinimumSeeders": 5,
     "publicSeedTimeMinutes": 30,
     "maxEpisodeSearchesPerRun": 12,
+    "maxSearchesPerSeriesPerRun": 3,
     "maxActiveDownloads": 3,
     "minimumFreeSpaceGiB": 50,
     "stalledAfterHours": 12,

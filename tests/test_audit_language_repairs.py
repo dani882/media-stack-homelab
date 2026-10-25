@@ -22,6 +22,24 @@ class LanguageRepairAuditTest(unittest.TestCase):
         self.assertIn("Radarr report", report)
         for call in helper.call_args_list:
             self.assertIn("--dry-run", call.args[0])
+        sonarr_command = helper.call_args_list[0].args[0]
+        self.assertIn("dispatch-series-fallback.py", " ".join(sonarr_command))
+        self.assertIn("--max-searches", sonarr_command)
+        radarr_command = helper.call_args_list[1].args[0]
+        self.assertIn("dispatch-private-seerr.py", " ".join(radarr_command))
+
+    def test_language_counts_cover_all_rank_buckets(self) -> None:
+        self.assertEqual(
+            MODULE.language_counts(
+                [
+                    {"languages": [{"name": "Spanish (Latino)"}]},
+                    {"languages": [{"name": "Spanish"}]},
+                    {"languages": [{"name": "English"}]},
+                    {},
+                ]
+            ),
+            {"latino": 1, "castilian": 1, "english": 1, "unknown": 1},
+        )
 
 
 if __name__ == "__main__":
