@@ -98,7 +98,7 @@ class SourcePolicy:
 
 
 PRIVATE_SOURCES = (
-    SourcePolicy("lat-team", True, 1, 1, 4920),
+    SourcePolicy("lat-team", True, 1, 1, 7320),
     SourcePolicy("btarg", True, 2, 1, -2, 1.0),
     SourcePolicy("milnueve", True, 4, 1, 6360),
     SourcePolicy("retrotoon", True, 8, 1, 4920),

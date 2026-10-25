@@ -142,8 +142,8 @@ Managed Lat-Team policy includes:
 
 - Prowlarr priority `1`, used only after language and acceptable quality
 - minimum seeders `1`
-- 82-hour (`4920` minute) per-torrent seeding requirement: its documented
-  72-hour minimum plus a 10-hour safety margin
+- 122-hour (`7320` minute) per-torrent seeding requirement: its documented
+  72-hour minimum plus a 50-hour safety margin
 - rejection alerts for partial torrent selections
 - cleanup protection until the complete retention obligation is satisfied
 
@@ -462,9 +462,10 @@ report before using the existing explicit Sonarr/Radarr upgrade commands. Run
 Transient Sonarr/Radarr disconnects are retried once and then isolated to the
 affected episode or series so the rest of the daily report can finish.
 
-Time-based private-retention values include a 10-hour accounting margin above
-each tracker's stated rule, because qBittorrent's local timer can run ahead of
-the tracker's credited seeding time. The managed values are 82 hours for
+Time-based private-retention values include an accounting margin above each
+tracker's stated rule, because qBittorrent's local timer can run ahead of the
+tracker's credited seeding time. Lat-Team uses a 50-hour margin; the other
+time-based trackers use 10 hours. The managed values are 122 hours for
 Lat-Team, 106 hours for Milnueve, 82 hours for RetroToon and Torrent Haven,
 130 hours for DreadVault, and 58 hours for DocsPedia. BTArg instead uses a 1.0 ratio target. Run
 `make enforce-private-tracker-limits` after a policy change to update existing

@@ -113,9 +113,10 @@ Private Prowlarr credentials, when configured, are loaded from:
 
 This file currently supports Lat-Team, Milnueve, RetroToon World,
 TorrentHaven, DreadVault, BTArg, and DocsPedia credentials. Managed tracker
-limits use each published minimum plus ten hours: Lat-Team 82 hours, Milnueve
-106 hours, RetroToon 82 hours, TorrentHaven 82 hours, DreadVault 130 hours,
-and DocsPedia 58 hours. BTArg uses ratio 1.0 instead. Lat-Team also prohibits
+limits use each published minimum plus a safety margin: Lat-Team 122 hours
+(72 plus 50), Milnueve 106 hours, RetroToon 82 hours, TorrentHaven 82 hours,
+DreadVault 130 hours, and DocsPedia 58 hours. BTArg uses ratio 1.0 instead.
+Lat-Team also prohibits
 partial torrent selections. RetroToon uses Generic Torznab; credentials,
 cookies, and passkeys remain NAS-local.
 

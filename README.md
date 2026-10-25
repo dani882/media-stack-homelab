@@ -227,8 +227,8 @@ Private indexer templates currently exist for:
 - BTArg
 
 Private indexers are configured only when their credentials are present in
-the NAS-side secret file. Lat-Team uses priority `1`, an 82-hour retention
-limit (72 hours plus a 10-hour margin), and a complete-file-selection audit.
+the NAS-side secret file. Lat-Team uses priority `1`, a 122-hour retention
+limit (72 hours plus a 50-hour margin), and a complete-file-selection audit.
 
 Telegram completion-notification credentials are stored only on the NAS:
 

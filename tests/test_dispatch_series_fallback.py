@@ -106,7 +106,7 @@ class SeriesFallbackTests(unittest.TestCase):
         self.assertIsNotNone(source)
         self.assertEqual(source.name, "lat-team")
         self.assertEqual(source.priority, 1)
-        self.assertEqual(source.seed_minutes, 4920)
+        self.assertEqual(source.seed_minutes, 7320)
 
     def test_direct_latteam_season_pack_gets_missing_sonarr_scope(self) -> None:
         normalized = MODULE.normalize_direct_latteam_release(
