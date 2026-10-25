@@ -37,8 +37,8 @@ repository, terminal output, documentation, commits, or chat responses.
 
 ## Tracker priority and retention
 
-- Lat-Team is priority 1 and uses an 82-hour seed-time policy: its 72-hour
-  minimum plus a 10-hour accounting margin. Partial torrent downloads are
+- Lat-Team is priority 1 and uses a 122-hour seed-time policy: its 72-hour
+  minimum plus a 50-hour accounting margin. Partial torrent downloads are
   prohibited. Keep the account ratio at or above 0.25, do not leave completed
   torrents unseeded for more than five days, and log in to the site at least
   once every 90 days.
@@ -181,7 +181,7 @@ repository, terminal output, documentation, commits, or chat responses.
   Rockchip H.264 encoder and a `libx264` fallback, then checked for dimensions,
   duration, audio/subtitle streams, Spanish audio metadata, and end-of-file
   decodability before Arr import. Keep the original Lat-Team torrent for its
-  82-hour obligation after the library file is replaced.
+  122-hour obligation after the library file is replaced.
 - Avoid duplicate Lat-Team searches: Sonarr's normal Prowlarr response is used
   first, and a direct Lat-Team query is only a fallback when that response has
   no Lat-Team result. Movie automation is limited to two Lat-Team queries per

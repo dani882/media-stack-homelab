@@ -63,12 +63,12 @@ class PrivateTrackerAuditTest(unittest.TestCase):
         self.assertEqual(payload["shareLimitsMode"], "Default")
         self.assertEqual(payload["shareLimitAction"], "Default")
 
-    def test_lat_team_uses_72_hour_policy_plus_margin(self) -> None:
+    def test_lat_team_uses_72_hour_policy_plus_50_hour_margin(self) -> None:
         safe, message = MODULE.audit_torrent(
             {
                 "hash": "m" * 40,
                 "progress": 1,
-                "seeding_time_limit": 4920,
+                "seeding_time_limit": 7320,
                 "seeding_time": 60,
             },
             {"announce.lat-team.com"},
@@ -76,14 +76,14 @@ class PrivateTrackerAuditTest(unittest.TestCase):
 
         self.assertTrue(safe)
         self.assertIn("Lat-Team", message)
-        self.assertIn("remaining=4919m", message)
+        self.assertIn("remaining=7319m", message)
 
     def test_lat_team_partial_selection_is_at_risk(self) -> None:
         safe, message = MODULE.audit_torrent(
             {
                 "hash": "n" * 40,
                 "progress": 0.5,
-                "seeding_time_limit": 4920,
+                "seeding_time_limit": 7320,
                 "seeding_time": 0,
             },
             {"lat-team.com"},
@@ -102,7 +102,7 @@ class PrivateTrackerAuditTest(unittest.TestCase):
                             "hash": "o" * 40,
                             "private": True,
                             "progress": 0.5,
-                            "seeding_time_limit": 4920,
+                            "seeding_time_limit": 7320,
                             "seeding_time": 0,
                         }
                     ]

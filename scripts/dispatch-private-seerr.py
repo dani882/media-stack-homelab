@@ -49,7 +49,7 @@ PRIVATE_INDEXER_POLICIES: tuple[dict[str, Any], ...] = (
         "tracker": "lat-team",
         "priority": 1,
         "minimum_seeders": 1,
-        "seed_minutes": 4920,
+        "seed_minutes": 7320,
         "ratio_limit": None,
     },
     {

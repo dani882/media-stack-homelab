@@ -38,9 +38,9 @@ PRIVATE_INDEXERS = {
         "priority": 1,
         "minimum_seeders": 1,
         "fields": {
-            # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
-            "torrentBaseSettings.seedTime": 4920,
-            "torrentBaseSettings.packSeedTime": 4920,
+            # Rule: 72 h. Retention: rule + 50 h tracker-accounting margin.
+            "torrentBaseSettings.seedTime": 7320,
+            "torrentBaseSettings.packSeedTime": 7320,
             "freeleech": False,
         },
     },

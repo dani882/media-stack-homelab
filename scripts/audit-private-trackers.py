@@ -44,8 +44,8 @@ TRACKER_POLICIES = (
     TrackerPolicy(
         name="Lat-Team",
         host_suffixes=("lat-team.com",),
-        # Rule: 72 h. Retention: rule + 10 h tracker-accounting margin.
-        minimum_seed_minutes=4920,
+        # Rule: 72 h. Retention: rule + 50 h tracker-accounting margin.
+        minimum_seed_minutes=7320,
         # Lat-Team explicitly prohibits partial torrent downloads.
         require_all_files=True,
     ),
