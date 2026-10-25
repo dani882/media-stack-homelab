@@ -101,6 +101,10 @@ repository, terminal output, documentation, commits, or chat responses.
 - Keep all incomplete-obligation private torrents in qBittorrent and allow
   them to seed after their library hardlink is replaced.
 - `scripts/audit-private-trackers.py` enforces time- or ratio-based policies.
+- The scheduled private-tracker audit force-starts completed torrents while
+  their seed-time or ratio obligation remains pending, so qBittorrent's upload
+  queue cannot cause an HnR warning. It removes only its own managed force-start
+  tag after the obligation is satisfied.
 - `scripts/cleanup-public-imported.py` must refuse private cleanup until the
   configured seed time or finite ratio is satisfied.
 - Public partial downloads may be removed and blocklisted when the user asks

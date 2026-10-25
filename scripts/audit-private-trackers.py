@@ -93,6 +93,13 @@ TRACKER_POLICIES = (
     ),
 )
 
+MANAGED_ACTIVE_TAG = "private-seed-enforced"
+INACTIVE_SEED_STATES = {
+    "pausedUP",
+    "queuedUP",
+    "stoppedUP",
+}
+
 
 class PrivateTrackerAuditError(RuntimeError):
     pass
@@ -106,6 +113,65 @@ def audit_status(safe: bool, message: str) -> str:
     if message.startswith("DOWNLOADING"):
         return "downloading"
     return "pending"
+
+
+def torrent_tags(torrent: dict[str, Any]) -> set[str]:
+    return {
+        tag.strip()
+        for tag in str(torrent.get("tags", "")).split(",")
+        if tag.strip()
+    }
+
+
+def enforce_active_seeding(
+    client: QBittorrentClient,
+    torrent: dict[str, Any],
+    policy: TrackerPolicy,
+    message: str,
+) -> None:
+    """Keep incomplete private obligations out of qBittorrent's upload queue."""
+    torrent_hash = str(torrent.get("hash", ""))
+    prefix = torrent_hash[:12].upper()
+    tags = torrent_tags(torrent)
+    pending = message.startswith("PENDING")
+    satisfied = message.startswith("SATISFIED")
+
+    if pending:
+        needs_activation = (
+            str(torrent.get("state", "")) in INACTIVE_SEED_STATES
+            or torrent.get("force_start") is not True
+        )
+        if needs_activation:
+            client.post_form(
+                "/api/v2/torrents/start",
+                {"hashes": torrent_hash},
+            )
+            client.post_form(
+                "/api/v2/torrents/setForceStart",
+                {"hashes": torrent_hash, "value": "true"},
+            )
+            client.post_form(
+                "/api/v2/torrents/reannounce",
+                {"hashes": torrent_hash},
+            )
+            print(f"ACTIVATED {policy.name} hash={prefix}: obligation pending")
+        if MANAGED_ACTIVE_TAG not in tags:
+            client.post_form(
+                "/api/v2/torrents/addTags",
+                {"hashes": torrent_hash, "tags": MANAGED_ACTIVE_TAG},
+            )
+        return
+
+    if satisfied and MANAGED_ACTIVE_TAG in tags:
+        client.post_form(
+            "/api/v2/torrents/setForceStart",
+            {"hashes": torrent_hash, "value": "false"},
+        )
+        client.post_form(
+            "/api/v2/torrents/removeTags",
+            {"hashes": torrent_hash, "tags": MANAGED_ACTIVE_TAG},
+        )
+        print(f"RELEASED {policy.name} hash={prefix}: obligation satisfied")
 
 
 def write_dashboard(path: Path, statistics: dict[str, dict[str, int]]) -> None:
@@ -310,6 +376,7 @@ def run_audit(
     client: QBittorrentClient,
     *,
     enforce_limits: bool = False,
+    ensure_active_seeding: bool = False,
     dashboard_path: Path | None = None,
 ) -> int:
     torrents = client.get_json("/api/v2/torrents/info")
@@ -395,6 +462,8 @@ def run_audit(
             has_skipped_files=has_skipped_files,
         )
         print(message)
+        if ensure_active_seeding and safe and policy is not None:
+            enforce_active_seeding(client, torrent, policy, message)
         if not safe:
             failures += 1
         dashboard_name = policy.name if policy is not None else "Unrecognized"
@@ -462,6 +531,14 @@ def main() -> int:
         help="Raise managed private torrent limits to the retention policy.",
     )
     parser.add_argument(
+        "--ensure-active-seeding",
+        action="store_true",
+        help=(
+            "Force-start completed private torrents while their seed-time or "
+            "ratio obligation remains pending."
+        ),
+    )
+    parser.add_argument(
         "--qbittorrent-url",
         default="http://127.0.0.1:8888",
     )
@@ -480,6 +557,7 @@ def main() -> int:
     return run_audit(
         client,
         enforce_limits=args.enforce_limits,
+        ensure_active_seeding=args.ensure_active_seeding,
         dashboard_path=dashboard_path,
     )
 
